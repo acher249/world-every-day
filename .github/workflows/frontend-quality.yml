@@ -1,0 +1,54 @@
+name: Project quality
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/frontend-quality.yml"
+      - "frontend/**"
+      - "pipeline/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/frontend-quality.yml"
+      - "frontend/**"
+      - "pipeline/**"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run license:check
+      - run: npm run typecheck
+      - run: npm run build
+
+  pipeline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: pipeline/package-lock.json
+      - run: npm ci
+      - run: npm run license:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+

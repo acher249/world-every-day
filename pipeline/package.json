@@ -1,0 +1,26 @@
+{
+  "name": "world-every-day-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "license:check": "node scripts/check-licenses.mjs",
+    "panorama": "node --import tsx src/panorama/cli.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^2.3.0",
+    "dotenv": "^17.2.3",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.0"
+  }
+}

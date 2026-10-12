@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1",
+  "asset": "demo-world.png",
+  "assetType": "generated-image",
+  "sha256": "3982f09d8784ca4a2300c225426d395f00fa45c5bd4f9b1dcecc8b5c51749eee",
+  "dimensions": {
+    "width": 1672,
+    "height": 941
+  },
+  "createdAt": "2026-10-12",
+  "createdFor": "A World Every Day fictional frontend demonstration",
+  "creator": "A World Every Day contributors",
+  "generation": {
+    "provider": "OpenAI",
+    "tool": "Codex built-in image generation",
+    "model": "not exposed by the tool",
+    "prompt": "demo-world.prompt.md",
+    "sourceImages": []
+  },
+  "rights": {
+    "projectLicense": "MIT",
+    "redistribution": "Included by the directing contributor as a project fixture, subject to applicable OpenAI terms and law.",
+    "attribution": "No additional attribution is requested by the contributor.",
+    "thirdPartyMaterial": "No third-party source images, trademarks, or copyrighted characters were intentionally supplied."
+  },
+  "notes": "This is a fictional development fixture, not documentary or news imagery."
+}
