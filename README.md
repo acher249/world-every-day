@@ -7,8 +7,10 @@ communities around the world.
 **Status:** Early prototype. The repository currently includes a fictional,
 artifact-driven interactive frontend demonstration, a server-side panorama
 stage, a provider-neutral landmark-detection stage, and world-generation
-orchestration with mock and optional hosted-provider adapters. Live landmark
-detection and the automated daily pipeline are not yet implemented end to end.
+orchestration with mock and optional hosted-provider adapters. Fixture-tested,
+bounded story-discovery and editorial-selection foundations are also underway.
+Live landmark detection and the automated daily pipeline are not yet implemented
+end to end.
 
 ## Thesis
 
@@ -49,7 +51,7 @@ headlines, but as a collection of places.
 The reference implementation is a daily state-machine pipeline:
 
 ```text
-credible sources
+reviewed official RSS and Atom feeds
       ↓
 ten stories + summaries + links
       ↓
@@ -60,6 +62,16 @@ a world foundation model
 an interactive world + historical archive
 ```
 
+The reference implementation uses official RSS and Atom feeds for story
+discovery. It does not depend on social feeds or unbounded website collection.
+After shortlisting, it may read a linked source ephemerally only when that use
+has been reviewed and permitted.
+
+RSS is the starting point, not a limitation of the underlying pattern. Source
+adapters can be added for archives, datasets, APIs, private knowledge bases, or
+other kinds of information when the operator has permission to access and use
+them.
+
 A world foundation model is a generative model that creates a spatial,
 explorable environment from inputs such as images or text. In this project, an
 image becomes the starting point for a 3D world rather than the final artifact.
@@ -69,6 +81,14 @@ and its sources in structured data, generate a single image from the selected
 stories, and pass that image to World Labs Marble to create the spatial world.
 The finished assets and story data are then brought together in an interactive
 web experience rendered with Spark.js.
+
+Source articles are processed **ephemerally in memory** and then discarded.
+Their bodies and verbatim passages are never copied into project storage or
+republished. Persistent artifacts contain source links and provenance, content
+hashes, and original project-written summaries, claims, and visual details. An
+optional hosted analysis adapter transmits temporary article text to its
+provider, so it must remain disabled until that provider's data-use and
+retention terms have been reviewed for the deployment.
 
 ## Technical architecture
 
@@ -110,7 +130,7 @@ works without paid services.
 ## Building the project
 
 Development is organized around a manual end-to-end world first, followed by the
-editorial engine, source ingestion, public experience, and AWS automation. See the
+editorial engine, story discovery, public experience, and AWS automation. See the
 [phased build plan](docs/BUILD_PLAN.md) for milestones, acceptance criteria, and
 the path to an open-source release. The evolving visual system and generation
 constraints live in the separate [art-direction guide](docs/ART_DIRECTION.md).
@@ -187,3 +207,8 @@ services and are not covered by the repository's MIT license. Users enable those
 adapters with their own accounts, credentials, billing, and acceptance of the
 providers' current terms. The local fixture-driven frontend requires none of
 those credentials.
+
+Paid services are optional and all live calls require deliberate operator
+action. See [Costs and usage](docs/COSTS.md) for the expected requests per daily
+edition, where spend can occur, and the usage data the project intends to make
+visible.

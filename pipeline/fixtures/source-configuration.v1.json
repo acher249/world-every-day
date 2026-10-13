@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "source-configuration",
+  "sources": [
+    {
+      "id": "example-research",
+      "type": "rss",
+      "publisher": "Example Research News",
+      "feedUrl": "https://news.example.test/feed.xml",
+      "kind": "primary",
+      "allowedArticleHosts": ["news.example.test"]
+    }
+  ]
+}
+

@@ -20,9 +20,10 @@ Read these documents before making architectural or product changes:
    provider, source, or generated asset.
 
 The current implementation includes a fictional frontend demonstration,
-server-side panorama and landmark-detection stages, and provider-neutral world
-generation with an optional World Labs adapter. Landmark detection has not been
-run against a live provider, and the automated editorial, publication, and AWS
+server-side panorama and landmark-detection stages, bounded story-discovery and
+editorial-selection foundations, and provider-neutral world generation with an
+optional World Labs adapter. Landmark detection and hosted editorial analysis
+have not been run against live providers. The automated publication and AWS
 pipeline described in the build plan is not complete. Do not describe planned
 features as implemented.
 
@@ -52,7 +53,7 @@ features as implemented.
   approval.
 - Use mock providers and fictional fixtures by default.
 - Treat source material as licensed content. Store citations and original
-  summaries rather than republishing articles.
+  project-authored summaries rather than republishing articles.
 
 ## Open-source and asset policy
 

@@ -6,12 +6,16 @@ function sentenceList(items: string[]): string {
 
 export function buildScenePrompt(artDirection: ArtDirection): string {
   const subjects = artDirection.subjects
-    .map(
-      (item) =>
-        `- ${item.role.toUpperCase()} · ${item.subject}. Place it ${item.placement}. ` +
+    .map((item) => {
+      const grounding = item.grounding
+        ? `${item.grounding.sourceDetails.length > 0
+          ? ` Grounded details: ${sentenceList(item.grounding.sourceDetails)}.`
+          : " No source-grounded visual detail was available."} Artistic interpretation: ${item.grounding.artisticInterpretation}.`
+        : "";
+      return `- ${item.role.toUpperCase()} · ${item.subject}. Place it ${item.placement}. ` +
         `Scale: ${item.scale}. Materials: ${item.materials.join(", ")}. ` +
-        `Visual cues: ${sentenceList(item.visualCues)}.`,
-    )
+        `Visual cues: ${sentenceList(item.visualCues)}.${grounding}`;
+    })
     .join("\n");
 
   return `Create “${artDirection.world.title},” a playful, diagrammatic world that reads as one coherent physical place rather than a collage or infographic.

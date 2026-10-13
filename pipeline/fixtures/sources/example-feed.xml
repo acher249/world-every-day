@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example Research News</title>
+    <item>
+      <guid>research-2026-10-12</guid>
+      <title>Farm trial reduces water use</title>
+      <link>https://news.example.test/research/farm-trial?utm_source=feed&amp;view=full</link>
+      <pubDate>Mon, 12 Oct 2026 17:00:00 GMT</pubDate>
+      <description><![CDATA[A field trial tested a new irrigation system.]]></description>
+    </item>
+    <item>
+      <guid>outside-window</guid>
+      <title>An older research update</title>
+      <link>https://news.example.test/research/older</link>
+      <pubDate>Thu, 08 Oct 2026 17:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
+

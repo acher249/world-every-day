@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "candidate-evaluations",
+  "editionId": "demo-2026-10-13",
+  "createdAt": "2026-10-13T14:31:00.000Z",
+  "candidateSetSha256": "1cf594a91d50f73b8941bee823d6ca75077f55401bd61b8215d831cf69682ac4",
+  "producer": {
+    "type": "fixture",
+    "promptVersion": "editorial-evaluation-v1"
+  },
+  "evaluations": [
+    {
+      "storyId": "3922d7b694360ea96ee4be4ccd5ee962d7bbefe77db3e53297e3adc6e7e39fc5",
+      "eventKey": "farm-irrigation-trial",
+      "classification": {
+        "topic": "climate",
+        "geography": "north-america",
+        "organization": "Example Research News"
+      },
+      "eligibility": {
+        "eligible": true,
+        "reasons": []
+      },
+      "scores": {
+        "credibility": 0.9,
+        "constructiveSignificance": 0.85,
+        "publicRelevance": 0.75,
+        "novelty": 0.65,
+        "recency": 1,
+        "visualPotential": 0.8
+      },
+      "rationales": {
+        "credibility": "Synthetic primary-source fixture with clear attribution.",
+        "constructiveSignificance": "The fictional trial tests a practical response to water constraints.",
+        "publicRelevance": "Agricultural water efficiency can affect communities and food systems.",
+        "novelty": "The fictional result describes a new field-trial outcome.",
+        "visualPotential": "The farm, irrigation equipment, sensors, crops, and soil provide physical subjects."
+      }
+    }
+  ]
+}
+

@@ -8,17 +8,27 @@
   },
   "scripts": {
     "build": "tsc",
+    "articles:extract": "node --import tsx src/sources/article-cli.ts",
+    "art-direction:create": "node --import tsx src/art-direction/create-cli.ts",
+    "editorial:evaluate": "node --import tsx src/editorial/evaluate-cli.ts",
+    "editorial:finalize": "node --import tsx src/editorial/finalize-cli.ts",
+    "editorial:select": "node --import tsx src/editorial/select-cli.ts",
     "landmarks:detect": "node --import tsx src/landmarks/cli.ts",
     "license:check": "node scripts/check-licenses.mjs",
     "panorama": "node --import tsx src/panorama/cli.ts",
+    "sources:collect": "node --import tsx src/sources/collect-cli.ts",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
     "world:generate": "node --import tsx src/world/live-cli.ts",
-    "world:mock": "node --import tsx src/world/mock-cli.ts"
+    "world:mock": "node --import tsx src/world/mock-cli.ts",
+    "workflow:inspect": "node --import tsx src/workflow/inspect-cli.ts",
+    "workflow:mock": "node --import tsx src/workflow/mock-cli.ts"
   },
   "dependencies": {
     "@google/genai": "^2.3.0",
     "dotenv": "^17.2.3",
+    "fast-xml-parser": "^5.11.2",
+    "node-html-parser": "^7.1.0",
     "sharp": "^0.35.3",
     "zod": "^4.6.7"
   },

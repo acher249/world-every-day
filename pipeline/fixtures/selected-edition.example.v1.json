@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "selected-edition",
+  "editionId": "demo-2026-10-13",
+  "createdAt": "2026-10-13T14:36:00.000Z",
+  "inputs": {
+    "candidateSetSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluationSetSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "shortlistSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "targetStories": 1,
+  "stories": [
+    {
+      "storyId": "3922d7b694360ea96ee4be4ccd5ee962d7bbefe77db3e53297e3adc6e7e39fc5",
+      "rank": 1,
+      "topic": "climate",
+      "geography": "north-america",
+      "title": "Farm trial reduces irrigation water use",
+      "summary": "A fictional field trial tested a system intended to reduce agricultural water use.",
+      "editorialScore": 0.85,
+      "visualProminenceScore": 0.8,
+      "sources": [
+        {
+          "title": "Farm trial reduces water use",
+          "publisher": "Example Research News",
+          "url": "https://news.example.test/research/farm-trial?view=full",
+          "publishedAt": "2026-10-12T17:00:00.000Z",
+          "kind": "primary"
+        }
+      ],
+      "claims": [
+        {
+          "claim": "The fictional field trial used blue soil-moisture sensors."
+        }
+      ],
+      "visualDetails": [
+        {
+          "detail": "Blue soil-moisture sensors beneath young tomato plants",
+          "kind": "instrument",
+          "confidence": 0.96
+        },
+        {
+          "detail": "A weathered red barn at the north edge of the farm",
+          "kind": "setting",
+          "confidence": 0.98
+        }
+      ],
+      "articleEvidenceSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "excluded": []
+}

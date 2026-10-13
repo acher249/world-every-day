@@ -1,0 +1,15 @@
+{
+  "targetStories": 15,
+  "minimumCredibility": 0.7,
+  "maxPerTopic": 3,
+  "maxPerPublisher": 2,
+  "maxPerGeography": 4,
+  "weights": {
+    "credibility": 0.3,
+    "constructiveSignificance": 0.3,
+    "publicRelevance": 0.2,
+    "novelty": 0.1,
+    "recency": 0.1
+  }
+}
+

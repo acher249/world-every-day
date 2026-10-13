@@ -1,7 +1,7 @@
 # A World Every Day — Phased Build Plan
 
 Status: working plan  
-Last updated: 2026-10-12
+Last updated: 2026-10-13
 
 ## 1. Outcome
 
@@ -26,19 +26,20 @@ The system is successful when a maintainer can:
 
 ## 2. Current implementation status
 
-As of 2026-10-12, the repository has a working foundation and two partial ends
+As of 2026-10-13, the repository has a working foundation and two partial ends
 of the experience. It does not yet have a complete daily pipeline.
 
 | Area | Status | What exists | What remains |
 | --- | --- | --- | --- |
 | Open-source foundation | Substantially complete | MIT license, contribution and agent guides, dependency-license checks, CI, secret-safe environment examples | Linting, security policy, code of conduct, automated secret scanning |
 | Frontend | Working prototype | Full-viewport Next.js explorer, Motion HUD panels, Spark.js integration, validated publication artifact, responsive fictional ten-story experience, poster fallback, local generated-world loading, fly navigation, and baked 3D hotspots projected through the live camera | Navigation tuning, touch translation controls, automated browser coverage, archive routes |
-| Panorama generation | Live baseline | Structured art-direction artifact, deterministic prompt construction, Nano Banana adapter, one approved 4K generation, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifest, spherical viewport QA, tests, dry-run mode | Evaluate the observed nadir singularity in Marble; add pole repair only if downstream results justify it |
-| Edition and editorial data | Baseline started | Versioned publication schema, fictional ten-story fixture, source fields, product and art-direction documentation | Pipeline artifact schemas, factual sample edition, review model |
+| Panorama generation | Live baseline | Selected-edition-to-art-direction adapter, deterministic compositional roles and prompt construction, Nano Banana adapter, one approved 4K generation, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifest, spherical viewport QA, tests, dry-run mode | Live-validate automated art direction; evaluate the observed nadir singularity in Marble; add pole repair only if downstream results justify it |
+| Edition and editorial data | Foundation started | Versioned candidate-evaluation, preliminary-shortlist, article-evidence, selected-edition, and publication schemas; deterministic selection; optional model adapters; fictional fixtures | Live evaluation, factual sample edition, corroboration, review model |
+| Story discovery | Foundation started | Provider-neutral source contract, RSS/Atom discovery, allowlisted bounded retrieval, canonical URL deduplication, source-run provenance, shortlisted article reading, and grounded visual-detail artifacts | Source policy and allowlist, conditional caching, event clustering, live evaluation, and orchestration |
 | World generation | Live baseline | Provider-neutral interface, stable idempotency, persisted operation lifecycle, durable local artifact copy, failure/resume tests, mock CLI, optional Marble 1.1 adapter, and an approved Marble 1.1 SPZ generation | Sanitized real response fixture, S3 artifact store |
 | Interaction mapping | Prototype only | Provider-neutral landmark schema and detector, optional multimodal adapter, one manually baked image-target-to-SPZ mapping with source checksum, runtime projection of fixed world positions, poster fallbacks, keyboard-accessible story index, and slide-out detail panels | Run and review live landmark detection, automate the prepublication baking stage, assemble its artifact into the publication manifest, add occlusion and collision behavior |
 | AWS deployment | Not started | Target services and state model documented | CDK, S3, DynamoDB, Step Functions, CloudFront, alarms, approvals |
-| Daily automation | Not started | Proposed schedule and workflow | Ingestion, editorial engine, orchestration, review, atomic publication |
+| Daily automation | Foundation started | Proposed schedule, read-only artifact-chain inspection, and a resumable mock editorial-to-art-direction runner | Extend local orchestration through generated assets, Step Functions orchestration, review, atomic publication |
 
 The active phase is **Phase 2: one manual vertical slice**. Phase 0 remains
 partially open because the editorial and operating policies still need to be
@@ -129,6 +130,9 @@ immutable artifact from an earlier stage rather than relying on in-memory contex
 
 ```text
 candidate-set.json
+  → candidate-evaluations.json
+  → editorial-shortlist.json
+  → article-evidence/*.json
   → selected-edition.json
   → art-direction.json
   → source-image.json + source-image.png
@@ -185,7 +189,7 @@ Estimated effort: 2–3 focused days
   hours to accommodate publication times and time zones.
 - Define the correction, takedown, and source-link policy.
 - Establish the initial art direction and prohibited visual elements.
-- Create a cost ceiling for one edition and one month.
+- Document a target cost range for one edition and one month.
 - Record what requires human approval.
 
 ### Deliverables
@@ -353,7 +357,25 @@ constructive stories, and stories that appear positive but lack evidence.
 - A human can replace, remove, rescore, or edit any story before approval.
 - Prompt and policy changes can be compared against previous evaluation results.
 
-## Phase 4 — Add bounded source ingestion
+### Current status
+
+Started. Versioned evaluation and shortlist artifacts separate editorial
+importance from visual potential. Fixture-tested local selection applies a
+credibility floor, deterministic event deduplication, and topic, publisher, and
+geographic caps while preserving an exclusion reason for every rejected
+candidate. An optional bounded model adapter can evaluate discovery metadata;
+shortlisted-article analysis creates evidence-backed headlines, summaries,
+claims, and visual details; deterministic finalization produces up to ten cited
+stories. Live evaluation, corroboration, the larger evaluation set, human
+review, and override storage remain to be implemented.
+
+A read-only workflow inspector now derives progress from validated artifacts,
+detects stale checksum relationships, and identifies the next editorial or art
+direction stage without introducing a second mutable local state file. It is the
+initial state boundary for a resumable local runner and later Step Functions
+orchestration.
+
+## Phase 4 — Add bounded story discovery
 
 Estimated effort: 5–10 days
 
@@ -363,7 +385,7 @@ Estimated effort: 5–10 days
 - Start with an allowlist of RSS/Atom feeds and primary institutional sources.
 - Use feeds and indexes for discovery, then retrieve the permitted article text
   only for shortlisted stories that need evidence, summarization, and visual
-  detail extraction.
+  analysis.
 - Add fetch caching, conditional requests, backoff, and per-host concurrency.
 - Record fetch time, publication time, canonical URL, publisher, and raw-content
   checksum.
@@ -380,10 +402,20 @@ Estimated effort: 5–10 days
 
 ### Deferred
 
-- General-purpose web scraping
+- Unbounded retrieval from arbitrary websites
 - X ingestion and automatic posting
 - Community-submitted sources without moderation
 - Personalized source lists
+
+### Current status
+
+Started. The repository has a fixture-tested source contract, RSS and Atom
+discovery, allowlisted bounded HTTP fetching, canonical URL cleanup, exact-URL
+deduplication, per-feed success and failure records, and a shortlisted-article
+reader. Article text is processed in memory into compact, evidence-checked
+editorial analysis and is not stored as a republished article. Live source
+configuration, conditional caching, event clustering, policy review, and daily
+orchestration remain to be built.
 
 ## Phase 5 — Develop the image art-direction system
 
@@ -431,6 +463,16 @@ Score each candidate for:
 - The image remains compelling on its own without behaving like an infographic.
 - The final prompt is derived from structured art direction, not assembled from
   unreviewed article text.
+
+### Current status
+
+Started. A provider-neutral art-direction stage now assigns compositional roles
+from visual-prominence scores and converts a selected edition into the existing
+structured panorama input. It sends project-written summaries and compact
+visual details rather than source excerpts, validates complete story coverage,
+and records source-grounded details separately from artistic interpretation.
+The optional Google adapter and dry run are implemented but not live-validated.
+Multi-edition evaluation and image-quality iteration remain.
 
 ## Phase 6 — Harden world generation and interaction anchors
 
@@ -631,7 +673,7 @@ it changes the production pipeline.
 Live paid-provider tests should be opt-in and capped. They should not run on every
 pull request.
 
-## 9. Security and cost controls
+## 9. Security and cost visibility
 
 - Validate all environment variables at process startup.
 - Keep provider clients in server-only packages.
@@ -644,7 +686,7 @@ pull request.
 - Require explicit limits for candidates, model calls, image variants, retries,
   and world generations per edition.
 - Provide `dry-run`, mock-provider, and schedule-disabled defaults.
-- Alert at both per-edition and monthly cost thresholds.
+- Report per-edition usage and alert at monthly cost thresholds.
 
 ## 10. Recommended delivery sequence
 
@@ -655,7 +697,7 @@ The practical order is:
 3. Manual end-to-end world
 4. Image and world quality iteration
 5. Editorial engine
-6. Limited source ingestion
+6. Limited story discovery
 7. Public gallery polish
 8. AWS automation
 9. Operational hardening
@@ -716,12 +758,12 @@ Once the manual slice passes its artistic and technical decision gate:
 
 1. Finish the product, source, correction, and review policies from Phase 0.
 2. Build the editorial engine against an evaluation set.
-3. Add bounded, allowlisted source ingestion.
+3. Add bounded, allowlisted story discovery.
 4. Iterate on art direction and world fidelity with several test editions.
 5. Build the archive and public gallery routes.
 6. Implement the AWS artifact store and state repository.
 7. Move the proven local stages into the Step Functions workflow.
-8. Add editorial approvals, atomic publication, monitoring, and cost controls.
+8. Add editorial approvals, atomic publication, monitoring, and cost reporting.
 9. Run three staged editions and complete release, accessibility, security, and
    license reviews.
 

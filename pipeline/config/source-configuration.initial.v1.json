@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "source-configuration",
+  "sources": [
+    {
+      "id": "nasa-news",
+      "type": "rss",
+      "publisher": "NASA",
+      "feedUrl": "https://www.nasa.gov/news-release/feed/",
+      "kind": "primary",
+      "allowedArticleHosts": [
+        "www.nasa.gov",
+        "science.nasa.gov"
+      ]
+    },
+    {
+      "id": "mit-research-news",
+      "type": "rss",
+      "publisher": "MIT News",
+      "feedUrl": "https://news.mit.edu/rss/research",
+      "kind": "reporting",
+      "allowedArticleHosts": [
+        "news.mit.edu"
+      ]
+    },
+    {
+      "id": "nist-news",
+      "type": "rss",
+      "publisher": "National Institute of Standards and Technology",
+      "feedUrl": "https://www.nist.gov/news-events/news/rss.xml",
+      "kind": "primary",
+      "allowedArticleHosts": [
+        "www.nist.gov"
+      ]
+    }
+  ]
+}

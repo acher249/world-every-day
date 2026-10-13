@@ -111,9 +111,10 @@ redistribute an article.
 
 The reference implementation should prefer no-key RSS/Atom feeds and primary
 institutional sources. Optional commercial news or social APIs may require the
-user's own credentials and terms acceptance. The project stores citations,
-minimal evidence needed for verification, and original summaries; it does not
-relicense or republish source articles.
+user's own credentials and terms acceptance. Article text and verbatim evidence
+are processed ephemerally in memory and discarded. The project stores citations,
+content hashes, and original summaries; it does not relicense, retain, or
+republish source articles.
 
 ## Credentials required by the reference workflow
 

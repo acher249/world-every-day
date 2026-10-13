@@ -12,17 +12,22 @@ import { runPanorama } from "./run.js";
 
 type CliOptions = {
   artDirectionFile?: string;
+  confirmPaidGeneration: boolean;
   dryRun: boolean;
   scenePromptFile?: string;
   outputDirectory?: string;
 };
 
 function parseArguments(arguments_: string[]): CliOptions {
-  const options: CliOptions = { dryRun: false };
+  const options: CliOptions = { confirmPaidGeneration: false, dryRun: false };
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
     if (argument === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+    if (argument === "--confirm-paid-generation") {
+      options.confirmPaidGeneration = true;
       continue;
     }
     if (argument === "--art-direction-file") {
@@ -46,6 +51,9 @@ function parseArguments(arguments_: string[]): CliOptions {
     throw new Error(
       "Provide exactly one of --scene-prompt-file or --art-direction-file",
     );
+  }
+  if (!options.dryRun && !options.confirmPaidGeneration) {
+    throw new Error("Live panorama generation requires --confirm-paid-generation");
   }
   return options;
 }
