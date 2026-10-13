@@ -9,3 +9,4 @@ out/
 coverage/
 *.log
 *.tsbuildinfo
+frontend/public/generated/

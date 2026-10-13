@@ -19,10 +19,12 @@ Read these documents before making architectural or product changes:
    [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) before adding a dependency,
    provider, source, or generated asset.
 
-The current implementation includes a fictional frontend demonstration and a
-server-side panorama-generation utility. The automated editorial, publication,
-and AWS pipeline described in the build plan is not complete. Do not describe
-planned features as implemented.
+The current implementation includes a fictional frontend demonstration,
+server-side panorama and landmark-detection stages, and provider-neutral world
+generation with an optional World Labs adapter. Landmark detection has not been
+run against a live provider, and the automated editorial, publication, and AWS
+pipeline described in the build plan is not complete. Do not describe planned
+features as implemented.
 
 ## Repository conventions
 
@@ -78,6 +80,7 @@ Before handing off a frontend change, run:
 ```bash
 npm run license:check
 npm run typecheck
+npm test
 npm run build
 ```
 
@@ -96,9 +99,9 @@ npm test
 npm run build
 ```
 
-Use `npm run panorama -- --scene-prompt-file <path> --dry-run` to validate local
-configuration without making a paid request. Never run a paid generation during
-ordinary tests or without explicit human approval.
+Use `npm run panorama -- --art-direction-file <path> --dry-run` to validate a
+structured prompt and local configuration without making a paid request. Never
+run a paid generation during ordinary tests or without explicit human approval.
 
 ## Before finishing
 

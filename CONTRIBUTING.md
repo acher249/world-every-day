@@ -30,11 +30,12 @@ Before submitting a frontend change, run:
 ```bash
 npm run license:check
 npm run typecheck
+npm test
 npm run build
 ```
 
-Add tests appropriate to new behavior as the test suites are introduced. Pull
-requests should explain what changed, why it changed, and what was verified.
+Add tests appropriate to new behavior. Pull requests should explain what
+changed, why it changed, and what was verified.
 Include screenshots or recordings for visible interface changes.
 
 Server-side generation work lives in `pipeline/`:

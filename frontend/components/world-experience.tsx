@@ -1,11 +1,39 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { demoEdition, demoStories, type DemoStory } from "@/data/demo-edition";
-import { SparkWorld, type ViewerState } from "@/components/spark-world";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  SparkWorld,
+  type ViewerState,
+  type WorldAnchor,
+} from "@/components/spark-world";
+import { cycleId } from "@/lib/spatial-navigation";
+import type {
+  PublicationManifest,
+  PublicationStory,
+} from "@/lib/publication-schema";
 
 const ease = [0.22, 1, 0.36, 1] as const;
+const textReveal = {
+  hidden: { opacity: 0, y: 9 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease } },
+  exit: { opacity: 0, y: -5, transition: { duration: 0.16 } },
+};
+const staggeredText = {
+  hidden: {},
+  visible: { transition: { delayChildren: 0.025, staggerChildren: 0.035 } },
+  exit: { transition: { staggerChildren: 0.025, staggerDirection: -1 } },
+};
+
+const controls = [
+  { action: "Look around", keys: ["Mouse drag"] },
+  { action: "Move", keys: ["W", "A", "S", "D"] },
+  { action: "Move vertically", keys: ["Q", "E"] },
+  { action: "Move faster", keys: ["Shift"] },
+  { action: "Move forward or back", keys: ["Scroll"] },
+  { action: "Cycle stories", keys: ["←", "→"] },
+  { action: "Close a panel", keys: ["Esc"] },
+] as const;
 
 function ArrowUpRight() {
   return (
@@ -23,213 +51,427 @@ function CloseIcon() {
   );
 }
 
-function StoryPanel({ story, onClose }: { story: DemoStory; onClose: () => void }) {
+function MenuIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+      <path d="M3 6h14M3 10h14M3 14h14" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function ControlsIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+      <rect x="2.75" y="4.5" width="14.5" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M5.5 8h1.5M9.25 8h1.5M13 8h1.5M5.5 11h1.5M9.25 11h1.5M13 11h1.5M7.25 13.5h5.5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function StoryIndex({
+  stories,
+  activeId,
+  onClose,
+  onSelect,
+}: {
+  stories: PublicationStory[];
+  activeId: string | null;
+  onClose: () => void;
+  onSelect: (story: PublicationStory) => void;
+}) {
   return (
     <motion.aside
-      className="story-panel"
-      aria-label={`Story: ${story.title}`}
-      initial={{ opacity: 0, x: 32, y: 8 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
-      exit={{ opacity: 0, x: 24, y: 8 }}
-      transition={{ duration: 0.45, ease }}
+      id="story-index"
+      className="story-index"
+      aria-label="Stories in this world"
+      variants={{
+        hidden: { x: "-100%" },
+        visible: { x: 0, transition: { duration: 0.48, ease, delayChildren: 0.08, staggerChildren: 0.05 } },
+        exit: { x: "-100%", transition: { duration: 0.4, ease } },
+      }}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
     >
-      <div className="panel-topline">
-        <span>{story.category}</span>
-        <button className="icon-button" onClick={onClose} aria-label="Close story">
+      <motion.div className="panel-header" variants={textReveal}>
+        <div>
+          <span className="panel-kicker">Today&apos;s world</span>
+          <h2>Stories</h2>
+        </div>
+        <button className="icon-button" onClick={onClose} aria-label="Close story index">
           <CloseIcon />
         </button>
-      </div>
-      <p className="story-number">Story {story.number} / 10</p>
-      <h2>{story.title}</h2>
-      <p className="story-summary">{story.summary}</p>
-      <div className="representation">
-        <span>In this world</span>
-        <p>{story.representation}</p>
-      </div>
-      <div className="demo-source">
-        <span className="demo-source-dot" aria-hidden="true" />
-        Illustrative demo — no external source
-      </div>
+      </motion.div>
+      <motion.ol className="story-list" variants={staggeredText}>
+        {stories.map((story, index) => (
+          <motion.li key={story.id} variants={textReveal}>
+            <button
+              className={activeId === story.id ? "is-active" : ""}
+              onClick={() => onSelect(story)}
+            >
+              <span className="story-list-number">{String(index + 1).padStart(2, "0")}</span>
+              <span>
+                <small>{story.category}</small>
+                <strong>{story.title}</strong>
+              </span>
+            </button>
+          </motion.li>
+        ))}
+      </motion.ol>
     </motion.aside>
   );
 }
 
-export function WorldExperience() {
-  const splatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [showGuide, setShowGuide] = useState(true);
-  const [worldViewerState, setWorldViewerState] = useState<ViewerState>(
-    splatUrl ? "loading" : "poster",
-  );
-  const panRef = useRef<HTMLDivElement>(null);
-  const reduceMotion = useReducedMotion();
-  const activeStory = useMemo(
-    () => demoStories.find((story) => story.id === activeId) ?? null,
-    [activeId],
-  );
-
-  useEffect(() => {
-    const element = panRef.current;
-    if (!element || element.scrollWidth <= element.clientWidth) return;
-    element.scrollLeft = (element.scrollWidth - element.clientWidth) / 2;
-  }, []);
-
-  function selectStory(story: DemoStory) {
-    setActiveId(story.id);
-    setShowGuide(false);
-  }
-
+function StoryPanel({
+  story,
+  storyNumber,
+  storyCount,
+  onClose,
+}: {
+  story: PublicationStory;
+  storyNumber: string;
+  storyCount: number;
+  onClose: () => void;
+}) {
   return (
-    <>
-      <section className="world-stage" aria-labelledby="edition-title">
-        <nav className="site-nav" aria-label="Primary navigation">
-          <a className="brand" href="#top" aria-label="A World Every Day, home">
-            <span className="brand-orbit" aria-hidden="true"><i /></span>
-            <span>A World Every Day</span>
-          </a>
-          <div className="nav-links">
-            <a href="#thesis">Thesis</a>
-            <a href="#method">Method</a>
-            <a href="#archive">Archive</a>
-          </div>
-          <a className="nav-source" href="https://github.com/acher249/world-every-day" target="_blank" rel="noreferrer">
-            Open source <ArrowUpRight />
-          </a>
-        </nav>
-
-        <div className="world-scroll" ref={panRef}>
-          <motion.div
-            className={`world-canvas ${worldViewerState === "ready" ? "is-spatial" : ""}`}
-            initial={reduceMotion ? false : { scale: 1.04, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1.6, ease }}
-          >
-            <SparkWorld
-              posterSrc="/images/demo-world.png"
-              splatUrl={splatUrl}
-              onViewerStateChange={setWorldViewerState}
-              alt="A fictional coastal world containing coral gardens, a DNA monument, wind turbines, penguins, forests, waterworks, and an observatory"
-            />
-            <div className="world-wash" aria-hidden="true" />
-            {demoStories.map((story) => (
-              <button
-                key={story.id}
-                className={`hotspot hotspot-${story.tone} ${activeId === story.id ? "is-active" : ""}`}
-                style={{ left: `${story.x}%`, top: `${story.y}%` }}
-                onClick={() => selectStory(story)}
-                aria-label={`Explore story ${story.number}: ${story.title}`}
-                aria-pressed={activeId === story.id}
-              >
-                <span className="hotspot-pulse" aria-hidden="true" />
-                <span className="hotspot-core">{story.number}</span>
-                <span className="hotspot-label">{story.title}</span>
-              </button>
+    <motion.aside
+      className="story-panel"
+      aria-label={`Story: ${story.title}`}
+      variants={{
+        hidden: { x: "100%" },
+        visible: { x: 0, transition: { duration: 0.48, ease, delayChildren: 0.08, staggerChildren: 0.05 } },
+        exit: { x: "100%", transition: { duration: 0.4, ease } },
+      }}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      <motion.div className="panel-header" variants={textReveal}>
+        <div>
+          <span className="panel-kicker">{story.category}</span>
+          <p>{storyNumber} / {String(storyCount).padStart(2, "0")}</p>
+        </div>
+        <button className="icon-button" onClick={onClose} aria-label="Close story">
+          <CloseIcon />
+        </button>
+      </motion.div>
+      <motion.div className="story-panel-content" variants={staggeredText}>
+        <motion.h2 variants={textReveal}>{story.title}</motion.h2>
+        <motion.p className="story-summary" variants={textReveal}>{story.summary}</motion.p>
+        <motion.div className="representation" variants={textReveal}>
+          <span>Find it in the world</span>
+          <p>{story.representation}</p>
+        </motion.div>
+        {story.sources.length > 0 ? (
+          <motion.div className="story-sources" aria-label="Sources" variants={staggeredText}>
+            <span>Continue exploring</span>
+            {story.sources.map((source) => (
+              <motion.a variants={textReveal} key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">
+                <span>{source.publisher}<strong>{source.title}</strong></span>
+                <ArrowUpRight />
+              </motion.a>
             ))}
           </motion.div>
-        </div>
-
-        <div className="edition-copy" id="top">
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }} className="eyebrow">
-            {demoEdition.eyebrow}
-          </motion.p>
-          <motion.h1
-            id="edition-title"
-            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.8, ease }}
-          >
-            {demoEdition.title}
-          </motion.h1>
-          <motion.div
-            className="edition-meta"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.8 }}
-          >
-            <span>{demoEdition.date}</span>
-            <span className="meta-line" aria-hidden="true" />
-            <span>World 001</span>
+        ) : (
+          <motion.div className="demo-source" variants={textReveal}>
+            <span className="demo-source-dot" aria-hidden="true" />
+            Illustrative demo, no external source
           </motion.div>
-          <p className="edition-description">{demoEdition.description}</p>
-        </div>
-
-        <AnimatePresence>
-          {activeStory ? <StoryPanel key={activeStory.id} story={activeStory} onClose={() => setActiveId(null)} /> : null}
-        </AnimatePresence>
-
-        <div className="explore-guide" data-visible={showGuide && !activeStory}>
-          <span className="guide-cross" aria-hidden="true" />
-          <div><strong>Explore the signals</strong><span>Choose a numbered landmark</span></div>
-        </div>
-        <p className="mobile-pan-hint">Swipe the world · Tap a signal</p>
-
-        <div className="story-rail" aria-label="Stories in this world">
-          <div className="rail-track">
-            {demoStories.map((story) => (
-              <button
-                key={story.id}
-                className={activeId === story.id ? "is-active" : ""}
-                onClick={() => selectStory(story)}
-              >
-                <span>{story.number}</span>
-                {story.category}
-              </button>
-            ))}
-          </div>
-          <span className="rail-count">10 signals</span>
-        </div>
-      </section>
-
-      <main className="manifesto">
-        <section className="thesis-section" id="thesis">
-          <p className="section-index">01 / Thesis</p>
-          <div>
-            <p className="kicker">The news usually arrives as an endless feed.</p>
-            <h2>What if the day arrived as a place?</h2>
-            <p className="body-large">
-              Engagement-driven media rewards alarm, outrage, and the next click. A World Every Day is an artistic counterproposal: a slower, spatial way to encounter credible stories of discovery, repair, cooperation, and meaningful attempts to solve real problems.
-            </p>
-          </div>
-        </section>
-
-        <section className="principle-band">
-          <p>Our editorial principle</p>
-          <blockquote>
-            “Select credible developments that reveal <em>progress, possibility, discovery, repair, cooperation,</em> or meaningful attempts to address real problems.”
-          </blockquote>
-          <span>Constructive significance</span>
-        </section>
-
-        <section className="method-section" id="method">
-          <div className="method-heading">
-            <p className="section-index">02 / Method</p>
-            <h2>From the day<br />to a world.</h2>
-          </div>
-          <ol className="method-list">
-            <li><span>01</span><div><h3>Gather</h3><p>Find credible developments across science, health, climate, technology, culture, and communities.</p></div></li>
-            <li><span>02</span><div><h3>Interpret</h3><p>Select ten constructively significant stories and translate them into physical subjects within one coherent place.</p></div></li>
-            <li><span>03</span><div><h3>Generate</h3><p>Create a source image, then let a world model interpret it as a navigable spatial environment.</p></div></li>
-            <li><span>04</span><div><h3>Explore</h3><p>Connect each landmark back to an original summary and its sources, preserving curiosity and context.</p></div></li>
-          </ol>
-        </section>
-
-        <section className="archive-section" id="archive">
-          <p className="section-index">03 / Archive</p>
-          <div className="archive-message">
-            <span className="archive-orbit" aria-hidden="true"><i /></span>
-            <h2>One world is a moment.<br />An archive becomes a memory.</h2>
-            <p>The first real edition is still ahead. Each published world will remain here as a record of what people discovered, restored, imagined, and made better.</p>
-            <a href="https://github.com/acher249/world-every-day" target="_blank" rel="noreferrer">Follow the open-source build <ArrowUpRight /></a>
-          </div>
-        </section>
-      </main>
-
-      <footer>
-        <span>A World Every Day</span>
-        <span>An open-source living artwork</span>
-        <span>Built in public · 2026</span>
-      </footer>
-    </>
+        )}
+      </motion.div>
+    </motion.aside>
   );
 }
 
+function ControlsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      className="controls-layer"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22 }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <motion.section
+        id="controls-dialog"
+        className="controls-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="controls-title"
+        variants={{
+          hidden: { opacity: 0, y: 22, scale: 0.97 },
+          visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease, delayChildren: 0.08, staggerChildren: 0.05 } },
+          exit: { opacity: 0, y: 12, scale: 0.985, transition: { duration: 0.2 } },
+        }}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+      >
+        <motion.header className="controls-header" variants={textReveal}>
+          <div>
+            <span className="panel-kicker">Navigation</span>
+            <h2 id="controls-title">Explore the world</h2>
+          </div>
+          <button autoFocus className="icon-button" onClick={onClose} aria-label="Close controls">
+            <CloseIcon />
+          </button>
+        </motion.header>
+        <motion.div className="controls-list" variants={staggeredText}>
+          {controls.map((control) => (
+            <motion.div className="control-row" key={control.action} variants={textReveal}>
+              <span>{control.action}</span>
+              <span className="control-keys">
+                {control.keys.map((key) => (
+                  key === "Mouse drag" ? (
+                    <span className="responsive-control-key" key={key}>
+                      <kbd className="desktop-control-key">Mouse drag</kbd>
+                      <kbd className="mobile-control-key">Drag</kbd>
+                    </span>
+                  ) : <kbd key={key}>{key}</kbd>
+                ))}
+              </span>
+            </motion.div>
+          ))}
+        </motion.div>
+        <motion.p className="controls-note" variants={textReveal}>
+          Select any numbered landmark to open its story.
+        </motion.p>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+function viewerLabel(state: ViewerState) {
+  if (state === "loading") return "Loading world";
+  if (state === "ready") return "World ready";
+  if (state === "error") return "Poster fallback";
+  return "Preview world";
+}
+
+export function WorldExperience({ publication }: { publication: PublicationManifest }) {
+  const splatUrl = publication.world.splat?.url ?? process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
+  const { edition, stories } = publication;
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [indexOpen, setIndexOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const [viewerState, setViewerState] = useState<ViewerState>(splatUrl ? "loading" : "poster");
+  const activeStory = useMemo(
+    () => stories.find((story) => story.id === activeId) ?? null,
+    [activeId, stories],
+  );
+  const anchors = useMemo<WorldAnchor[]>(
+    () => stories.map((story, index) => ({
+      active: activeId === story.id,
+      fallbackScreenPosition: {
+        x: story.interaction.screenRegion.x,
+        y: story.interaction.screenRegion.y,
+      },
+      id: story.id,
+      label: story.title,
+      number: String(index + 1).padStart(2, "0"),
+      tone: story.interaction.screenRegion.tone,
+      worldPosition: story.interaction.worldPosition,
+    })),
+    [activeId, stories],
+  );
+  const activeStoryIndex = activeStory
+    ? stories.findIndex((story) => story.id === activeStory.id)
+    : -1;
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) return;
+      if (event.key === "Escape") {
+        setActiveId(null);
+        setIndexOpen(false);
+        setControlsOpen(false);
+        return;
+      }
+      if (controlsOpen) return;
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      setActiveId((currentId) => cycleId(stories.map(({ id }) => id), currentId, direction));
+      setIndexOpen(false);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [controlsOpen, stories]);
+
+  function selectStory(story: PublicationStory) {
+    setActiveId(story.id);
+    setIndexOpen(false);
+    setControlsOpen(false);
+  }
+
+  return (
+    <MotionConfig reducedMotion="user">
+    <main className="world-app" aria-labelledby="edition-title">
+      <div className="world-canvas">
+        <SparkWorld
+          focusedAnchorId={activeId}
+          posterSrc={publication.world.poster.src}
+          splatUrl={splatUrl}
+          anchors={anchors}
+          onAnchorSelect={(id) => {
+            const story = stories.find((candidate) => candidate.id === id);
+            if (story) selectStory(story);
+          }}
+          onViewerStateChange={setViewerState}
+          alt={publication.world.poster.alt}
+        />
+        <div className="world-wash" aria-hidden="true" />
+      </div>
+
+      <header className="viewer-header">
+        <motion.button
+          className="hud-button story-menu-button"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.45, delay: 0.12, ease }}
+          onClick={() => {
+            setActiveId(null);
+            setControlsOpen(false);
+            setIndexOpen((open) => !open);
+          }}
+          aria-expanded={indexOpen}
+          aria-controls="story-index"
+        >
+          <MenuIcon />
+          <span>Stories</span>
+        </motion.button>
+        <motion.div
+          className="viewer-title"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.08, ease }}
+        >
+          <span className="brand-orbit" aria-hidden="true"><i /></span>
+          <h1 id="edition-title">A World Every Day</h1>
+        </motion.div>
+        <motion.div
+          className="viewer-actions"
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.45, delay: 0.16, ease }}
+        >
+          <div className="viewer-status" data-state={viewerState}>
+            <span aria-hidden="true" />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                className="viewer-status-label"
+                key={viewerState}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+              >
+                {viewerLabel(viewerState)}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+          <button
+            className="hud-button controls-button"
+            onClick={() => {
+              setActiveId(null);
+              setIndexOpen(false);
+              setControlsOpen(true);
+            }}
+            aria-expanded={controlsOpen}
+            aria-controls="controls-dialog"
+          >
+            <ControlsIcon />
+            <span>Controls</span>
+          </button>
+        </motion.div>
+      </header>
+
+      <div className="viewer-footer">
+        <motion.div
+          className="edition-stamp"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.2, ease }}
+        >
+          <span>{edition.displayDate}</span>
+          <span>World {String(edition.sequence).padStart(3, "0")}</span>
+        </motion.div>
+        <motion.p
+          className="interaction-hint"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.26, ease }}
+        >
+          <span className="desktop-interaction-hint">Drag to look · WASD to fly · Shift to boost</span>
+          <span className="mobile-interaction-hint">Drag to look · Tap landmarks to explore</span>
+        </motion.p>
+      </div>
+
+      <motion.div
+        className="movement-keys"
+        aria-hidden="true"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.32, ease }}
+      >
+        <span />
+        <kbd>W</kbd>
+        <span />
+        <kbd>A</kbd>
+        <kbd>S</kbd>
+        <kbd>D</kbd>
+      </motion.div>
+
+      <motion.div
+        className="story-cycle-hint"
+        aria-label="Use the left and right arrow keys to navigate through stories"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.36, ease }}
+      >
+        <span>Navigate through stories</span>
+        <span className="story-cycle-keys" aria-hidden="true">
+          <kbd>←</kbd>
+          <kbd>→</kbd>
+        </span>
+      </motion.div>
+
+      <AnimatePresence>
+        {indexOpen ? (
+          <StoryIndex
+            stories={stories}
+            activeId={activeId}
+            onClose={() => setIndexOpen(false)}
+            onSelect={selectStory}
+          />
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activeStory ? (
+          <StoryPanel
+            key={activeStory.id}
+            story={activeStory}
+            storyNumber={String(activeStoryIndex + 1).padStart(2, "0")}
+            storyCount={stories.length}
+            onClose={() => setActiveId(null)}
+          />
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {controlsOpen ? <ControlsModal onClose={() => setControlsOpen(false)} /> : null}
+      </AnimatePresence>
+    </main>
+    </MotionConfig>
+  );
+}

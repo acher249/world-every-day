@@ -16,6 +16,7 @@ graphs are recorded in `frontend/package-lock.json` and
 | Motion | Interface animation | MIT | <https://github.com/motiondivision/motion> |
 | Three.js | 3D engine | MIT | <https://github.com/mrdoob/three.js> |
 | Spark.js | Gaussian-splat renderer | MIT | <https://github.com/sparkjsdev/spark> |
+| Zod | Publication artifact validation | MIT | <https://github.com/colinhacks/zod> |
 | Google Gen AI SDK | Nano Banana API client | Apache-2.0 | <https://github.com/googleapis/js-genai> |
 | Sharp | Deterministic image processing | Apache-2.0 | <https://github.com/lovell/sharp> |
 | dotenv | Local server-side environment loading | BSD-2-Clause | <https://github.com/motdotla/dotenv> |

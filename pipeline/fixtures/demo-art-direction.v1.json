@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "art-direction",
+  "editionId": "demo-2026-10-12",
+  "createdAt": "2026-10-12T15:00:00.000Z",
+  "promptVersion": "panorama-scene-v1",
+  "world": {
+    "title": "Signals of Renewal",
+    "concept": "A coastal research garden where ten imagined developments appear as distinct landmarks connected by water, paths, terraces, and restored habitats.",
+    "setting": "A continuous alpine-to-ocean landscape with a sheltered lagoon, rocky terraces, glass gardens, wetlands, forested slopes, and a distant observatory.",
+    "timeOfDay": "Clear early morning with a low warm sun, long soft shadows, and cool open sky.",
+    "atmosphere": "Curious, constructive, calm, and quietly cinematic, with enough realism to make every object spatially legible.",
+    "palette": ["glacial cyan", "deep evergreen", "warm amber", "weathered stone", "brushed silver"],
+    "navigation": "Use a looping path and waterways to connect foreground, middle ground, and distant landmarks with open sightlines and unmistakable silhouettes."
+  },
+  "subjects": [
+    {
+      "storyId": "genetics",
+      "role": "anchor",
+      "subject": "A monumental luminous DNA helix rising through a circular glass botanical pavilion",
+      "placement": "at the center of the middle ground",
+      "scale": "the tallest nearby landmark without blocking the horizon",
+      "materials": ["brushed silver", "cyan glass", "pale stone"],
+      "visualCues": ["clean double-helix silhouette", "transparent pavilion", "radial garden paths"]
+    },
+    {
+      "storyId": "coral-restoration",
+      "role": "anchor",
+      "subject": "A crystalline coastal lagoon with visible coral nurseries and submerged geodesic growing domes",
+      "placement": "across the lower-left foreground",
+      "scale": "a broad navigable habitat occupying much of the foreground",
+      "materials": ["clear seawater", "living coral", "glass lattice", "dark coastal rock"],
+      "visualCues": ["visible underwater depth", "distinct nursery domes", "restored reef shelves"]
+    },
+    {
+      "storyId": "energy-storage",
+      "role": "supporting",
+      "subject": "Three cylindrical energy vessels beside a small group of wind turbines",
+      "placement": "on the western middle-ground headland",
+      "scale": "large enough to read clearly but secondary to the central helix",
+      "materials": ["brushed metal", "white composite", "weathered concrete"],
+      "visualCues": ["three distinct vessels", "simple turbine silhouettes", "service path"]
+    },
+    {
+      "storyId": "clean-water",
+      "role": "supporting",
+      "subject": "A sequence of circular filtration pools flowing into constructed wetlands",
+      "placement": "through the center-right valley",
+      "scale": "a connected system visible as a descending chain",
+      "materials": ["pale concrete", "clear water", "reeds", "dark stone"],
+      "visualCues": ["cascading pools", "visible channels", "wetland transition"]
+    },
+    {
+      "storyId": "reforestation",
+      "role": "supporting",
+      "subject": "A regenerating native forest marked by young trees and translucent protective forms",
+      "placement": "across the eastern hillside",
+      "scale": "a wide gradient from seedlings to mature trees",
+      "materials": ["native timber", "living foliage", "translucent biopolymer"],
+      "visualCues": ["clear stages of regrowth", "winding footpath", "dense mature forest above"]
+    },
+    {
+      "storyId": "penguin-conservation",
+      "role": "detail",
+      "subject": "A small penguin colony on a protected ice shelf",
+      "placement": "at the far-left boundary between ocean and rock",
+      "scale": "small but readable as a grouped silhouette",
+      "materials": ["snow", "blue ice", "black coastal rock"],
+      "visualCues": ["several penguins", "safe open passage", "no human structures"]
+    },
+    {
+      "storyId": "climate-satellite",
+      "role": "detail",
+      "subject": "A compact Earth-observation satellite tracing a fine orbital arc",
+      "placement": "high in the open sky away from the panorama seam",
+      "scale": "small but distinct against clean sky",
+      "materials": ["silver foil", "dark solar panels"],
+      "visualCues": ["two-panel silhouette", "single subtle orbital line"]
+    },
+    {
+      "storyId": "field-robot",
+      "role": "detail",
+      "subject": "A compact non-humanoid field rover tending a flowering garden",
+      "placement": "beside the lower-right foreground path",
+      "scale": "close enough to show its tool-like form",
+      "materials": ["matte ceramic", "rubber wheels", "brushed aluminum"],
+      "visualCues": ["four wheels", "small sensor mast", "gentle gardening tool"]
+    },
+    {
+      "storyId": "pollinator-gardens",
+      "role": "detail",
+      "subject": "Warm glass pollinator pavilions embedded in linked flowering terraces",
+      "placement": "along the eastern foreground and middle-ground paths",
+      "scale": "several small repeated landmarks",
+      "materials": ["amber glass", "light timber", "dense flowers"],
+      "visualCues": ["connected garden corridor", "glowing pavilion roofs", "abundant flowering plants"]
+    },
+    {
+      "storyId": "deep-space",
+      "role": "detail",
+      "subject": "A white astronomical observatory with one open dome",
+      "placement": "on the highest distant mountain at the right",
+      "scale": "a crisp horizon landmark",
+      "materials": ["white metal", "dark optical opening", "granite"],
+      "visualCues": ["single dome", "winding access road", "clear mountain silhouette"]
+    }
+  ],
+  "constraints": {
+    "required": [
+      "one continuous environment with coherent terrain and lighting",
+      "all ten subjects visually distinct and separated",
+      "strong silhouettes and readable physical materials",
+      "open navigable paths and layered spatial depth"
+    ],
+    "prohibited": [
+      "people, faces, portraits, crowds, or humanoid robots",
+      "written text, labels, logos, flags, UI, borders, or watermarks",
+      "split panels, floating collage fragments, or duplicated landmarks",
+      "graphic violence, catastrophe spectacle, advertising, or clickbait imagery"
+    ]
+  }
+}

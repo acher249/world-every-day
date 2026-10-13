@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "publication-manifest",
+  "createdAt": "2026-10-12T15:00:00.000Z",
+  "edition": {
+    "id": "demo-2026-10-12",
+    "slug": "signals-of-renewal",
+    "sequence": 1,
+    "status": "demonstration",
+    "fictional": true,
+    "displayDate": "October 12, 2026",
+    "eyebrow": "Demonstration edition · Fictional stories",
+    "title": "Signals of renewal",
+    "description": "Ten imagined signals of discovery, restoration, and care—gathered into one explorable place."
+  },
+  "world": {
+    "interactionMapping": {
+      "bakedAt": "2026-10-13T04:20:56.000Z",
+      "coordinateSystem": "world-space",
+      "method": "spherical-raycast",
+      "sourceSplatSha256": "8c2cf37aa78dd41e4df75e84ce8e6f8a37acdbf220a93b776824b4c5875e6d09"
+    },
+    "poster": {
+      "src": "/images/demo-world.png",
+      "alt": "A fictional coastal world containing coral gardens, a DNA monument, wind turbines, penguins, forests, waterworks, and an observatory",
+      "width": 1672,
+      "height": 941,
+      "sha256": "3982f09d8784ca4a2300c225426d395f00fa45c5bd4f9b1dcecc8b5c51749eee"
+    },
+    "splat": null
+  },
+  "stories": [
+    {
+      "id": "energy-storage",
+      "category": "Clean energy",
+      "title": "A grid storage design extends battery life",
+      "summary": "A fictional demonstration of how a breakthrough in grid storage might become a durable landmark in the daily world.",
+      "representation": "Wind turbines and three brushed-metal energy vessels",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.247, "y": 0.51 }, "worldPosition": { "x": -2.826051, "y": -0.088828, "z": 0.053276 }, "screenRegion": { "x": 0.31, "y": 0.23, "tone": "amber" } }
+    },
+    {
+      "id": "penguin-conservation",
+      "category": "Conservation",
+      "title": "New protections create safer routes for penguins",
+      "summary": "A sample conservation story represented by a protected shelf where ice, ocean, and habitat meet.",
+      "representation": "A small penguin colony on the western ice shelf",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.142, "y": 0.635 }, "worldPosition": { "x": -0.913876, "y": -0.530059, "z": 0.736879 }, "screenRegion": { "x": 0.11, "y": 0.38, "tone": "cyan" } }
+    },
+    {
+      "id": "coral-restoration",
+      "category": "Ocean",
+      "title": "A coral nursery program expands reef restoration",
+      "summary": "An illustrative restoration effort imagined as a clear lagoon filled with growing coral structures.",
+      "representation": "A restored coral lagoon and submerged nursery domes",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.18, "y": 0.855 }, "worldPosition": { "x": -0.282897, "y": -0.638206, "z": 0.133121 }, "screenRegion": { "x": 0.2, "y": 0.7, "tone": "cyan" } }
+    },
+    {
+      "id": "genetics",
+      "category": "Health science",
+      "title": "A genetic study identifies a promising health marker",
+      "summary": "A fictional research milestone made spatial through a monumental helix at the center of a public garden.",
+      "representation": "The luminous DNA structure in the central glasshouse",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.405, "y": 0.39 }, "worldPosition": { "x": -1.223376, "y": 0.783589, "z": -1.800144 }, "screenRegion": { "x": 0.48, "y": 0.22, "tone": "cyan" } }
+    },
+    {
+      "id": "climate-satellite",
+      "category": "Earth science",
+      "title": "A new satellite improves global climate monitoring",
+      "summary": "A sample Earth-observation mission shown tracing a quiet arc above the landscape it helps us understand.",
+      "representation": "The small climate satellite crossing the morning sky",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.523, "y": 0.21 }, "worldPosition": { "x": 3.719017, "y": 33.292843, "z": -25.555383 }, "screenRegion": { "x": 0.62, "y": 0.08, "tone": "amber" } }
+    },
+    {
+      "id": "clean-water",
+      "category": "Infrastructure",
+      "title": "A filtration advance expands access to clean water",
+      "summary": "An imagined filtration advance represented by a visible sequence of channels, pools, and wetlands.",
+      "representation": "Circular waterworks cascading into the valley",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.568, "y": 0.585 }, "worldPosition": { "x": 1.020867, "y": -0.673972, "z": -2.242163 }, "screenRegion": { "x": 0.61, "y": 0.51, "tone": "cyan" } }
+    },
+    {
+      "id": "reforestation",
+      "category": "Restoration",
+      "title": "A community project restores native forest",
+      "summary": "A fictional community restoration project expressed through new growth spreading across a once-bare slope.",
+      "representation": "Young trees and protective forms on the eastern hillside",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.715, "y": 0.56 }, "worldPosition": { "x": 1.752289, "y": -0.342516, "z": -0.391683 }, "screenRegion": { "x": 0.78, "y": 0.34, "tone": "green" } }
+    },
+    {
+      "id": "field-robot",
+      "category": "Responsible technology",
+      "title": "A precision field robot reduces crop and soil damage",
+      "summary": "A sample robotics development imagined as a compact tool tending the garden rather than replacing its ecosystem.",
+      "representation": "The small non-humanoid rover beside the garden path",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.858, "y": 0.79 }, "worldPosition": { "x": 0.272693, "y": -0.4516, "z": 0.219879 }, "screenRegion": { "x": 0.84, "y": 0.72, "tone": "amber" } }
+    },
+    {
+      "id": "pollinator-gardens",
+      "category": "Cities & nature",
+      "title": "An urban pollinator network connects fragmented habitats",
+      "summary": "An illustrative urban habitat network represented as warm glass pavilions woven into a flowering landscape.",
+      "representation": "The glowing pollinator gardens on the eastern terrace",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.7, "y": 0.72 }, "worldPosition": { "x": 0.545507, "y": -0.474507, "z": -0.177246 }, "screenRegion": { "x": 0.91, "y": 0.54, "tone": "green" } }
+    },
+    {
+      "id": "deep-space",
+      "category": "Space",
+      "title": "A new telescope reveals more of the early universe",
+      "summary": "A fictional astronomical milestone placed at the world’s highest point, looking beyond the edge of the day.",
+      "representation": "The white observatory on the distant mountain",
+      "sources": [],
+      "interaction": { "imageTarget": { "x": 0.792, "y": 0.375 }, "worldPosition": { "x": 5.712091, "y": 2.450871, "z": 1.54338 }, "screenRegion": { "x": 0.93, "y": 0.1, "tone": "cyan" } }
+    }
+  ]
+}

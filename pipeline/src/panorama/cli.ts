@@ -3,12 +3,15 @@
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { buildScenePrompt } from "../art-direction/prompt.js";
+import { parseArtDirection } from "../art-direction/schema.js";
 import { buildPanoramaPrompt } from "./prompt.js";
 import { sha256 } from "./hash.js";
 import { NanoBananaGenerator } from "./generator.js";
 import { runPanorama } from "./run.js";
 
 type CliOptions = {
+  artDirectionFile?: string;
   dryRun: boolean;
   scenePromptFile?: string;
   outputDirectory?: string;
@@ -20,6 +23,11 @@ function parseArguments(arguments_: string[]): CliOptions {
     const argument = arguments_[index];
     if (argument === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+    if (argument === "--art-direction-file") {
+      options.artDirectionFile = arguments_[index + 1];
+      index += 1;
       continue;
     }
     if (argument === "--scene-prompt-file") {
@@ -34,10 +42,37 @@ function parseArguments(arguments_: string[]): CliOptions {
     }
     throw new Error(`Unknown argument: ${argument}`);
   }
-  if (!options.scenePromptFile) {
-    throw new Error("--scene-prompt-file is required");
+  if (Boolean(options.scenePromptFile) === Boolean(options.artDirectionFile)) {
+    throw new Error(
+      "Provide exactly one of --scene-prompt-file or --art-direction-file",
+    );
   }
   return options;
+}
+
+async function readScenePrompt(options: CliOptions): Promise<{
+  editionId?: string;
+  inputType: "art-direction" | "scene-prompt";
+  promptVersion?: string;
+  scenePrompt: string;
+}> {
+  if (options.artDirectionFile) {
+    const input = JSON.parse(
+      await readFile(resolve(options.artDirectionFile), "utf8"),
+    ) as unknown;
+    const artDirection = parseArtDirection(input);
+    return {
+      editionId: artDirection.editionId,
+      inputType: "art-direction",
+      promptVersion: artDirection.promptVersion,
+      scenePrompt: buildScenePrompt(artDirection),
+    };
+  }
+
+  return {
+    inputType: "scene-prompt",
+    scenePrompt: await readFile(resolve(options.scenePromptFile!), "utf8"),
+  };
 }
 
 function defaultOutputDirectory(): string {
@@ -47,9 +82,9 @@ function defaultOutputDirectory(): string {
 
 async function main(): Promise<void> {
   const options = parseArguments(process.argv.slice(2));
-  const scenePrompt = await readFile(resolve(options.scenePromptFile!), "utf8");
+  const promptInput = await readScenePrompt(options);
   const model = process.env.NANO_BANANA_MODEL?.trim() || "gemini-nano-banana-2.1";
-  const prompt = buildPanoramaPrompt(scenePrompt);
+  const prompt = buildPanoramaPrompt(promptInput.scenePrompt);
 
   if (options.dryRun) {
     console.log(
@@ -57,7 +92,10 @@ async function main(): Promise<void> {
         {
           ok: true,
           paidRequestStarted: false,
+          editionId: promptInput.editionId,
+          inputType: promptInput.inputType,
           model,
+          promptVersion: promptInput.promptVersion,
           promptSha256: sha256(prompt),
         },
         null,
@@ -74,7 +112,7 @@ async function main(): Promise<void> {
   const outputDirectory = resolve(options.outputDirectory ?? defaultOutputDirectory());
   const generator = new NanoBananaGenerator({ apiKey, model });
   const manifestPath = await runPanorama({
-    scenePrompt,
+    scenePrompt: promptInput.scenePrompt,
     model,
     outputDirectory,
     generator,

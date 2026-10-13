@@ -32,11 +32,11 @@ of the experience. It does not yet have a complete daily pipeline.
 | Area | Status | What exists | What remains |
 | --- | --- | --- | --- |
 | Open-source foundation | Substantially complete | MIT license, contribution and agent guides, dependency-license checks, CI, secret-safe environment examples | Linting, security policy, code of conduct, automated secret scanning |
-| Frontend | Working prototype | Next.js, Motion, Spark.js integration, responsive fictional ten-story experience, poster fallback | A real generated world, artifact-driven data, tested world interactions, archive routes |
-| Panorama generation | Deterministic baseline | Nano Banana adapter, 4K request, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifests, tests, dry-run mode | Opt-in live validation, spherical viewport QA, pole QA and optional repair, integration with edition artifacts |
-| Edition and editorial data | Not started | Product intent and art-direction documentation | Versioned schemas, hand-authored edition fixture, source provenance, review model |
-| World generation | Not started | Provider named and architectural boundary identified | Account capability probe, Marble contract fixture, adapter, operation lifecycle, durable asset copy |
-| Interaction mapping | Prototype only | Fictional frontend hotspots and accessible story rail | Artifact-backed screen regions, canonical view calibration, later world-space anchors |
+| Frontend | Working prototype | Full-viewport Next.js explorer, Motion HUD panels, Spark.js integration, validated publication artifact, responsive fictional ten-story experience, poster fallback, local generated-world loading, fly navigation, and baked 3D hotspots projected through the live camera | Navigation tuning, touch translation controls, automated browser coverage, archive routes |
+| Panorama generation | Live baseline | Structured art-direction artifact, deterministic prompt construction, Nano Banana adapter, one approved 4K generation, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifest, spherical viewport QA, tests, dry-run mode | Evaluate the observed nadir singularity in Marble; add pole repair only if downstream results justify it |
+| Edition and editorial data | Baseline started | Versioned publication schema, fictional ten-story fixture, source fields, product and art-direction documentation | Pipeline artifact schemas, factual sample edition, review model |
+| World generation | Live baseline | Provider-neutral interface, stable idempotency, persisted operation lifecycle, durable local artifact copy, failure/resume tests, mock CLI, optional Marble 1.1 adapter, and an approved Marble 1.1 SPZ generation | Sanitized real response fixture, S3 artifact store |
+| Interaction mapping | Prototype only | Provider-neutral landmark schema and detector, optional multimodal adapter, one manually baked image-target-to-SPZ mapping with source checksum, runtime projection of fixed world positions, poster fallbacks, keyboard-accessible story index, and slide-out detail panels | Run and review live landmark detection, automate the prepublication baking stage, assemble its artifact into the publication manifest, add occlusion and collision behavior |
 | AWS deployment | Not started | Target services and state model documented | CDK, S3, DynamoDB, Step Functions, CloudFront, alarms, approvals |
 | Daily automation | Not started | Proposed schedule and workflow | Ingestion, editorial engine, orchestration, review, atomic publication |
 
@@ -275,9 +275,13 @@ manually generated assets. Do not build live news ingestion yet.
 - Persist prompts, model identifiers, operation trace metadata, outputs,
   transformations, checksums, timings, and cost when available.
 - Render the generated world with Spark.js from the edition artifacts.
-- Add ten screen-region hotspots based on normalized coordinates in a recorded
-  canonical view. Keep every story available through the story rail if a visual
-  anchor cannot be resolved.
+- Locate all ten landmarks in the source panorama through a provider-neutral
+  multimodal detector, preserving bounding boxes, target pixels, confidence,
+  model provenance, and source-image checksum.
+- Convert each normalized equirectangular target into a spherical source-camera
+  ray, resolve its nearest Spark.js splat intersection, and project that 3D hit
+  through the moving camera. Keep every story available through the story index
+  when an anchor cannot be resolved.
 - Open story cards with original summaries and external source links.
 - Implement fixture-backed mock providers for every paid call, including
   running, successful, failed, timed-out, and duplicate-submission operations.
@@ -302,10 +306,13 @@ development and iterate on composition before automating anything.
 
 ### Current status
 
-In progress. The panorama utility and fictional Spark.js frontend establish the
-two ends of this slice. The versioned edition schema, hand-authored edition,
-verified Marble contract, Marble adapter, durable world artifact, and real
-interaction manifest are the remaining critical path.
+In progress. The validated publication schema, fictional ten-story artifact,
+panorama utility, provider-neutral landmark and world-operation layers, optional
+Marble 1.1 adapter, an approved Marble 1.1 SPZ, manually baked 3D anchors, and
+the Spark.js frontend establish the slice. The remaining critical path is a
+reviewed live landmark-detection artifact, an automated interaction-baking
+stage, a sanitized real response fixture, durable cloud asset storage, and
+publication assembly.
 
 ## Phase 3 — Create the editorial engine
 
@@ -319,6 +326,13 @@ Estimated effort: 5–8 days
 - Calculate separate editorial and visual-prominence scores.
 - Require short, inspectable rationales for model-generated scores.
 - Produce original summaries with claim-to-source references.
+- For each selected story, extract a small set of concrete, visually useful
+  details from the permitted source text, such as objects, materials, colors,
+  settings, species, or instruments. Keep every detail tied to its evidence.
+- Treat missing visual details as non-fatal. Any creative substitute must be
+  stored as artistic interpretation rather than presented as a reported fact.
+- Generate clear headlines that state the concrete development or result before
+  using restrained interpretive or poetic language.
 - Add diversity constraints across topic, geography, and organization.
 - Reject weakly sourced, duplicative, promotional, unsafe, or visually
   misleading candidates.
@@ -347,6 +361,9 @@ Estimated effort: 5–10 days
 
 - Define a `SourceAdapter` contract with rate limits and provenance.
 - Start with an allowlist of RSS/Atom feeds and primary institutional sources.
+- Use feeds and indexes for discovery, then retrieve the permitted article text
+  only for shortlisted stories that need evidence, summarization, and visual
+  detail extraction.
 - Add fetch caching, conditional requests, backoff, and per-host concurrency.
 - Record fetch time, publication time, canonical URL, publisher, and raw-content
   checksum.
@@ -375,6 +392,8 @@ Estimated effort: 5–8 days, then continuous evaluation
 ### Work
 
 - Convert selected stories into candidate physical subjects and environments.
+- Carry source-grounded visual details into those subjects when they strengthen
+  the connection between the resulting world and the original story.
 - Choose one unifying place rather than a collage of unrelated panels.
 - Allocate story prominence through scale, position, and visual distinctiveness.
   Begin with two anchor stories, three supporting subjects, and five discoverable
@@ -656,23 +675,30 @@ the work already in the repository.
 
 Execute it in this order:
 
-1. Add versioned schemas and a fictional ten-story edition fixture.
+1. Add versioned schemas and a fictional ten-story edition fixture. **Complete.**
 2. Make the frontend read that fixture through a typed publication manifest,
-   replacing its component-local demo data.
+   replacing its component-local demo data. **Complete.**
 3. Produce the corresponding structured art-direction artifact and panorama
-   prompt without making a paid call.
+   prompt without making a paid call. **Complete.**
 4. Run the first explicitly approved, cost-capped Nano Banana generation. Review
    the seam, poles, horizon, landmark separation, and representative viewports;
-   record the result and any transformation in its manifest.
-5. Run a read-only World Labs capability probe and save a sanitized API contract
-   fixture. Confirm the exact image-to-world request and output for the account.
+   record the result and any transformation in its manifest. **Complete for the
+   fictional ten-story fixture. The equatorial views and seam passed review;
+   the nadir has a visible pole singularity to evaluate in the first Marble
+   experiment.**
+5. Run a read-only World Labs capability probe. **Complete:** the test key is
+   accepted by the legacy World API and rejected by the separate Marble 2 beta
+   API. A sanitized real success fixture is still required.
 6. Implement and contract-test the Marble adapter, operation repository, stable
-   idempotency key, wait/poll strategy, and fixture-backed mock.
+   idempotency key, wait/poll strategy, and fixture-backed mock. **Complete and
+   live-validated with Marble 1.1.**
 7. Submit the approved panorama once, persist the operation immediately, and
-   copy the completed world asset into project-owned storage.
-8. Render that asset in Spark.js and calibrate one canonical view.
-9. Create ten normalized screen-region anchors, while retaining the story rail
-   as the always-available interaction path.
+   copy the completed world asset into project-owned storage. **Complete for
+   the local artifact store.**
+8. Render that asset in Spark.js and calibrate one canonical view. **Complete.**
+9. Bake ten world-space anchors from normalized panorama targets, while
+   retaining the story index as the always-available interaction path.
+   **Complete manually; pipeline automation remains.**
 10. Test desktop, touch, keyboard, reduced motion, fallback behavior, retries,
     and a clean-clone mock run. Record quality, elapsed time, provider cost, and
     lessons before starting ingestion or AWS automation.
@@ -724,6 +750,11 @@ Checked on 2026-10-12:
   is currently a beta, account-dependent surface. The implementation must probe
   the configured account and capture the actual image-to-world contract rather
   than assuming that another documented generation task has the same request.
+- The official [`@worldlabsai/client`](https://www.npmjs.com/package/@worldlabsai/client)
+  is Apache-2.0 and suitable for a server adapter if the verified world task is
+  exposed through its typed surface. Its current public Atlas task names are not
+  by themselves evidence of the required panorama-to-world contract, so it is
+  not yet a repository dependency.
 - [World Labs webhooks](https://atlas-beta.worldlabs.ai/docs/webhooks) are an
   optional completion signal. A webhook must be signature-verified and followed
   by an authenticated operation fetch; polling remains the simpler first

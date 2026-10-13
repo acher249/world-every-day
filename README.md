@@ -5,8 +5,10 @@ from developments in science, technology, culture, health, climate and
 communities around the world.
 
 **Status:** Early prototype. The repository currently includes a fictional,
-interactive frontend demonstration and the first server-side panorama-generation
-stage. The automated daily pipeline is the next major milestone.
+artifact-driven interactive frontend demonstration, a server-side panorama
+stage, a provider-neutral landmark-detection stage, and world-generation
+orchestration with mock and optional hosted-provider adapters. Live landmark
+detection and the automated daily pipeline are not yet implemented end to end.
 
 ## Thesis
 
@@ -122,10 +124,11 @@ around credentials, paid services, and deployment.
 
 ### Run the frontend
 
-The current frontend is a polished demonstration experience built with Next.js,
-TypeScript, Motion, Three.js, and [Spark.js](https://sparkjs.dev/). Its sample
-edition is explicitly fictional and requires no API keys. Without a splat asset,
-it displays the generated source image as a poster; set the optional public
+The current frontend is a full-viewport world explorer built with Next.js,
+TypeScript, Motion, Three.js, and [Spark.js](https://sparkjs.dev/). Its fictional
+sample edition pairs selectable landmarks with slide-out story panels and
+requires no API keys. Without a splat asset, it displays the generated source
+image as a poster; set the optional public
 `NEXT_PUBLIC_WORLD_SPLAT_URL` described in `frontend/.env.example` to activate
 the interactive Gaussian-splat viewer.
 
@@ -141,11 +144,26 @@ Then open [http://localhost:3000](http://localhost:3000). Environment variables
 needed by future integrations will be documented in `frontend/.env.example`;
 never commit a populated `.env` file.
 
+To preview a locally generated SPZ without committing it, copy it into the
+ignored public-asset directory and set the public URL in `frontend/.env.local`:
+
+```bash
+cd frontend
+npm run world:local -- --source ../pipeline/artifacts/world/<run>/<edition>/assets/world.spz --name local-world.spz
+```
+
+Then set `NEXT_PUBLIC_WORLD_SPLAT_URL=/generated/local-world.spz` and restart the
+frontend. This variable is public by design; provider credentials remain in the
+server-side pipeline environment only.
+
 ### Run the panorama pipeline
 
 The first pipeline utility generates a 360-degree equirectangular image, repairs
 its longitude seam, and prepares an 8192 × 4096 delivery asset. See the
 [pipeline guide](pipeline/README.md) for setup, dry-run, and validation commands.
+For opt-in live provider runs, copy `pipeline/.env.example` to `pipeline/.env`
+and populate the server-only keys documented there. The populated file is
+ignored by Git and must never be committed.
 
 ## Contributing
 

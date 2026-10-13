@@ -8,15 +8,19 @@
   },
   "scripts": {
     "build": "tsc",
+    "landmarks:detect": "node --import tsx src/landmarks/cli.ts",
     "license:check": "node scripts/check-licenses.mjs",
     "panorama": "node --import tsx src/panorama/cli.ts",
     "test": "node --import tsx --test test/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "world:generate": "node --import tsx src/world/live-cli.ts",
+    "world:mock": "node --import tsx src/world/mock-cli.ts"
   },
   "dependencies": {
     "@google/genai": "^2.3.0",
     "dotenv": "^17.2.3",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

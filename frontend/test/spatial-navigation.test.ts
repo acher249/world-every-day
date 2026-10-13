@@ -1,0 +1,61 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  clampToNavigationSphere,
+  cycleId,
+  getFocusPosition,
+  getNavigationRadius,
+  smootherstep,
+} from "../lib/spatial-navigation";
+
+test("camera focus easing starts and finishes without an abrupt velocity change", () => {
+  assert.equal(smootherstep(-1), 0);
+  assert.equal(smootherstep(0), 0);
+  assert.equal(smootherstep(0.5), 0.5);
+  assert.equal(smootherstep(1), 1);
+  assert.equal(smootherstep(2), 1);
+  assert.ok(smootherstep(0.01) < 0.00002);
+  assert.ok(1 - smootherstep(0.99) < 0.00002);
+});
+
+test("focus approaches a hotspot along its ray while preserving standoff", () => {
+  const target = { x: 3, y: 4, z: 0 };
+  const position = getFocusPosition(target, 20);
+  const distanceToTarget = Math.hypot(
+    target.x - position.x,
+    target.y - position.y,
+    target.z - position.z,
+  );
+
+  assert.ok(Math.abs(position.x / position.y - target.x / target.y) < 0.000001);
+  assert.ok(Math.abs(distanceToTarget - 4.08) < 0.000001);
+  assert.ok(distanceToTarget < Math.hypot(target.x, target.y, target.z));
+});
+
+test("navigation radius uses the configured spherical limit", () => {
+  assert.equal(getNavigationRadius(1_000), 2.025);
+});
+
+test("navigation clamps movement radially to a sphere", () => {
+  const point = clampToNavigationSphere({ x: 4, y: -3, z: 0 }, 0.75);
+  assert.ok(Math.abs(point.x - 0.6) < 0.000001);
+  assert.ok(Math.abs(point.y + 0.45) < 0.000001);
+  assert.equal(point.z, 0);
+  assert.ok(Math.abs(Math.hypot(point.x, point.y, point.z) - 0.75) < 0.000001);
+});
+
+test("distant focus positions preserve their origin ray inside the sphere", () => {
+  const target = { x: 4, y: 30, z: -22 };
+  const position = getFocusPosition(target, 0.75);
+  assert.ok(Math.hypot(position.x, position.y, position.z) <= 0.750001);
+  assert.ok(Math.abs(position.x / position.y - target.x / target.y) < 0.000001);
+  assert.ok(Math.abs(position.z / position.y - target.z / target.y) < 0.000001);
+});
+
+test("story cycling wraps in both directions", () => {
+  const ids = ["one", "two", "three"];
+  assert.equal(cycleId(ids, null, 1), "one");
+  assert.equal(cycleId(ids, null, -1), "three");
+  assert.equal(cycleId(ids, "three", 1), "one");
+  assert.equal(cycleId(ids, "one", -1), "three");
+});
