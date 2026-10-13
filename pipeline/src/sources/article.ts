@@ -38,7 +38,19 @@ export function extractArticleText(html: string): string {
   for (const selector of ["script", "style", "noscript", "svg", "nav", "header", "footer", "aside", "form"]) {
     document.querySelectorAll(selector).forEach((element) => element.remove());
   }
-  const root = document.querySelector("article") ?? document.querySelector("main") ?? document.querySelector('[role="main"]') ?? document.querySelector("body") ?? document;
+  const longestRoot = (selectors: string[]) => document
+    .querySelectorAll(selectors.join(", "))
+    .sort((left, right) => normalizeText(right.textContent).length - normalizeText(left.textContent).length)[0];
+  const root = longestRoot([
+    '[itemprop="articleBody"]',
+    ".entry-content",
+    ".post-content",
+    ".article-body",
+    ".story-body",
+    ".entry",
+  ]) ?? longestRoot(["main article", '[role="main"] article', "article"])
+    ?? longestRoot(["main", '[role="main"]', "body"])
+    ?? document;
   const blocks = root.querySelectorAll("h1, h2, h3, p, li, blockquote")
     .map((element) => normalizeText(element.textContent))
     .filter((value) => value.length >= 20);

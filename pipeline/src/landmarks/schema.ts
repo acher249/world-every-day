@@ -52,6 +52,12 @@ export const landmarkArtifactSchema = z.object({
     height: z.number().int().positive(),
     projection: z.literal("equirectangular"),
   }),
+  analysisImage: z.object({
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    mediaType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  }).optional(),
   provider: z.object({
     id: z.string().min(1).max(80),
     model: z.string().min(1).max(160),

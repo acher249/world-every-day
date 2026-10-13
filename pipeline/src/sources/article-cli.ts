@@ -100,6 +100,8 @@ async function main(): Promise<void> {
   });
   const outputDirectory = resolve(options.outputDirectory);
   await mkdir(outputDirectory, { recursive: true });
+  let completedCount = 0;
+  const failures: Array<{ error: string; storyId: string }> = [];
 
   for (const story of stories) {
     const output = resolve(outputDirectory, `${story.id}.json`);
@@ -109,29 +111,50 @@ async function main(): Promise<void> {
         throw new Error(`Existing article evidence does not match story ${story.id}`);
       }
       console.log(JSON.stringify({ output, status: "reused", storyId: story.id }));
+      completedCount += 1;
       continue;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    const source = configuration.sources.find(({ id }) => id === story.source.adapterId);
-    if (!source) throw new Error(`Source configuration was not found for ${story.source.adapterId}`);
-    const fetcher = new AllowlistedHttpFetcher({
-      allowedHosts: source.allowedArticleHosts,
-    });
-    const artifact = await analyzeArticle({
-      analyzer,
-      fetcher,
-      story,
-    });
-    await writeFile(output, `${JSON.stringify(artifact, null, 2)}\n`, { flag: "wx" });
-    console.log(JSON.stringify({
-      claimCount: artifact.editorial.claims.length,
-      detailCount: artifact.details.length,
-      output,
-      status: "created",
-      storyId: story.id,
-      usage: artifact.extraction.usage,
-    }));
+    try {
+      const source = configuration.sources.find(({ id }) => id === story.source.adapterId);
+      if (!source) throw new Error(`Source configuration was not found for ${story.source.adapterId}`);
+      if (source.articleAccess !== "ephemeral-analysis") {
+        throw new Error(`Source is configured for discovery only: ${story.source.adapterId}`);
+      }
+      const fetcher = new AllowlistedHttpFetcher({
+        allowedHosts: source.allowedArticleHosts,
+      });
+      const artifact = await analyzeArticle({
+        analyzer,
+        fetcher,
+        story,
+      });
+      await writeFile(output, `${JSON.stringify(artifact, null, 2)}\n`, { flag: "wx" });
+      completedCount += 1;
+      console.log(JSON.stringify({
+        claimCount: artifact.editorial.claims.length,
+        detailCount: artifact.details.length,
+        output,
+        status: "created",
+        storyId: story.id,
+        usage: artifact.extraction.usage,
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push({ error: message.slice(0, 300), storyId: story.id });
+      console.error(JSON.stringify({ error: message.slice(0, 300), status: "failed", storyId: story.id }));
+    }
+  }
+
+  console.log(JSON.stringify({
+    completedCount,
+    failedCount: failures.length,
+    requestedCount: stories.length,
+    status: failures.length === 0 ? "complete" : "partial",
+  }));
+  if (completedCount === 0 && failures.length > 0) {
+    throw new Error(`Article analysis failed for all ${failures.length} requested stories`);
   }
 }
 

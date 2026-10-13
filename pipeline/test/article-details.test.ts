@@ -52,6 +52,23 @@ test("article reading excludes page furniture and keeps granular story details",
   assert.doesNotMatch(text, /Copyright fictional fixture/);
 });
 
+test("article reading prefers the main entry over earlier promotional cards", () => {
+  const html = `
+    <html><body>
+      <article class="promo-card"><h2>Unrelated promoted story</h2><p>Short promotional copy appears first.</p></article>
+      <div class="entry">
+        <h1>Community language project publishes a new poetry collection</h1>
+        <p>A local publishing group assembled a collection in a regional language.</p>
+        <p>The book includes poems, illustrations, and classroom materials.</p>
+      </div>
+    </body></html>`;
+
+  const text = extractArticleText(html);
+
+  assert.match(text, /Community language project/);
+  assert.doesNotMatch(text, /Unrelated promoted story/);
+});
+
 test("shortlisted articles produce compact, source-grounded visual detail artifacts", async () => {
   const analyzer: ArticleAnalyzer = {
     provider: "fixture",

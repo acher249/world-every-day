@@ -11,7 +11,6 @@ const responseJsonSchema = {
     summary: { type: "string" },
     claims: {
       type: "array",
-      maxItems: 6,
       items: {
         type: "object",
         required: ["claim", "evidence"],
@@ -20,7 +19,6 @@ const responseJsonSchema = {
     },
     details: {
       type: "array",
-      maxItems: 6,
       items: {
         type: "object",
         required: ["detail", "evidence", "kind", "confidence"],
@@ -31,7 +29,7 @@ const responseJsonSchema = {
             type: "string",
             enum: ["object", "material", "color", "setting", "species", "instrument", "other"],
           },
-          confidence: { type: "number", minimum: 0, maximum: 1 },
+          confidence: { type: "number" },
         },
       },
     },
@@ -44,6 +42,7 @@ export function buildArticleAnalysisPrompt(story: DiscoveredStory, articleText: 
     "Write a clear, factual headline that states the concrete development. Write a concise original summary without copying article prose.",
     "Extract two to four central factual claims. For every claim, copy one short exact evidence passage from the article. Do not invent, infer beyond the text, or reproduce long passages.",
     "Also extract up to four concrete visual details that could help an artist connect a physical world to the story. Prefer specific objects, materials, colors, settings, species, and instruments. For every detail, copy one short exact evidence passage.",
+    "Every visual-detail confidence must be a decimal number from 0 to 1 inclusive.",
     "Visual details may be empty when none are useful. Never turn an abstract result into a reported physical object. Do not include people or faces as visual subjects.",
     `Discovery title: ${story.title}`,
     `Publisher: ${story.publisher}`,

@@ -12,12 +12,12 @@ and live provider calls require deliberate operator action.
 | Stage | Expected baseline | Current status |
 | --- | ---: | --- |
 | Feed discovery and article retrieval | Network and cloud runtime only | Local implementation available |
-| Candidate evaluation | One bounded model batch per edition | Optional adapter available; not live-validated |
-| Article analysis | Up to 15 model requests, one per preliminary story | Optional adapter available; not live-validated |
-| Art-direction planning | One bounded model request per edition | Optional adapter available; not live-validated |
-| Nano Banana panorama | One final image generation | Optional adapter available |
-| Landmark analysis | One multimodal analysis of the final panorama | Optional adapter available |
-| World Labs Marble | One world generation | Optional adapter available |
+| Candidate evaluation | One bounded model batch per edition | Live-validated |
+| Article analysis | Up to 15 model requests, one per preliminary story | Live-validated |
+| Art-direction planning | One bounded model request per edition | Live-validated |
+| Nano Banana panorama | One final image generation | Live-validated |
+| Landmark analysis | One multimodal analysis of the final panorama | Live-validated |
+| World Labs Marble | One world generation | Live-validated with Marble 1.1 |
 | AWS orchestration and delivery | Step Functions, Lambda, S3, DynamoDB, CloudFront, and CloudWatch usage | Planned |
 
 These counts are targets for the first complete pipeline, not a description of
@@ -58,3 +58,24 @@ Exact prices are intentionally not hardcoded here. AWS, Google, and World Labs
 pricing, access tiers, and billing units can change, and the final model choices
 are not yet fixed. A dated price table and measured cost from a manually approved
 test edition should be added before the daily pipeline is enabled.
+
+## Observed ten-story run
+
+The approved 2026-10-13 local run recorded the following provider usage:
+
+| Stage | Model | Successful requests | Provider-reported usage |
+| --- | --- | ---: | ---: |
+| Candidate evaluation | Gemini 3.8 Flash | 1 | 31,131 tokens |
+| Article analysis | Gemini 3.8 Flash | 12 | 31,316 tokens |
+| Art direction | Gemini 3.8 Flash | 1 | 5,128 tokens |
+| Panorama | Gemini Nano Banana 2.1 | 2 | 10,293 and 11,481 total tokens, including image and reasoning units |
+| Landmark analysis | Gemini 3.8 Flash | 1 | Usage was not retained by the initial detector artifact |
+| World generation | Marble 1.1 | 2 | Provider did not report a billing unit in the operation responses |
+
+Article analysis used 12 requests for ten final stories because two incorrect
+page-container extractions were rejected and reprocessed after the extractor was
+fixed. Candidate evaluation also had provider-rejected compatibility attempts
+and one locally rejected response before the successful artifact; those attempts
+did not return usage metadata and could still affect billing. This is evidence
+that attempt counts must be recorded even when validation prevents an artifact
+from being written.

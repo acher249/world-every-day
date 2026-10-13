@@ -26,9 +26,13 @@ test("the initial live source configuration is valid and contains no placeholder
   ) as unknown;
   const configuration = parseSourceConfiguration(input);
 
-  assert.equal(configuration.sources.length, 3);
+  assert.equal(configuration.sources.length, 16);
   assert.ok(configuration.sources.every(({ feedUrl }) => !new URL(feedUrl).hostname.endsWith(".test")));
   assert.ok(configuration.sources.every(({ allowedArticleHosts }) => allowedArticleHosts.length > 0));
+  assert.equal(configuration.sources.find(({ id }) => id === "nasa-news")?.articleAccess, "ephemeral-analysis");
+  assert.equal(configuration.sources.find(({ id }) => id === "npr-top-stories")?.articleAccess, "discovery-only");
+  assert.equal(configuration.sources.find(({ id }) => id === "the-conversation-us")?.articleAccess, "discovery-only");
+  assert.equal(configuration.sources.find(({ id }) => id === "smithsonian-latest")?.articleAccess, "discovery-only");
 });
 
 test("source configuration rejects duplicate adapter ids", async () => {

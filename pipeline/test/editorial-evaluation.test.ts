@@ -102,5 +102,6 @@ test("candidate evaluation prompt separates constructive significance from visua
 
   assert.match(prompt, /does not mean cheerful tone/i);
   assert.match(prompt, /separate from editorial importance/i);
+  assert.match(prompt, /decimal number from 0 to 1 inclusive/i);
   assert.match(prompt, /exactly one assessment/i);
 });

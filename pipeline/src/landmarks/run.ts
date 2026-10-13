@@ -8,6 +8,7 @@ export async function detectLandmarks({
   editionId,
   imageBytes,
   mimeType,
+  sourceImageBytes = imageBytes,
   artDirection,
   detector,
   createdAt = new Date(),
@@ -15,12 +16,17 @@ export async function detectLandmarks({
   editionId: string;
   imageBytes: Buffer;
   mimeType: string;
+  sourceImageBytes?: Buffer;
   artDirection: ArtDirection;
   detector: LandmarkDetector;
   createdAt?: Date;
 }): Promise<LandmarkArtifact> {
-  const metadata = await sharp(imageBytes).metadata();
+  const metadata = await sharp(sourceImageBytes).metadata();
+  const analysisMetadata = await sharp(imageBytes).metadata();
   if (!metadata.width || !metadata.height) throw new Error("Unable to read source-image dimensions");
+  if (!analysisMetadata.width || !analysisMetadata.height) {
+    throw new Error("Unable to read analysis-image dimensions");
+  }
   if (metadata.width !== metadata.height * 2) {
     throw new Error(`Landmark detection requires an exact 2:1 equirectangular image; received ${metadata.width}x${metadata.height}`);
   }
@@ -43,10 +49,16 @@ export async function detectLandmarks({
     editionId,
     createdAt: createdAt.toISOString(),
     sourceImage: {
-      sha256: createHash("sha256").update(imageBytes).digest("hex"),
+      sha256: createHash("sha256").update(sourceImageBytes).digest("hex"),
       width: metadata.width,
       height: metadata.height,
       projection: "equirectangular",
+    },
+    analysisImage: {
+      sha256: createHash("sha256").update(imageBytes).digest("hex"),
+      width: analysisMetadata.width,
+      height: analysisMetadata.height,
+      mediaType: mimeType,
     },
     provider: { id: detector.id, model: detector.model },
     landmarks: result.landmarks,

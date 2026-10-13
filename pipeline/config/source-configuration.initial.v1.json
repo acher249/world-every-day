@@ -8,9 +8,154 @@
       "publisher": "NASA",
       "feedUrl": "https://www.nasa.gov/news-release/feed/",
       "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
         "www.nasa.gov",
         "science.nasa.gov"
+      ]
+    },
+    {
+      "id": "un-news",
+      "type": "rss",
+      "publisher": "UN News",
+      "feedUrl": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+      "kind": "reporting",
+      "articleAccess": "discovery-only",
+      "allowedArticleHosts": [
+        "news.un.org"
+      ]
+    },
+    {
+      "id": "npr-top-stories",
+      "type": "rss",
+      "publisher": "NPR",
+      "feedUrl": "https://feeds.npr.org/1001/rss.xml",
+      "kind": "reporting",
+      "articleAccess": "discovery-only",
+      "allowedArticleHosts": [
+        "www.npr.org"
+      ]
+    },
+    {
+      "id": "npr-arts-life",
+      "type": "rss",
+      "publisher": "NPR",
+      "feedUrl": "https://feeds.npr.org/1008/rss.xml",
+      "kind": "reporting",
+      "articleAccess": "discovery-only",
+      "allowedArticleHosts": [
+        "www.npr.org"
+      ]
+    },
+    {
+      "id": "smithsonian-latest",
+      "type": "rss",
+      "publisher": "Smithsonian Magazine",
+      "feedUrl": "https://www.smithsonianmag.com/rss/latest_articles/",
+      "kind": "reporting",
+      "articleAccess": "discovery-only",
+      "allowedArticleHosts": [
+        "www.smithsonianmag.com"
+      ]
+    },
+    {
+      "id": "the-conversation-us",
+      "type": "atom",
+      "publisher": "The Conversation",
+      "feedUrl": "https://theconversation.com/us/articles.atom",
+      "kind": "reporting",
+      "articleAccess": "discovery-only",
+      "allowedArticleHosts": [
+        "theconversation.com"
+      ]
+    },
+    {
+      "id": "positive-news",
+      "type": "rss",
+      "publisher": "Positive News",
+      "feedUrl": "https://www.positive.news/feed/",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "www.positive.news"
+      ]
+    },
+    {
+      "id": "reasons-to-be-cheerful",
+      "type": "rss",
+      "publisher": "Reasons to be Cheerful",
+      "feedUrl": "https://reasonstobecheerful.world/feed/",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "reasonstobecheerful.world"
+      ]
+    },
+    {
+      "id": "global-voices",
+      "type": "rss",
+      "publisher": "Global Voices",
+      "feedUrl": "https://globalvoices.org/feed/",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "globalvoices.org"
+      ]
+    },
+    {
+      "id": "next-city",
+      "type": "rss",
+      "publisher": "Next City",
+      "feedUrl": "https://nextcity.org/feeds/daily",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "nextcity.org"
+      ]
+    },
+    {
+      "id": "who-news",
+      "type": "rss",
+      "publisher": "World Health Organization",
+      "feedUrl": "https://www.who.int/rss-feeds/news-english.xml",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "www.who.int"
+      ]
+    },
+    {
+      "id": "unesco-unevoc-news",
+      "type": "rss",
+      "publisher": "UNESCO-UNEVOC",
+      "feedUrl": "https://connect.unevoc.unesco.org/unevoc_news.xml",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "connect.unevoc.unesco.org",
+        "www.unevoc.unesco.org"
+      ]
+    },
+    {
+      "id": "harvard-gazette",
+      "type": "rss",
+      "publisher": "Harvard Gazette",
+      "feedUrl": "https://news.harvard.edu/gazette/feed/",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "news.harvard.edu"
+      ]
+    },
+    {
+      "id": "cambridge-news",
+      "type": "rss",
+      "publisher": "University of Cambridge",
+      "feedUrl": "https://www.cam.ac.uk/news/feed",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "www.cam.ac.uk"
       ]
     },
     {
@@ -19,6 +164,7 @@
       "publisher": "MIT News",
       "feedUrl": "https://news.mit.edu/rss/research",
       "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
         "news.mit.edu"
       ]
@@ -29,6 +175,7 @@
       "publisher": "National Institute of Standards and Technology",
       "feedUrl": "https://www.nist.gov/news-events/news/rss.xml",
       "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
         "www.nist.gov"
       ]

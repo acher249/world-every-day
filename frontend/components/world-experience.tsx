@@ -8,6 +8,7 @@ import {
   type WorldAnchor,
 } from "@/components/spark-world";
 import { cycleId } from "@/lib/spatial-navigation";
+import { canRenderWorldInteractions } from "@/lib/world-interactions";
 import type {
   PublicationManifest,
   PublicationStory,
@@ -252,8 +253,17 @@ function viewerLabel(state: ViewerState) {
 }
 
 export function WorldExperience({ publication }: { publication: PublicationManifest }) {
-  const splatUrl = publication.world.splat?.url ?? process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
+  const localSplatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
+  const localSplatSha256 = process.env.NEXT_PUBLIC_WORLD_SPLAT_SHA256;
+  const splatUrl = publication.world.splat?.url ?? localSplatUrl;
   const { edition, stories } = publication;
+  const renderedSplatSha256 = publication.world.splat?.sha256 ?? localSplatSha256;
+  const interactionsMatchRenderedWorld = canRenderWorldInteractions({
+    interactionSplatSha256:
+      publication.world.interactionMapping.sourceSplatSha256,
+    renderedSplatSha256,
+    splatUrl,
+  });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [indexOpen, setIndexOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
@@ -263,7 +273,7 @@ export function WorldExperience({ publication }: { publication: PublicationManif
     [activeId, stories],
   );
   const anchors = useMemo<WorldAnchor[]>(
-    () => stories.map((story, index) => ({
+    () => interactionsMatchRenderedWorld ? stories.map((story, index) => ({
       active: activeId === story.id,
       fallbackScreenPosition: {
         x: story.interaction.screenRegion.x,
@@ -274,8 +284,8 @@ export function WorldExperience({ publication }: { publication: PublicationManif
       number: String(index + 1).padStart(2, "0"),
       tone: story.interaction.screenRegion.tone,
       worldPosition: story.interaction.worldPosition,
-    })),
-    [activeId, stories],
+    })) : [],
+    [activeId, interactionsMatchRenderedWorld, stories],
   );
   const activeStoryIndex = activeStory
     ? stories.findIndex((story) => story.id === activeStory.id)

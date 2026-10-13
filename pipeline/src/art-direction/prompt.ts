@@ -10,7 +10,7 @@ export function buildScenePrompt(artDirection: ArtDirection): string {
       const grounding = item.grounding
         ? `${item.grounding.sourceDetails.length > 0
           ? ` Grounded details: ${sentenceList(item.grounding.sourceDetails)}.`
-          : " No source-grounded visual detail was available."} Artistic interpretation: ${item.grounding.artisticInterpretation}.`
+          : " No source-grounded visual detail was available."} Artistic interpretation: ${sentenceList([item.grounding.artisticInterpretation])}.`
         : "";
       return `- ${item.role.toUpperCase()} · ${item.subject}. Place it ${item.placement}. ` +
         `Scale: ${item.scale}. Materials: ${item.materials.join(", ")}. ` +

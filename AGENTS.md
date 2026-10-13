@@ -22,10 +22,12 @@ Read these documents before making architectural or product changes:
 The current implementation includes a fictional frontend demonstration,
 server-side panorama and landmark-detection stages, bounded story-discovery and
 editorial-selection foundations, and provider-neutral world generation with an
-optional World Labs adapter. Landmark detection and hosted editorial analysis
-have not been run against live providers. The automated publication and AWS
-pipeline described in the build plan is not complete. Do not describe planned
-features as implemented.
+optional World Labs adapter. One live local ten-story vertical slice now spans
+story discovery, hosted editorial analysis, art direction, panorama generation,
+Marble 1.1 world generation, landmark detection, Spark.js raycast baking, and
+local publication assembly. Public publication, scheduled automation, and the
+AWS pipeline described in the build plan are not complete. Do not describe
+planned features as implemented.
 
 ## Repository conventions
 

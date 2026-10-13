@@ -31,18 +31,18 @@ const assessmentSchema = {
       required: ["eligible", "reasons"],
       properties: {
         eligible: { type: "boolean" },
-        reasons: { type: "array", maxItems: 8, items: { type: "string" } },
+        reasons: { type: "array", items: { type: "string" } },
       },
     },
     scores: {
       type: "object",
       required: ["credibility", "constructiveSignificance", "publicRelevance", "novelty", "visualPotential"],
       properties: {
-        credibility: { type: "number", minimum: 0, maximum: 1 },
-        constructiveSignificance: { type: "number", minimum: 0, maximum: 1 },
-        publicRelevance: { type: "number", minimum: 0, maximum: 1 },
-        novelty: { type: "number", minimum: 0, maximum: 1 },
-        visualPotential: { type: "number", minimum: 0, maximum: 1 },
+        credibility: { type: "number" },
+        constructiveSignificance: { type: "number" },
+        publicRelevance: { type: "number" },
+        novelty: { type: "number" },
+        visualPotential: { type: "number" },
       },
     },
     rationales: {
@@ -63,7 +63,7 @@ const responseJsonSchema = {
   type: "object",
   required: ["assessments"],
   properties: {
-    assessments: { type: "array", maxItems: MAX_EVALUATION_CANDIDATES, items: assessmentSchema },
+    assessments: { type: "array", items: assessmentSchema },
   },
 } as const;
 
@@ -80,6 +80,7 @@ export function buildCandidateEvaluationPrompt(candidates: DiscoveredStory[]): s
     "Use only the supplied discovery metadata. Do not claim to have read the article. Low-information, promotional, unsafe, weakly sourced, or ambiguous candidates should be marked ineligible or scored conservatively.",
     "Constructive significance means credible progress, possibility, discovery, repair, cooperation, or a meaningful attempt to address a real problem. It does not mean cheerful tone.",
     "Keep visual potential separate from editorial importance. Visual potential should favor concrete physical subjects that could remain legible in a human-free 3D environment.",
+    "Every score must be a decimal number from 0 to 1 inclusive, where 0 is the lowest possible score and 1 is the highest. Never use a 0-to-10 or percentage scale.",
     "Use concise lowercase kebab-case values for eventKey, topic, and geography. Use the same eventKey for reports that appear to describe the same underlying event. Return exactly one assessment for every supplied id.",
     `Candidates:\n${JSON.stringify(input)}`,
   ].join("\n\n");

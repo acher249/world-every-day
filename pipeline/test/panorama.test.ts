@@ -13,6 +13,13 @@ test("buildPanoramaPrompt combines the scene with spherical constraints", () => 
   assert.match(prompt, /full-sphere equirectangular panorama/i);
   assert.match(prompt, /left and right boundaries/i);
   assert.match(prompt, /2:1 spherical panorama/i);
+  assert.match(prompt, /zero pitch and zero\s+roll/i);
+  assert.match(prompt, /horizon.*exactly 50%/i);
+  assert.match(prompt, /do not place the\s+horizon on a rule-of-thirds line/i);
+  assert.ok(
+    prompt.indexOf("Projection and camera geometry") <
+      prompt.indexOf("A quiet coastal research garden"),
+  );
 });
 
 test("createPanoramaAssets crops, repairs, and enlarges an ERP", async () => {

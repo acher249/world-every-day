@@ -8,6 +8,8 @@
   "scripts": {
     "start": "next dev",
     "build": "next build",
+    "publication:assemble-local": "node scripts/assemble-local-publication.mjs",
+    "hotspots:bake-local": "node scripts/bake-local-hotspots.mjs",
     "license:check": "node scripts/check-licenses.mjs",
     "serve": "next start",
     "test": "node --import tsx --test test/*.test.ts",

@@ -58,6 +58,9 @@ test("landmark detection creates a provenance-bearing 2:1 artifact", async () =>
   assert.equal(artifact.landmarks.length, 10);
   assert.equal(artifact.sourceImage.projection, "equirectangular");
   assert.equal(artifact.sourceImage.width, artifact.sourceImage.height * 2);
+  assert.ok(artifact.analysisImage);
+  assert.equal(artifact.analysisImage.sha256, artifact.sourceImage.sha256);
+  assert.equal(artifact.analysisImage.mediaType, "image/png");
   assert.equal(artifact.provider.id, "mock-vision");
 });
 

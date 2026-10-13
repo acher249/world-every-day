@@ -1,23 +1,39 @@
 # Initial source policy
 
-The first live validation uses a small, explicit allowlist of institutional RSS
-feeds. Discovery through a feed does not imply permission to republish its
-articles. Article content is processed ephemerally in memory and discarded. The
-pipeline retains citations, checksums, and original project summaries rather
-than source pages, article copies, or verbatim evidence passages.
+The reference implementation uses an explicit allowlist of RSS and Atom feeds.
+Discovery through a feed does not imply permission to analyze or republish its
+articles. Every enabled source declares either `discovery-only` or
+`ephemeral-analysis`. Permitted article content is processed in memory and
+discarded. The pipeline retains citations, checksums, and original project
+summaries rather than source pages, article copies, or verbatim evidence.
 
-## Starter feeds
+## Enabled reference feeds
 
-| Source | Classification | Feed documentation | Reason for inclusion |
+| Source | Role | Article access | Coverage |
 | --- | --- | --- | --- |
-| NASA News | Primary | [NASA RSS feeds](https://www.nasa.gov/rss-feeds/) | Official agency announcements and science updates |
-| MIT Research News | Reporting | [MIT News RSS](https://news.mit.edu/rss) | Institution-operated reporting about research |
-| NIST News | Primary | [NIST RSS feeds](https://www.nist.gov/coo/nist-rss-feeds) | Official measurement, standards, and applied-science updates |
+| [NASA News](https://www.nasa.gov/rss-feeds/) | Primary | Ephemeral analysis | Space, Earth science, and exploration |
+| [UN News](https://www.ungeneva.org/en/news-media/rss) | Institutional reporting | Discovery only | Global public affairs and communities |
+| [NPR Top Stories](https://feeds.npr.org/1001/rss.xml) | Reporting | Discovery only | Public affairs, health, culture, and daily news |
+| [NPR Arts & Life](https://feeds.npr.org/1008/rss.xml) | Reporting | Discovery only | Arts, books, music, and culture |
+| [Smithsonian Magazine](https://www.smithsonianmag.com/rss/) | Reporting | Discovery only | Arts, history, nature, and culture |
+| [The Conversation US](https://theconversation.com/us/articles.atom) | Reporting | Discovery only | Academic analysis across public subjects |
+| [Positive News](https://www.positive.news/feed/) | Reporting | Ephemeral analysis | Environment, society, economics, and culture |
+| [Reasons to be Cheerful](https://reasonstobecheerful.world/feed/) | Reporting | Ephemeral analysis | Community responses to public problems |
+| [Global Voices](https://globalvoices.org/feed/) | Reporting | Ephemeral analysis | Languages, culture, civic life, and communities |
+| [Next City](https://nextcity.org/feeds/daily) | Reporting | Ephemeral analysis | Cities, housing, neighborhoods, and civic systems |
+| [WHO News](https://www.who.int/rss-feeds/news-english.xml) | Primary | Ephemeral analysis | International public health |
+| [UNESCO-UNEVOC](https://connect.unevoc.unesco.org/home/rss-feed) | Primary | Ephemeral analysis | Education, skills, and work |
+| [Harvard Gazette](https://news.harvard.edu/gazette/feed/) | Institutional reporting | Ephemeral analysis | Health, education, culture, and research |
+| [University of Cambridge News](https://www.cam.ac.uk/news/feed) | Institutional reporting | Ephemeral analysis | Health, culture, and research |
+| [MIT Research News](https://news.mit.edu/rss) | Institutional reporting | Ephemeral analysis | Research, technology, health, and climate |
+| [NIST News](https://www.nist.gov/coo/nist-rss-feeds) | Primary | Ephemeral analysis | Standards, measurement, and applied science |
 
 The machine-readable allowlist is
-`pipeline/config/source-configuration.initial.v1.json`. It intentionally starts
-small. Adding a source requires reviewing its feed documentation, article-access
-terms, host and redirect behavior, publication metadata, and editorial role.
+`pipeline/config/source-configuration.initial.v1.json`. Adding or changing a
+source requires reviewing its feed documentation, article-access terms, robots
+directives, host and redirect behavior, publication metadata, and editorial
+role. Discovery-only sources may contribute links and feed metadata but their
+article pages must not be sent to an analysis provider.
 
 ## Reference boundary
 
@@ -53,10 +69,7 @@ allowlist.
 | [WHO regional news](https://www.emro.who.int/rss-feeds.html) | Primary institution | Public health and international cooperation |
 | [UNESCO World Heritage](https://whc.unesco.org/en/news/) | Primary institution | Culture, conservation, and communities |
 | [Smithsonian Insider](https://insider.si.edu/rssfeeds/) | Institutional reporting | Science, nature, arts, and history |
-| [MIT News](https://news.mit.edu/rss) | Institutional reporting | Research, technology, health, climate, culture |
-| [Harvard Gazette](https://news.harvard.edu/gazette/rss-feeds/) | Institutional reporting | Research, health, culture, community |
 | [Yale News](https://news.yale.edu/rss-feeds) | Institutional reporting | Research, environment, health, culture |
-| [University of Cambridge News](https://www.cam.ac.uk/news-feed-generator) | Institutional reporting | Research across disciplines |
 | [ETH Zurich News](https://ethz.ch/content/main/en/utils/rss.html) | Institutional reporting | Science, engineering, climate, health |
 | [PLOS](https://journals.plos.org/plosone/s/find-and-read-articles) | Open research | Peer-reviewed science, health, and sustainability |
 | [eLife](https://elifesciences.org/alerts) | Open research | Life science and medicine |
@@ -67,10 +80,9 @@ paper, dataset, trial record, public report, or independent corroborating
 source. Selection should limit concentration from any one institution and
 maintain a useful mix of subjects.
 
-NPR can be evaluated as an optional discovery-only feed. AP and Reuters do not
-currently provide a suitable general public feed for the default configuration;
-their licensed delivery products can be supported later through optional
-adapters when an operator has the necessary agreement.
+AP and Reuters do not currently provide a suitable general public feed for the
+default configuration. Their licensed delivery products can be supported later
+through optional adapters when an operator has the necessary agreement.
 
 ## Discovery and retrieval rules
 
@@ -90,12 +102,19 @@ community sources, corroboration rules, corrections, and takedowns.
 
 ## Live validation record
 
-On 2026-10-13, a local story-discovery run successfully read the NASA News and
-MIT Research News feeds and produced 15 candidates in an eight-day validation
-window. One article from each source then passed the bounded HTML fetch and
-text-extraction path without storing its text. NASA JPL's documented feed
-returned HTTP 403 to the pipeline client, so it was removed from the active
-configuration rather than retried or bypassed. NIST News was then added from its
-documented RSS directory for the next validation pass. These observations are
-operational checks, not permanent guarantees; source behavior must be monitored
-and re-reviewed.
+On 2026-10-13, all 16 enabled feeds completed a live collection pass. A 24-hour
+window produced 54 candidates, which were evaluated and reduced to a factual
+ten-story test edition spanning health, education, housing, space, civic
+governance, language, and ecological art. Permitted articles were read
+ephemerally and only project-authored evidence artifacts were retained.
+
+The run also tightened the source boundary. NPR and The Conversation remain
+discovery-only because their robots files prohibit named AI agents. Smithsonian
+returned HTTP 403 for an article request and UN News feed links did not expose a
+readable article body, so both remain discovery-only rather than being bypassed.
+An early Global Voices extraction selected a promotional card instead of the
+main entry; the artifacts were rejected, the extractor was corrected and
+regression-tested, and the two pages were reprocessed successfully.
+
+These observations are operational checks, not permanent guarantees. Source
+behavior and terms must be monitored and re-reviewed.

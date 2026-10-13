@@ -4,13 +4,11 @@ A living, evolving digital installation. Every day, a new world is generated
 from developments in science, technology, culture, health, climate and
 communities around the world.
 
-**Status:** Early prototype. The repository currently includes a fictional,
-artifact-driven interactive frontend demonstration, a server-side panorama
-stage, a provider-neutral landmark-detection stage, and world-generation
-orchestration with mock and optional hosted-provider adapters. Fixture-tested,
-bounded story-discovery and editorial-selection foundations are also underway.
-Live landmark detection and the automated daily pipeline are not yet implemented
-end to end.
+**Status:** Early prototype. The repository includes a fictional interactive
+demonstration and one live local factual vertical slice spanning bounded story
+discovery, editorial selection, image and world generation, landmark detection,
+3D hotspot baking, and local publication assembly. The scheduled AWS pipeline
+and public publication system are not yet implemented end to end.
 
 ## Thesis
 
@@ -65,7 +63,8 @@ an interactive world + historical archive
 The reference implementation uses official RSS and Atom feeds for story
 discovery. It does not depend on social feeds or unbounded website collection.
 After shortlisting, it may read a linked source ephemerally only when that use
-has been reviewed and permitted.
+has been reviewed and permitted. Sources can remain discovery-only when their
+terms, robots directives, or delivery behavior do not permit automated analysis.
 
 RSS is the starting point, not a limitation of the underlying pattern. Source
 adapters can be added for archives, datasets, APIs, private knowledge bases, or
@@ -172,9 +171,18 @@ cd frontend
 npm run world:local -- --source ../pipeline/artifacts/world/<run>/<edition>/assets/world.spz --name local-world.spz
 ```
 
-Then set `NEXT_PUBLIC_WORLD_SPLAT_URL=/generated/local-world.spz` and restart the
-frontend. This variable is public by design; provider credentials remain in the
-server-side pipeline environment only.
+Then set `NEXT_PUBLIC_WORLD_SPLAT_URL=/generated/local-world.spz` and
+`NEXT_PUBLIC_WORLD_SPLAT_SHA256` to the asset's SHA-256 checksum before
+restarting the frontend. The checksum prevents baked hotspots from being reused
+with the wrong world. These variables are public by design; provider credentials
+remain in the server-side pipeline environment only.
+
+The local vertical-slice utilities can bake detected panorama landmarks into a
+matching SPZ and assemble an ignored local publication manifest. They require a
+development browser with remote debugging enabled; see the local utility
+commands in `frontend/package.json` and the environment placeholders in
+`frontend/.env.example` before using them. Production baking will move into the
+automated publication pipeline.
 
 ### Run the panorama pipeline
 

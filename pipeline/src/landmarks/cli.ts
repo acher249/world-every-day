@@ -58,6 +58,16 @@ async function main() {
     : undefined;
   if (!mimeType) throw new Error(`Unsupported source-image format: ${metadata.format ?? "unknown"}`);
 
+  const analysisImageBytes = imageBytes.byteLength > 12 * 1024 * 1024
+    ? await sharp(imageBytes)
+      .resize({ width: 4096, height: 2048, fit: "fill" })
+      .jpeg({ quality: 88, chromaSubsampling: "4:4:4" })
+      .toBuffer()
+    : imageBytes;
+  const analysisMimeType = analysisImageBytes === imageBytes
+    ? mimeType
+    : "image/jpeg";
+
   if (options.dryRun) {
     console.log(JSON.stringify({
       dryRun: true,
@@ -78,8 +88,9 @@ async function main() {
   });
   const artifact = await detectLandmarks({
     editionId: artDirection.editionId,
-    imageBytes,
-    mimeType,
+    imageBytes: analysisImageBytes,
+    mimeType: analysisMimeType,
+    sourceImageBytes: imageBytes,
     artDirection,
     detector,
   });

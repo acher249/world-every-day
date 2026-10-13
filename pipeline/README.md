@@ -33,9 +33,9 @@ values you intend to use:
 ```dotenv
 GOOGLE_AI_API_KEY=
 NANO_BANANA_MODEL=gemini-nano-banana-2.1
-LANDMARK_VISION_MODEL=
-EDITORIAL_MODEL=
-ART_DIRECTION_MODEL=
+LANDMARK_VISION_MODEL=gemini-3.8-flash
+EDITORIAL_MODEL=gemini-3.8-flash
+ART_DIRECTION_MODEL=gemini-3.8-flash
 WORLD_LABS_KEY=
 WORLD_LABS_MODEL=marble-1.1
 ```
@@ -57,9 +57,11 @@ each generation artifact rather than inferred later.
 ## Story-discovery foundation
 
 The source module provides a bounded, provider-neutral foundation for daily
-story discovery. It parses allowlisted RSS and Atom feeds into a versioned candidate
-set, normalizes tracking URLs, applies the configured publication window, and
-deduplicates exact canonical URLs. One failed feed is isolated from the rest.
+story discovery. It parses allowlisted RSS and Atom feeds into a versioned
+candidate set, normalizes tracking URLs, applies the configured publication
+window, and deduplicates exact canonical URLs. One failed feed is isolated from
+the rest. Each source separately declares whether linked pages may be processed
+ephemerally or must remain discovery-only.
 
 Full article pages are fetched only after a candidate is shortlisted. The
 article reader removes page furniture, reads the permitted article text in
@@ -93,11 +95,16 @@ shape example. Live story discovery requires a reviewed configuration of permitt
 sources plus `--confirm-live-fetch`. Candidate output uses exclusive creation
 and will not overwrite an existing artifact.
 
-A small reviewed starter allowlist is available at
+A reviewed reference allowlist is available at
 `./config/source-configuration.initial.v1.json`. It is intended for controlled
-local validation, not yet as a complete production news policy. See the
+local validation, not yet as a complete production information policy. See the
 [source policy](../docs/editorial-policy/SOURCES.md) before adding or enabling
 sources.
+
+The 2026-10-13 live validation fetched all 16 configured feeds without a feed
+failure and found 54 candidates in a 24-hour window. That run produced one
+ten-story edition, one Nano Banana panorama, and one Marble 1.1 SPZ. Local live
+artifacts remain ignored by Git.
 
 ## Cost visibility
 

@@ -13,6 +13,7 @@ import {
   getNavigationRadius,
   smootherstep,
 } from "@/lib/spatial-navigation";
+import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
 
 export type ViewerState = "poster" | "loading" | "ready" | "error";
 
@@ -80,7 +81,7 @@ export function SparkWorld({
       try {
         setViewerState("loading");
 
-        const [{ Euler, Matrix4, Object3D, PerspectiveCamera, Quaternion, Scene, SRGBColorSpace, Vector3, WebGLRenderer }, sparkModule] =
+        const [{ Euler, Matrix4, Object3D, PerspectiveCamera, Quaternion, Raycaster, Scene, SRGBColorSpace, Vector3, WebGLRenderer }, sparkModule] =
           await Promise.all([
             import("three"),
             import("@sparkjsdev/spark"),
@@ -137,6 +138,49 @@ export function SparkWorld({
         camera.far = Math.max(maxDimension * 100, 100);
         camera.position.set(0, 0, 0);
         camera.updateProjectionMatrix();
+
+        if (process.env.NODE_ENV === "development") {
+          const developmentWindow = window as typeof window & {
+            __WORLD_EVERY_DAY_BAKE__?: (targets: Array<{
+              id: string;
+              x: number;
+              y: number;
+            }>) => Array<{
+              id: string;
+              imageTarget: { x: number; y: number };
+              worldPosition: { x: number; y: number; z: number } | null;
+            }>;
+          };
+          developmentWindow.__WORLD_EVERY_DAY_BAKE__ = (targets) => {
+            scene?.updateMatrixWorld(true);
+            const raycaster = new Raycaster();
+            raycaster.near = Math.max(maxDimension / 10000, 0.001);
+            raycaster.far = Math.max(maxDimension * 100, 100);
+
+            return targets.map(({ id, x, y }) => {
+              const direction = equirectangularTargetToDirection({ x, y });
+              raycaster.set(
+                new Vector3(0, 0, 0),
+                new Vector3(direction.x, direction.y, direction.z).normalize(),
+              );
+              const intersections: Array<{
+                distance: number;
+                point: InstanceType<typeof Vector3>;
+                object: InstanceType<typeof Object3D>;
+              }> = [];
+              splat?.raycast(raycaster, intersections);
+              intersections.sort((first, second) => first.distance - second.distance);
+              const point = intersections[0]?.point;
+              return {
+                id,
+                imageTarget: { x, y },
+                worldPosition: point
+                  ? { x: point.x, y: point.y, z: point.z }
+                  : null,
+              };
+            });
+          };
+        }
 
         const resize = () => {
           if (!renderer || !camera) return;
@@ -265,10 +309,10 @@ export function SparkWorld({
         const focusRotation = new Quaternion();
         const flightSpeed = Math.max(maxDimension * 0.014, 0.08);
         const floatPositionAmplitude = Math.min(
-          navigationRadius * 0.017,
-          maxDimension * 0.0028,
+          navigationRadius * 0.034,
+          maxDimension * 0.0056,
         );
-        const floatRotationAmplitude = 0.0055;
+        const floatRotationAmplitude = 0.011;
         const floatPhase = Math.random() * Math.PI * 2;
         let cameraFloatTime = 0;
         let previousFrameTime = performance.now();
@@ -469,6 +513,11 @@ export function SparkWorld({
 
     return () => {
       cancelled = true;
+      if (process.env.NODE_ENV === "development") {
+        delete (window as typeof window & {
+          __WORLD_EVERY_DAY_BAKE__?: unknown;
+        }).__WORLD_EVERY_DAY_BAKE__;
+      }
       resizeObserver?.disconnect();
       removeInputListeners.forEach((remove) => remove());
       renderer?.setAnimationLoop(null);

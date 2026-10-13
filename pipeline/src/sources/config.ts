@@ -28,6 +28,7 @@ export const sourceConfigurationSchema = z.object({
     publisher: z.string().min(1).max(160),
     feedUrl: httpsUrlSchema,
     kind: z.enum(["primary", "reporting"]),
+    articleAccess: z.enum(["discovery-only", "ephemeral-analysis"]).default("discovery-only"),
     allowedArticleHosts: z.array(hostnameSchema).max(20).default([]),
   })).min(1).max(100),
 }).superRefine((configuration, context) => {
