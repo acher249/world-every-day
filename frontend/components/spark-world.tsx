@@ -17,15 +17,27 @@ import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
 
 export type ViewerState = "poster" | "loading" | "ready" | "error";
 
-export type WorldAnchor = {
-  active: boolean;
+type WorldAnchorBase = {
   fallbackScreenPosition: { x: number; y: number };
   id: string;
-  label: string;
-  number: string;
-  tone: "cyan" | "amber" | "green";
   worldPosition: { x: number; y: number; z: number };
 };
+
+export type WorldAnchor = WorldAnchorBase & ({
+  kind: "story";
+  active: boolean;
+  category: string;
+  label: string;
+  number: string;
+  summary: string;
+  tone: "cyan" | "amber" | "green";
+} | {
+  kind: "echo";
+  explanation: string;
+  label: string;
+  storyNumber: string;
+  storyTitle: string;
+});
 
 type SparkWorldProps = {
   focusedAnchorId?: string | null;
@@ -34,6 +46,7 @@ type SparkWorldProps = {
   onAnchorSelect?: (id: string) => void;
   onViewerStateChange?: (state: ViewerState) => void;
   posterSrc: string;
+  splatSha256?: string;
   splatUrl?: string;
 };
 
@@ -44,10 +57,11 @@ export function SparkWorld({
   onAnchorSelect,
   onViewerStateChange,
   posterSrc,
+  splatSha256,
   splatUrl,
 }: SparkWorldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const anchorElementsRef = useRef(new Map<string, HTMLButtonElement>());
+  const anchorElementsRef = useRef(new Map<string, HTMLElement>());
   const anchorsRef = useRef(anchors);
   const focusedAnchorIdRef = useRef(focusedAnchorId);
   const [viewerState, setViewerState] = useState<ViewerState>(
@@ -67,6 +81,7 @@ export function SparkWorld({
       setViewerState("poster");
       return;
     }
+    const sourceSplatUrl = splatUrl;
 
     let cancelled = false;
     let renderer: WebGLRenderer | undefined;
@@ -116,7 +131,9 @@ export function SparkWorld({
         scene.add(spark);
 
         splat = new sparkModule.SplatMesh({
-          url: splatUrl,
+          minRaycastOpacity: 0.01,
+          raycastable: true,
+          url: sourceSplatUrl,
           onProgress: (event) => {
             if (!event.lengthComputable || cancelled) return;
             setProgress(Math.round((event.loaded / event.total) * 100));
@@ -138,10 +155,17 @@ export function SparkWorld({
         camera.far = Math.max(maxDimension * 100, 100);
         camera.position.set(0, 0, 0);
         camera.updateProjectionMatrix();
+        renderer.render(scene, camera);
+        camera.updateMatrixWorld();
 
         if (process.env.NODE_ENV === "development") {
           const developmentWindow = window as typeof window & {
+            __WORLD_EVERY_DAY_BAKE_INFO__?: {
+              sourceSplatSha256?: string;
+              splatUrl: string;
+            };
             __WORLD_EVERY_DAY_BAKE__?: (targets: Array<{
+              boundingBox?: { xMin: number; yMin: number; xMax: number; yMax: number };
               id: string;
               x: number;
               y: number;
@@ -151,35 +175,67 @@ export function SparkWorld({
               worldPosition: { x: number; y: number; z: number } | null;
             }>;
           };
-          developmentWindow.__WORLD_EVERY_DAY_BAKE__ = (targets) => {
+          const bakeInteractions = (targets: Array<{
+            boundingBox?: { xMin: number; yMin: number; xMax: number; yMax: number };
+            id: string;
+            x: number;
+            y: number;
+          }>) => {
             scene?.updateMatrixWorld(true);
             const raycaster = new Raycaster();
             raycaster.near = Math.max(maxDimension / 10000, 0.001);
             raycaster.far = Math.max(maxDimension * 100, 100);
 
-            return targets.map(({ id, x, y }) => {
-              const direction = equirectangularTargetToDirection({ x, y });
-              raycaster.set(
-                new Vector3(0, 0, 0),
-                new Vector3(direction.x, direction.y, direction.z).normalize(),
-              );
-              const intersections: Array<{
-                distance: number;
-                point: InstanceType<typeof Vector3>;
-                object: InstanceType<typeof Object3D>;
-              }> = [];
-              splat?.raycast(raycaster, intersections);
-              intersections.sort((first, second) => first.distance - second.distance);
-              const point = intersections[0]?.point;
+            return targets.map(({ boundingBox, id, x, y }) => {
+              const candidates = [{ x, y }];
+              if (boundingBox) {
+                const width = boundingBox.xMax - boundingBox.xMin;
+                const height = boundingBox.yMax - boundingBox.yMin;
+                for (const scale of [0.16, 0.32, 0.46]) {
+                  for (const [offsetX, offsetY] of [
+                    [0, -1], [1, 0], [0, 1], [-1, 0],
+                    [1, -1], [1, 1], [-1, 1], [-1, -1],
+                  ]) {
+                    candidates.push({
+                      x: Math.min(boundingBox.xMax, Math.max(boundingBox.xMin, x + width * scale * offsetX)),
+                      y: Math.min(boundingBox.yMax, Math.max(boundingBox.yMin, y + height * scale * offsetY)),
+                    });
+                  }
+                }
+              }
+              let hit: { imageTarget: { x: number; y: number }; point: InstanceType<typeof Vector3> } | undefined;
+              for (const candidate of candidates) {
+                const direction = equirectangularTargetToDirection(candidate);
+                raycaster.set(
+                  new Vector3(0, 0, 0),
+                  new Vector3(direction.x, direction.y, direction.z).normalize(),
+                );
+                const intersections: Array<{
+                  distance: number;
+                  point: InstanceType<typeof Vector3>;
+                  object: InstanceType<typeof Object3D>;
+                }> = [];
+                splat?.raycast(raycaster, intersections);
+                intersections.sort((first, second) => first.distance - second.distance);
+                if (intersections[0]?.point) {
+                  hit = { imageTarget: candidate, point: intersections[0].point };
+                  break;
+                }
+              }
               return {
                 id,
-                imageTarget: { x, y },
-                worldPosition: point
-                  ? { x: point.x, y: point.y, z: point.z }
+                imageTarget: hit?.imageTarget ?? { x, y },
+                worldPosition: hit
+                  ? { x: hit.point.x, y: hit.point.y, z: hit.point.z }
                   : null,
               };
             });
           };
+          developmentWindow.__WORLD_EVERY_DAY_BAKE_INFO__ = {
+            sourceSplatSha256: splatSha256,
+            splatUrl: sourceSplatUrl,
+          };
+          developmentWindow.__WORLD_EVERY_DAY_BAKE__ = bakeInteractions;
         }
 
         const resize = () => {
@@ -515,6 +571,9 @@ export function SparkWorld({
       cancelled = true;
       if (process.env.NODE_ENV === "development") {
         delete (window as typeof window & {
+          __WORLD_EVERY_DAY_BAKE_INFO__?: unknown;
+        }).__WORLD_EVERY_DAY_BAKE_INFO__;
+        delete (window as typeof window & {
           __WORLD_EVERY_DAY_BAKE__?: unknown;
         }).__WORLD_EVERY_DAY_BAKE__;
       }
@@ -525,7 +584,7 @@ export function SparkWorld({
       spark?.dispose();
       renderer?.dispose();
     };
-  }, [splatUrl]);
+  }, [splatSha256, splatUrl]);
 
   const showPoster = viewerState === "poster" || viewerState === "error";
 
@@ -548,7 +607,7 @@ export function SparkWorld({
         aria-label={splatUrl ? `Interactive 3D world. ${alt}` : undefined}
         aria-hidden={viewerState !== "ready"}
       />
-      {anchors.map((anchor) => (
+      {anchors.map((anchor) => anchor.kind === "story" ? (
         <button
           key={anchor.id}
           ref={(element) => {
@@ -565,10 +624,47 @@ export function SparkWorld({
           aria-label={`Explore story ${anchor.number}: ${anchor.label}`}
           aria-pressed={anchor.active}
         >
-          <span className="hotspot-pulse" aria-hidden="true" />
-          <span className="hotspot-core">{anchor.number}</span>
-          <span className="hotspot-label">{anchor.label}</span>
+          <span className="hotspot-visual" aria-hidden="true">
+            <span className="hotspot-pulse" />
+            <span className="hotspot-orbit"><i /></span>
+            <span className="hotspot-core">{anchor.number}</span>
+          </span>
+          <span className="hotspot-label hotspot-story-label">
+            <small>Story {anchor.number} · {anchor.category}</small>
+            <strong>{anchor.label}</strong>
+            <span>{anchor.summary}</span>
+            <em>Click to explore</em>
+          </span>
         </button>
+      ) : (
+        <div
+          key={anchor.id}
+          ref={(element) => {
+            if (element) anchorElementsRef.current.set(anchor.id, element);
+            else anchorElementsRef.current.delete(anchor.id);
+          }}
+          className="story-echo"
+          data-anchor-id={anchor.id}
+          data-anchor-state="baked"
+          style={{
+            transform: `translate3d(${anchor.fallbackScreenPosition.x * 100}vw, ${anchor.fallbackScreenPosition.y * 100}vh, 0) translate(-50%, -50%)`,
+          }}
+          tabIndex={0}
+          role="note"
+          aria-label={`Story Echo for story ${anchor.storyNumber}: ${anchor.label}. ${anchor.explanation}`}
+        >
+          <span className="story-echo-visual" aria-hidden="true">
+            <span className="story-echo-pulse" />
+            <span className="story-echo-orbit"><i /></span>
+            <span className="story-echo-core">✦</span>
+          </span>
+          <span className="hotspot-label story-echo-label">
+            <small>Story Echo · Story {anchor.storyNumber}</small>
+            <strong>{anchor.label}</strong>
+            <span>{anchor.explanation}</span>
+            <em>{anchor.storyTitle}</em>
+          </span>
+        </div>
       ))}
       {splatUrl && viewerState === "loading" ? (
         <div className="spark-loading" role="status">

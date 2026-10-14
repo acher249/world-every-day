@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildScenePrompt } from "../art-direction/prompt.js";
 import { parseArtDirection } from "../art-direction/schema.js";
+import { artifactSha256 } from "../editorial/select.js";
 import { buildPanoramaPrompt } from "./prompt.js";
 import { sha256 } from "./hash.js";
 import { NanoBananaGenerator } from "./generator.js";
@@ -60,6 +61,7 @@ function parseArguments(arguments_: string[]): CliOptions {
 
 async function readScenePrompt(options: CliOptions): Promise<{
   editionId?: string;
+  artDirectionSha256?: string;
   inputType: "art-direction" | "scene-prompt";
   promptVersion?: string;
   scenePrompt: string;
@@ -71,6 +73,7 @@ async function readScenePrompt(options: CliOptions): Promise<{
     const artDirection = parseArtDirection(input);
     return {
       editionId: artDirection.editionId,
+      artDirectionSha256: artifactSha256(artDirection),
       inputType: "art-direction",
       promptVersion: artDirection.promptVersion,
       scenePrompt: buildScenePrompt(artDirection),
@@ -120,6 +123,8 @@ async function main(): Promise<void> {
   const outputDirectory = resolve(options.outputDirectory ?? defaultOutputDirectory());
   const generator = new NanoBananaGenerator({ apiKey, model });
   const manifestPath = await runPanorama({
+    artDirectionSha256: promptInput.artDirectionSha256,
+    editionId: promptInput.editionId,
     scenePrompt: promptInput.scenePrompt,
     model,
     outputDirectory,

@@ -22,6 +22,25 @@ test("the demonstration publication is a valid ten-story artifact", async () => 
   assert.equal(manifest.stories.length, 10);
   assert.equal(new Set(manifest.stories.map((story) => story.id)).size, 10);
   assert.equal(manifest.world.interactionMapping.method, "spherical-raycast");
+  assert.deepEqual(manifest.storyEchoes, []);
+});
+
+test("story echoes remain separate from stories and reference an existing story", async () => {
+  const fixture = (await readFixture()) as PublicationManifest;
+  fixture.storyEchoes = [{
+    id: `${fixture.stories[0].id}-echo`,
+    storyId: fixture.stories[0].id,
+    label: "Cratered terrain",
+    explanation: "The crater reflects the terrain described in this story.",
+    interaction: {
+      imageTarget: { x: 0.72, y: 0.57 },
+      worldPosition: { x: 2, y: 0.4, z: -3 },
+    },
+  }];
+
+  assert.equal(parsePublicationManifest(fixture).storyEchoes.length, 1);
+  fixture.storyEchoes[0].storyId = "missing-story";
+  assert.throws(() => parsePublicationManifest(fixture), /unknown story/);
 });
 
 test("baked interactions identify the exact source splat", async () => {

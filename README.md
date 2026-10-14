@@ -189,6 +189,8 @@ automated publication pipeline.
 The first pipeline utility generates a 360-degree equirectangular image, repairs
 its longitude seam, and prepares an 8192 × 4096 delivery asset. See the
 [pipeline guide](pipeline/README.md) for setup, dry-run, and validation commands.
+The guide also includes a no-cost `npm run edition` command that exercises the
+complete resumable artifact chain locally with fictional providers.
 For opt-in live provider runs, copy `pipeline/.env.example` to `pipeline/.env`
 and populate the server-only keys documented there. The populated file is
 ignored by Git and must never be committed.

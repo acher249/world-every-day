@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { ART_DIRECTION_GENERATION_PROMPT_VERSION, generateArtDirection, type ArtDirectionProvider } from "../src/art-direction/generate.js";
+import {
+  ART_DIRECTION_GENERATION_PROMPT_VERSION,
+  assignCompositionRoles,
+  generateArtDirection,
+  type ArtDirectionProvider,
+} from "../src/art-direction/generate.js";
 import { buildArtDirectionPrompt } from "../src/art-direction/google.js";
 import { buildScenePrompt } from "../src/art-direction/prompt.js";
 import { selectedEditionSchema } from "../src/editorial/edition.js";
@@ -124,4 +129,15 @@ test("art-direction prompt distinguishes grounded details from interpretation", 
 
   assert.match(prompt, /never present them as reported facts/i);
   assert.match(prompt, /one continuous setting/i);
+  assert.match(prompt, /full 360 degrees/i);
+  assert.match(prompt, /avoid flat-frame terms/i);
+  assert.match(prompt, /never place multiple story subjects/i);
+});
+
+test("art-direction generation requests flexible circulation and separate landmark bays", () => {
+  const prompt = buildArtDirectionPrompt(assignCompositionRoles(edition()));
+  assert.match(prompt, /loop, oval, meandering trail/i);
+  assert.match(prompt, /separate landmark bays/i);
+  assert.match(prompt, /do not default every world/i);
+  assert.match(prompt, /low-detail ground or open space/i);
 });

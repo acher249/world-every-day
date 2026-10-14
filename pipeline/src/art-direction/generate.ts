@@ -9,12 +9,15 @@ import {
   type ArtDirection,
 } from "./schema.js";
 
-export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v1";
+export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v3";
 
 export const defaultArtDirectionConstraints = {
   required: [
     "one continuous environment with coherent terrain and lighting",
-    "every story subject visually distinct and spatially separated",
+    "every story subject visually distinct and separated into its own spherical viewing sector",
+    "landmarks distributed around the viewer to reward a full 360-degree turn",
+    "a calm open orientation zone with clear outward sightlines",
+    "one coherent circulation system linking separate landmark bays",
     "strong silhouettes and readable physical materials",
     "open navigable paths and layered spatial depth",
   ],
@@ -22,6 +25,8 @@ export const defaultArtDirectionConstraints = {
     "people, faces, portraits, crowds, or humanoid figures",
     "written text, labels, logos, flags, interfaces, borders, or watermarks",
     "split panels, floating collage fragments, or duplicated landmarks",
+    "foreground clusters, hero compositions, or groups of story subjects sharing one viewing direction",
+    "overlapping landmark silhouettes or multiple story subjects sharing one platform, terrace, or display area",
     "graphic violence, catastrophe spectacle, advertising, or clickbait imagery",
   ],
 } as const;
@@ -141,7 +146,7 @@ export async function generateArtDirection({
     artifactType: "art-direction",
     editionId: validatedEdition.editionId,
     createdAt: createdAt.toISOString(),
-    promptVersion: "panorama-scene-v1",
+    promptVersion: "panorama-scene-v3",
     inputs: { selectedEditionSha256: artifactSha256(validatedEdition) },
     producer: {
       type: provider.provider === "fixture" ? "fixture" : "model",

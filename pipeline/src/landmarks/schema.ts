@@ -5,6 +5,11 @@ const idSchema = z
   .min(1)
   .max(80)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+const interactionIdSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 const normalizedPointSchema = z.object({
   x: z.number().min(0).max(1),
@@ -37,8 +42,34 @@ export const landmarkDetectionSchema = z.object({
   }
 });
 
+export const contextMarkerDetectionSchema = z.object({
+  storyId: idSchema,
+  label: z.string().min(1).max(100),
+  explanation: z.string().min(1).max(300),
+  boundingBox: z.object({
+    xMin: z.number().min(0).max(1),
+    yMin: z.number().min(0).max(1),
+    xMax: z.number().min(0).max(1),
+    yMax: z.number().min(0).max(1),
+  }),
+  target: normalizedPointSchema,
+  confidence: z.number().min(0).max(1),
+}).superRefine((marker, context) => {
+  const { boundingBox, target } = marker;
+  if (boundingBox.xMin > boundingBox.xMax || boundingBox.yMin > boundingBox.yMax) {
+    context.addIssue({ code: "custom", message: "Context marker bounding box is inverted" });
+  }
+  if (
+    target.x < boundingBox.xMin || target.x > boundingBox.xMax ||
+    target.y < boundingBox.yMin || target.y > boundingBox.yMax
+  ) {
+    context.addIssue({ code: "custom", message: "Context marker target must fall inside its bounding box" });
+  }
+});
+
 export const landmarkDetectionResponseSchema = z.object({
   landmarks: z.array(landmarkDetectionSchema).min(1).max(10),
+  contextMarkers: z.array(contextMarkerDetectionSchema).max(8).default([]),
 });
 
 export const landmarkArtifactSchema = z.object({
@@ -63,6 +94,7 @@ export const landmarkArtifactSchema = z.object({
     model: z.string().min(1).max(160),
   }),
   landmarks: z.array(landmarkDetectionSchema).min(1).max(10),
+  contextMarkers: z.array(contextMarkerDetectionSchema.extend({ id: interactionIdSchema })).max(8).default([]),
 });
 
 export type LandmarkDetection = z.infer<typeof landmarkDetectionSchema>;

@@ -26,6 +26,14 @@ const staggeredText = {
   exit: { transition: { staggerChildren: 0.025, staggerDirection: -1 } },
 };
 
+function conciseSummary(value: string, maximumLength = 150): string {
+  const firstSentence = value.match(/^.*?[.!?](?:\s|$)/)?.[0].trim();
+  const candidate = firstSentence && firstSentence.length >= 60 ? firstSentence : value;
+  if (candidate.length <= maximumLength) return candidate;
+  const shortened = candidate.slice(0, maximumLength - 1).replace(/\s+\S*$/, "").trimEnd();
+  return `${shortened}…`;
+}
+
 const controls = [
   { action: "Look around", keys: ["Mouse drag"] },
   { action: "Move", keys: ["W", "A", "S", "D"] },
@@ -256,7 +264,7 @@ export function WorldExperience({ publication }: { publication: PublicationManif
   const localSplatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
   const localSplatSha256 = process.env.NEXT_PUBLIC_WORLD_SPLAT_SHA256;
   const splatUrl = publication.world.splat?.url ?? localSplatUrl;
-  const { edition, stories } = publication;
+  const { edition, stories, storyEchoes } = publication;
   const renderedSplatSha256 = publication.world.splat?.sha256 ?? localSplatSha256;
   const interactionsMatchRenderedWorld = canRenderWorldInteractions({
     interactionSplatSha256:
@@ -273,8 +281,11 @@ export function WorldExperience({ publication }: { publication: PublicationManif
     [activeId, stories],
   );
   const anchors = useMemo<WorldAnchor[]>(
-    () => interactionsMatchRenderedWorld ? stories.map((story, index) => ({
+    () => interactionsMatchRenderedWorld ? [
+      ...stories.map((story, index): WorldAnchor => ({
+      kind: "story",
       active: activeId === story.id,
+      category: story.category,
       fallbackScreenPosition: {
         x: story.interaction.screenRegion.x,
         y: story.interaction.screenRegion.y,
@@ -282,10 +293,26 @@ export function WorldExperience({ publication }: { publication: PublicationManif
       id: story.id,
       label: story.title,
       number: String(index + 1).padStart(2, "0"),
+      summary: conciseSummary(story.summary),
       tone: story.interaction.screenRegion.tone,
       worldPosition: story.interaction.worldPosition,
-    })) : [],
-    [activeId, interactionsMatchRenderedWorld, stories],
+    })),
+      ...storyEchoes.map((echo): WorldAnchor => {
+        const storyIndex = stories.findIndex(({ id }) => id === echo.storyId);
+        const story = stories[storyIndex];
+        return {
+          kind: "echo",
+          explanation: echo.explanation,
+          fallbackScreenPosition: echo.interaction.imageTarget,
+          id: echo.id,
+          label: echo.label,
+          storyNumber: String(storyIndex + 1).padStart(2, "0"),
+          storyTitle: story?.title ?? "Related story",
+          worldPosition: echo.interaction.worldPosition,
+        };
+      }),
+    ] : [],
+    [activeId, interactionsMatchRenderedWorld, stories, storyEchoes],
   );
   const activeStoryIndex = activeStory
     ? stories.findIndex((story) => story.id === activeStory.id)
@@ -331,6 +358,7 @@ export function WorldExperience({ publication }: { publication: PublicationManif
         <SparkWorld
           focusedAnchorId={activeId}
           posterSrc={publication.world.poster.src}
+          splatSha256={renderedSplatSha256}
           splatUrl={splatUrl}
           anchors={anchors}
           onAnchorSelect={(id) => {

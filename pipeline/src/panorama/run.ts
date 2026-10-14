@@ -1,20 +1,26 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import sharp from "sharp";
 import {
   DEFAULT_PANORAMA_CONFIG,
   defaultProcessingConfig,
+  type PanoramaProcessingConfig,
 } from "./config.js";
 import type { PanoramaGenerator } from "./generator.js";
 import { sha256 } from "./hash.js";
 import { createPanoramaAssets } from "./process.js";
 import { buildPanoramaPrompt } from "./prompt.js";
+import { panoramaManifestSchema } from "./schema.js";
 
 type RunPanoramaOptions = {
+  artDirectionSha256?: string;
+  editionId?: string;
   scenePrompt: string;
   model: string;
   outputDirectory: string;
+  provider?: string;
   generator: PanoramaGenerator;
+  processingConfig?: PanoramaProcessingConfig;
 };
 
 function extensionForMimeType(mimeType: string): string {
@@ -30,10 +36,14 @@ function artifactPath(root: string, path: string): string {
 }
 
 export async function runPanorama({
+  artDirectionSha256,
+  editionId,
   scenePrompt,
   model,
   outputDirectory,
+  provider = "google",
   generator,
+  processingConfig = defaultProcessingConfig(),
 }: RunPanoramaOptions): Promise<string> {
   const outputRoot = resolve(outputDirectory);
   await mkdir(dirname(outputRoot), { recursive: true });
@@ -50,14 +60,19 @@ export async function runPanorama({
   const artifacts = await createPanoramaAssets(
     normalizedPath,
     outputRoot,
-    defaultProcessingConfig(),
+    processingConfig,
   );
 
-  const manifest = {
+  const deliveryBytes = await readFile(artifacts.deliveryPath);
+
+  const manifest = panoramaManifestSchema.parse({
     schemaVersion: 1,
+    artifactType: "panorama-manifest",
+    editionId,
     createdAt: new Date().toISOString(),
     stage: "panorama-generation",
-    provider: "google",
+    inputs: artDirectionSha256 ? { artDirectionSha256 } : undefined,
+    provider,
     model,
     request: {
       prompt,
@@ -83,14 +98,17 @@ export async function runPanorama({
         width: DEFAULT_PANORAMA_CONFIG.seamFeatherWidth,
       },
       deliveryResize: {
-        width: DEFAULT_PANORAMA_CONFIG.delivery.width,
-        height: DEFAULT_PANORAMA_CONFIG.delivery.height,
+        width: processingConfig.deliveryWidth,
+        height: processingConfig.deliveryHeight,
         kernel: "lanczos3",
         nativeDetail: false,
       },
     },
     metrics: {
       longitudeSeam: artifacts.metrics,
+    },
+    outputs: {
+      delivery8kSha256: sha256(deliveryBytes),
     },
     files: {
       original: artifactPath(outputRoot, originalPath),
@@ -102,7 +120,7 @@ export async function runPanorama({
       ),
       delivery8k: artifactPath(outputRoot, artifacts.deliveryPath),
     },
-  };
+  });
 
   const manifestPath = resolve(outputRoot, "manifest.json");
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

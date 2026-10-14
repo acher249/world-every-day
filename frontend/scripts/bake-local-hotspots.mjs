@@ -87,11 +87,19 @@ if (detections.artifactType !== "landmark-detections") {
   throw new Error("--detections must reference a landmark-detections artifact");
 }
 const splatBytes = await readFile(resolve(options.splat));
-const targets = detections.landmarks.map((landmark) => ({
-  id: landmark.storyId,
-  x: landmark.target.x,
-  y: landmark.target.y,
-}));
+const sourceSplatSha256 = sha256(splatBytes);
+const targets = [
+  ...detections.landmarks.map((landmark) => ({
+    id: landmark.storyId,
+    x: landmark.target.x,
+    y: landmark.target.y,
+  })),
+  ...(detections.contextMarkers ?? []).map((marker) => ({
+    id: marker.id,
+    x: marker.target.x,
+    y: marker.target.y,
+  })),
+];
 if (new Set(targets.map(({ id }) => id)).size !== targets.length) {
   throw new Error("Landmark detections contain duplicate story ids");
 }
@@ -116,6 +124,15 @@ try {
   }
   if (!ready) throw new Error("The Spark.js hotspot baker did not become ready");
 
+  const infoResult = await client.call("Runtime.evaluate", {
+    expression: "globalThis.__WORLD_EVERY_DAY_BAKE_INFO__",
+    returnByValue: true,
+  });
+  const bakeInfo = infoResult.result?.value;
+  if (bakeInfo?.sourceSplatSha256 !== sourceSplatSha256) {
+    throw new Error("The Spark.js hotspot baker loaded a different world asset");
+  }
+
   const result = await client.call("Runtime.evaluate", {
     expression: `globalThis.__WORLD_EVERY_DAY_BAKE__(${JSON.stringify(targets)})`,
     returnByValue: true,
@@ -136,11 +153,11 @@ try {
     createdAt: new Date().toISOString(),
     method: "spherical-raycast",
     sourceImageSha256: detections.sourceImage.sha256,
-    sourceSplatSha256: sha256(splatBytes),
+    sourceSplatSha256,
     anchors,
   };
   await writeFile(resolve(options.output), `${JSON.stringify(artifact, null, 2)}\n`, { flag: "wx" });
-  console.log(`Wrote ${anchors.length} baked hotspots to ${resolve(options.output)}`);
+  console.log(`Wrote ${anchors.length} baked interaction anchors to ${resolve(options.output)}`);
 } finally {
   client.close();
 }

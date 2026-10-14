@@ -1,8 +1,9 @@
 # Pipeline
 
-The pipeline package contains server-side stages for producing daily-world
-artifacts. Its first implemented stage generates and prepares a full-sphere
-equirectangular panorama for world generation.
+The pipeline package contains the server-side stages for producing daily-world
+artifacts. A resumable fixture-backed runner now connects the complete artifact
+chain locally, while live provider stages remain separately and deliberately
+enabled.
 
 ## Panorama stage
 
@@ -238,12 +239,84 @@ then rerun without that option to resume. Invalid or stale artifacts stop the
 run instead of being overwritten. This fixture demonstrates pipeline mechanics
 with one fictional story; daily editions still target up to ten real stories.
 
+Run the entire fictional chain, including panorama processing, landmark
+detection, mock world generation, interaction mapping, and publication
+assembly:
+
+```bash
+npm run edition -- \
+  --date 2026-10-13 \
+  --run-dir ./artifacts/mock-edition
+```
+
+Mock mode is the default. It does not use the network,
+credentials, or paid services. Progress is derived from immutable artifacts,
+so rerunning the same command resumes at the first missing stage and a completed
+run is a no-op. Use `--stop-after panorama` (or any reported stage) to pause,
+then rerun without it to continue. Use `--dry-run` to inspect the next stage
+without writing files. The resulting `publication/publication-manifest.json`
+matches the frontend contract, while its mock world asset remains intentionally
+non-renderable.
+
+Live mode uses the same resumable artifact chain. It stops after art direction
+for human review before any image or world is generated. Retrieval and each
+hosted model stage have separate, explicit confirmation flags. Begin with a
+no-cost validation:
+
+```bash
+npm run edition -- \
+  --mode live \
+  --date 2026-10-13 \
+  --run-dir ./artifacts/live-edition \
+  --window-start 2026-10-12T14:30:00.000Z \
+  --window-end 2026-10-13T14:30:00.000Z \
+  --dry-run
+```
+
+Run the discovery and editorial half only when its network and hosted-model
+requests are intended:
+
+```bash
+npm run edition -- \
+  --mode live \
+  --date 2026-10-13 \
+  --run-dir ./artifacts/live-edition \
+  --window-start 2026-10-12T14:30:00.000Z \
+  --window-end 2026-10-13T14:30:00.000Z \
+  --confirm-live-fetch \
+  --confirm-editorial-analysis
+```
+
+Inspect `editorial/selected-edition.json` and
+`art-direction/art-direction.json`. Resume generation only after that review:
+
+```bash
+npm run edition -- \
+  --mode live \
+  --date 2026-10-13 \
+  --run-dir ./artifacts/live-edition \
+  --approve-review \
+  --reviewer your-name \
+  --confirm-panorama-generation \
+  --confirm-landmark-analysis \
+  --confirm-world-generation
+```
+
+Interaction baking also requires the frontend development server and a local
+Chromium debugging endpoint; it verifies that Spark.js loaded the exact SPZ by
+checksum before saving world-space anchors. The publication stage copies an
+immutable poster, SPZ, and publication manifest into the frontend's ignored
+`public/generated/` directory for local review.
+
 ## Landmark-detection stage
 
 The landmark module defines a replaceable multimodal detector and a versioned
 artifact for locating every story subject in the final `2:1` panorama. Each
 detection records a normalized bounding box, a solid-surface target point,
 confidence, visibility, source-image checksum, and provider provenance.
+The provider receives a bounded `2048 × 1024` JPEG analysis copy to control
+latency and cost, while the artifact retains the checksum and dimensions of the
+original 8K panorama used for world generation and raycasting.
 
 `GoogleLandmarkDetector` is the first optional adapter and uses
 `LANDMARK_VISION_MODEL`. Calling it is a paid operation and is not part of

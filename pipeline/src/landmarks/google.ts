@@ -3,46 +3,6 @@ import { buildLandmarkDetectionPrompt } from "./prompt.js";
 import type { LandmarkDetectionInput, LandmarkDetector } from "./provider.js";
 import { parseLandmarkDetectionResponse } from "./schema.js";
 
-const responseJsonSchema = {
-  type: "object",
-  required: ["landmarks"],
-  properties: {
-    landmarks: {
-      type: "array",
-      minItems: 1,
-      maxItems: 10,
-      items: {
-        type: "object",
-        required: ["storyId", "label", "boundingBox", "target", "confidence", "visibility"],
-        properties: {
-          storyId: { type: "string" },
-          label: { type: "string" },
-          boundingBox: {
-            type: "object",
-            required: ["xMin", "yMin", "xMax", "yMax"],
-            properties: {
-              xMin: { type: "number", minimum: 0, maximum: 1 },
-              yMin: { type: "number", minimum: 0, maximum: 1 },
-              xMax: { type: "number", minimum: 0, maximum: 1 },
-              yMax: { type: "number", minimum: 0, maximum: 1 },
-            },
-          },
-          target: {
-            type: "object",
-            required: ["x", "y"],
-            properties: {
-              x: { type: "number", minimum: 0, maximum: 1 },
-              y: { type: "number", minimum: 0, maximum: 1 },
-            },
-          },
-          confidence: { type: "number", minimum: 0, maximum: 1 },
-          visibility: { type: "string", enum: ["clear", "partial", "uncertain", "not-found"] },
-        },
-      },
-    },
-  },
-} as const;
-
 export class GoogleLandmarkDetector implements LandmarkDetector {
   readonly id = "google-genai";
   readonly model: string;
@@ -67,7 +27,6 @@ export class GoogleLandmarkDetector implements LandmarkDetector {
       }],
       config: {
         responseMimeType: "application/json",
-        responseJsonSchema,
       },
     });
 

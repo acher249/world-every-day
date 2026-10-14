@@ -13,6 +13,7 @@
     "editorial:evaluate": "node --import tsx src/editorial/evaluate-cli.ts",
     "editorial:finalize": "node --import tsx src/editorial/finalize-cli.ts",
     "editorial:select": "node --import tsx src/editorial/select-cli.ts",
+    "edition": "node --import tsx src/workflow/edition-cli.ts",
     "landmarks:detect": "node --import tsx src/landmarks/cli.ts",
     "license:check": "node scripts/check-licenses.mjs",
     "panorama": "node --import tsx src/panorama/cli.ts",

@@ -94,6 +94,33 @@ test("world generation persists one submission and resumes through completion", 
   }
 });
 
+test("mock world operations resume after the provider object is recreated", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "daily-world-process-resume-"));
+  try {
+    const sourceBytes = Buffer.from("synthetic source image bytes");
+    const sourcePath = resolve(directory, "source.png");
+    await writeFile(sourcePath, sourceBytes);
+    const request = requestFor(sourceBytes);
+    const store = new LocalWorldArtifactStore(resolve(directory, "artifacts"));
+
+    await startWorldGeneration({
+      generator: new MockWorldGenerator({ pollsBeforeCompletion: 2 }),
+      request,
+      sourceImagePath: sourcePath,
+      store,
+    });
+    const completed = await refreshWorldGeneration({
+      generator: new MockWorldGenerator({ pollsBeforeCompletion: 2 }),
+      request,
+      store,
+    });
+
+    assert.equal(completed.status, "completed");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("provider failures become terminal typed operation records", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "daily-world-failure-"));
   try {

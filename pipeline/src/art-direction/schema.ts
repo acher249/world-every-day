@@ -37,7 +37,7 @@ export const artDirectionSchema = z
     artifactType: z.literal("art-direction"),
     editionId: idSchema,
     createdAt: z.iso.datetime({ offset: true }),
-    promptVersion: z.literal("panorama-scene-v1"),
+    promptVersion: z.enum(["panorama-scene-v1", "panorama-scene-v2", "panorama-scene-v3"]),
     inputs: z.object({
       selectedEditionSha256: z.string().regex(/^[a-f0-9]{64}$/),
     }).optional(),
@@ -45,7 +45,11 @@ export const artDirectionSchema = z
       type: z.enum(["fixture", "model", "human"]),
       provider: z.string().min(1).max(100).optional(),
       model: z.string().min(1).max(160).optional(),
-      promptVersion: z.literal("art-direction-generation-v1"),
+      promptVersion: z.enum([
+        "art-direction-generation-v1",
+        "art-direction-generation-v2",
+        "art-direction-generation-v3",
+      ]),
       usage: providerUsageSchema.optional(),
     }).optional(),
     world: artDirectionWorldSchema,

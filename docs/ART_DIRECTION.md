@@ -1,7 +1,7 @@
 # Art direction
 
 Status: working guide  
-Last updated: 2026-10-12
+Last updated: 2026-10-13
 
 This document contains the evolving visual rules for generating a daily world.
 They belong here—and eventually in versioned pipeline configuration—rather than
@@ -12,6 +12,11 @@ in the project introduction.
 Each edition should become a coherent, playful, diagrammatic world made from
 physical elements inspired by the selected stories. It should feel like one
 place to explore, not a collage of unrelated illustrations.
+
+Diagrammatic describes the world's clarity and organization, not a flat or
+cartoon visual style. The environment should retain grounded cinematic realism,
+believable materials, atmospheric depth, and an expansive scale that feels
+inhabitable rather than miniature.
 
 The generated image is an intermediate artwork and the visual foundation for the
 3D world. The world model interprets that image rather than reproducing exact
@@ -44,6 +49,36 @@ Every selected story should remain discoverable through the interface even when
 its visual prominence is small. Prefer one unifying setting with navigable depth
 over separate panels or isolated scenes.
 
+Compose for a visitor standing near the center of a spherical environment, not
+for a single forward-facing hero image. Story landmarks occupy separate azimuth
+sectors around the full 360-degree turn. Anchors should be far apart, supporting
+subjects should fill other major directions, and smaller details should sit in
+the gaps. The initial view may introduce the world, but visitors should need to
+look left, right, and behind to find the complete edition.
+
+Keep the camera near standing eye height, approximately 1.7 meters above the
+walking surface. Place recognizable landmark mass in a comfortable equatorial
+interaction band with grounded bases below the horizon. Use varied walkable
+distances to create a spacious sequence of discoveries around an open
+orientation zone. Give each landmark its own bay, readable silhouette, grounded
+base, and visible interval before the next subject. Avoid bird's-eye staging,
+immediate foreground objects, shared display platforms, overlapping subjects,
+and clusters that put several hotspots in the same viewing direction.
+
+Use one coherent circulation system to make that distribution legible. Its form
+should follow the world: a loop, oval, meander, branching boardwalk, terraced
+route, shoreline, or another navigable structure may all work. The circular
+path is a useful solution, not a fixed template. Preserve a quiet camera area,
+continuous terrain, clear outward sightlines, and distinct landmark addresses
+without making every edition spatially identical.
+
+The interaction layer may also identify several **Story Echoes**:
+secondary environmental details that reveal how a story shaped the world, such
+as terrain, material, or ecological traces. An echo must be visibly separate
+from its story's primary landmark, grounded in the supplied story details, and
+omitted whenever the connection is uncertain. Aim for six to eight echoes from
+different stories when the generated environment supports them.
+
 ## Avoid
 
 - text embedded in the generated image
@@ -51,6 +86,7 @@ over separate panels or isolated scenes.
 - photographic portraits, faces, and dense crowds
 - fragile details that are unlikely to survive world generation
 - disconnected vignettes that do not read as one environment
+- conventional hero compositions that cluster the stories in front of the camera
 - visual metaphors that could be mistaken for documentary evidence
 
 Context, citations, and explanation belong in the interactive layer. The world

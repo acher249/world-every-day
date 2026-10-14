@@ -2,7 +2,7 @@ export type Point3 = { x: number; y: number; z: number };
 
 const MINIMUM_FOCUS_DISTANCE = 1.08;
 const FOCUS_STANDOFF_RATIO = 0.816;
-const MAX_NAVIGATION_RADIUS = 2.025;
+const MAX_NAVIGATION_RADIUS = 5.3703;
 const MIN_NAVIGATION_RADIUS = 0.25;
 
 export function smootherstep(progress: number) {

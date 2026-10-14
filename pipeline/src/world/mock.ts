@@ -55,7 +55,11 @@ export class MockWorldGenerator implements WorldGenerator {
     operationId: string,
     _request: WorldGenerationRequest,
   ): Promise<ProviderWorldOperation> {
-    const operation = this.#operations.get(operationId);
+    let operation = this.#operations.get(operationId);
+    if (!operation && /^mock-operation-[a-f0-9]{16}$/.test(operationId)) {
+      operation = { polls: this.#pollsBeforeCompletion };
+      this.#operations.set(operationId, operation);
+    }
     if (!operation) {
       return {
         done: true,

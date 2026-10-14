@@ -4,6 +4,18 @@ import type { ArtDirection } from "../art-direction/schema.js";
 import type { LandmarkDetector } from "./provider.js";
 import { landmarkArtifactSchema, type LandmarkArtifact } from "./schema.js";
 
+function panoramaDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const directX = Math.abs(a.x - b.x);
+  return Math.hypot(Math.min(directX, 1 - directX), Math.abs(a.y - b.y));
+}
+
+function boxesOverlap(
+  a: { xMin: number; yMin: number; xMax: number; yMax: number },
+  b: { xMin: number; yMin: number; xMax: number; yMax: number },
+): boolean {
+  return a.xMin <= b.xMax && a.xMax >= b.xMin && a.yMin <= b.yMax && a.yMax >= b.yMin;
+}
+
 export async function detectLandmarks({
   editionId,
   imageBytes,
@@ -42,6 +54,18 @@ export async function detectLandmarks({
   if (missing.length || unexpected.length) {
     throw new Error(`Landmark response did not match requested stories; missing=${missing.join(",") || "none"}; unexpected=${unexpected.join(",") || "none"}`);
   }
+  const acceptedContextStoryIds = new Set<string>();
+  const acceptedContextMarkers = [...result.contextMarkers]
+    .sort((first, second) => second.confidence - first.confidence)
+    .filter((marker) => {
+      if (!expectedIds.has(marker.storyId) || acceptedContextStoryIds.has(marker.storyId)) return false;
+      if (result.landmarks.some((landmark) =>
+        boxesOverlap(marker.boundingBox, landmark.boundingBox) ||
+        panoramaDistance(marker.target, landmark.target) < 0.035
+      )) return false;
+      acceptedContextStoryIds.add(marker.storyId);
+      return true;
+    });
 
   return landmarkArtifactSchema.parse({
     schemaVersion: "1.0.0",
@@ -62,5 +86,9 @@ export async function detectLandmarks({
     },
     provider: { id: detector.id, model: detector.model },
     landmarks: result.landmarks,
+    contextMarkers: acceptedContextMarkers.map((marker) => ({
+      ...marker,
+      id: `${marker.storyId}-echo`,
+    })),
   });
 }

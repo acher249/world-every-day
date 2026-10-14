@@ -22,6 +22,9 @@ test("the vision prompt preserves every requested story id", async () => {
   for (const subject of artDirection.subjects) assert.match(prompt, new RegExp(subject.storyId));
   assert.match(prompt, /equirectangular panorama/i);
   assert.match(prompt, /solid, visually central surface/i);
+  assert.match(prompt, /contextMarkers/);
+  assert.match(prompt, /distinct from every primary landmark/i);
+  assert.match(prompt, /six to eight context markers/i);
 });
 
 test("landmark detection creates a provenance-bearing 2:1 artifact", async () => {
@@ -42,6 +45,14 @@ test("landmark detection creates a provenance-bearing 2:1 artifact", async () =>
           confidence: 0.9,
           visibility: "clear" as const,
         })),
+        contextMarkers: [{
+          storyId: artDirection.subjects[0].storyId,
+          label: "Terraced ground",
+          explanation: "The terrain echoes a detail grounded in the first story.",
+          boundingBox: { xMin: 0.66, yMin: 0.56, xMax: 0.74, yMax: 0.66 },
+          target: { x: 0.7, y: 0.61 },
+          confidence: 0.88,
+        }],
       };
     },
   };
@@ -62,6 +73,7 @@ test("landmark detection creates a provenance-bearing 2:1 artifact", async () =>
   assert.equal(artifact.analysisImage.sha256, artifact.sourceImage.sha256);
   assert.equal(artifact.analysisImage.mediaType, "image/png");
   assert.equal(artifact.provider.id, "mock-vision");
+  assert.equal(artifact.contextMarkers[0].id, `${artDirection.subjects[0].storyId}-echo`);
 });
 
 test("a visible landmark target must be inside its bounding box", () => {

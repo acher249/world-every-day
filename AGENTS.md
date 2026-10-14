@@ -25,9 +25,11 @@ editorial-selection foundations, and provider-neutral world generation with an
 optional World Labs adapter. One live local ten-story vertical slice now spans
 story discovery, hosted editorial analysis, art direction, panorama generation,
 Marble 1.1 world generation, landmark detection, Spark.js raycast baking, and
-local publication assembly. Public publication, scheduled automation, and the
-AWS pipeline described in the build plan are not complete. Do not describe
-planned features as implemented.
+local publication assembly. A fixture-backed runner exercises that full artifact
+chain without network access or paid services, and an explicitly gated live
+local runner can resume each stage around a required human review. Public
+publication, scheduled automation, and the AWS pipeline described in the build
+plan are not complete. Do not describe planned features as implemented.
 
 ## Repository conventions
 

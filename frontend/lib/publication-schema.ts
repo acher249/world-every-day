@@ -3,16 +3,23 @@ import { z } from "zod";
 const idSchema = z
   .string()
   .min(1)
-  .max(80)
+  .max(100)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use a lowercase kebab-case identifier");
 
 const httpsUrlSchema = z
   .url()
-  .refine((value) => new URL(value).protocol === "https:", "Use an HTTPS URL");
+  .refine(
+    (value) => URL.canParse(value) && new URL(value).protocol === "https:",
+    "Use an HTTPS URL",
+  );
+const assetUrlSchema = z.union([
+  httpsUrlSchema,
+  z.string().regex(/^\/(?!\/)/, "Use an HTTPS or root-relative asset URL"),
+]);
 
 export const sourceSchema = z.object({
-  title: z.string().min(1).max(240),
-  publisher: z.string().min(1).max(120),
+  title: z.string().min(1).max(300),
+  publisher: z.string().min(1).max(160),
   url: httpsUrlSchema,
   publishedAt: z.iso.datetime({ offset: true }),
   kind: z.enum(["primary", "reporting", "context"]),
@@ -21,8 +28,8 @@ export const sourceSchema = z.object({
 export const storySchema = z.object({
   id: idSchema,
   category: z.string().min(1).max(80),
-  title: z.string().min(1).max(160),
-  summary: z.string().min(1).max(600),
+  title: z.string().min(1).max(180),
+  summary: z.string().min(1).max(700),
   representation: z.string().min(1).max(240),
   sources: z.array(sourceSchema).max(8),
   interaction: z.object({
@@ -75,13 +82,30 @@ export const publicationManifestSchema = z
       }),
       splat: z
         .object({
-          url: httpsUrlSchema,
+          url: assetUrlSchema,
           format: z.enum(["spz", "ply", "sog", "splat", "ksplat"]),
           sha256: z.string().regex(/^[a-f0-9]{64}$/),
         })
         .nullable(),
     }),
     stories: z.array(storySchema).min(1).max(10),
+    storyEchoes: z.array(z.object({
+      id: idSchema,
+      storyId: idSchema,
+      label: z.string().min(1).max(100),
+      explanation: z.string().min(1).max(300),
+      interaction: z.object({
+        imageTarget: z.object({
+          x: z.number().min(0).max(1),
+          y: z.number().min(0).max(1),
+        }),
+        worldPosition: z.object({
+          x: z.number().finite(),
+          y: z.number().finite(),
+          z: z.number().finite(),
+        }),
+      }),
+    })).max(8).default([]),
   })
   .superRefine((manifest, context) => {
     const storyIds = new Set<string>();
@@ -114,6 +138,21 @@ export const publicationManifestSchema = z
           path: ["stories", index, "sources"],
         });
       }
+    });
+    const echoIds = new Set<string>();
+    const echoStoryIds = new Set<string>();
+    manifest.storyEchoes.forEach((echo, index) => {
+      if (echoIds.has(echo.id)) {
+        context.addIssue({ code: "custom", message: `Duplicate story echo id: ${echo.id}`, path: ["storyEchoes", index, "id"] });
+      }
+      if (!storyIds.has(echo.storyId)) {
+        context.addIssue({ code: "custom", message: `Story echo references unknown story: ${echo.storyId}`, path: ["storyEchoes", index, "storyId"] });
+      }
+      if (echoStoryIds.has(echo.storyId)) {
+        context.addIssue({ code: "custom", message: `Multiple story echoes reference: ${echo.storyId}`, path: ["storyEchoes", index, "storyId"] });
+      }
+      echoIds.add(echo.id);
+      echoStoryIds.add(echo.storyId);
     });
   });
 

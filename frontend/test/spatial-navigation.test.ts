@@ -33,7 +33,7 @@ test("focus approaches a hotspot along its ray while preserving standoff", () =>
 });
 
 test("navigation radius uses the configured spherical limit", () => {
-  assert.equal(getNavigationRadius(1_000), 2.025);
+  assert.equal(getNavigationRadius(1_000), 5.3703);
 });
 
 test("navigation clamps movement radially to a sphere", () => {

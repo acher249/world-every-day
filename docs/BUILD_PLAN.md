@@ -34,12 +34,12 @@ of the experience. It does not yet have a complete daily pipeline.
 | Open-source foundation | Substantially complete | MIT license, contribution and agent guides, dependency-license checks, CI, secret-safe environment examples | Linting, security policy, code of conduct, automated secret scanning |
 | Frontend | Working prototype | Full-viewport Next.js explorer, Motion HUD panels, Spark.js integration, validated publication artifact, responsive fictional ten-story experience, poster fallback, local generated-world loading, fly navigation, and baked 3D hotspots projected through the live camera | Navigation tuning, touch translation controls, automated browser coverage, archive routes |
 | Panorama generation | Live baseline | Selected-edition-to-art-direction adapter, deterministic compositional roles and prompt construction, live-validated art direction, Nano Banana adapter, factual 4K generation, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifest, tests, and dry-run mode | Multi-edition visual evaluation, automated image QA, and pole repair only if downstream results justify it |
-| Edition and editorial data | Live baseline | Versioned evaluation, shortlist, article-evidence, selected-edition, and publication schemas; deterministic selection; optional model adapters; fixtures; one factual ten-story edition and local publication assembly | Corroboration, human review workflow, corrections, and production publication assembly |
+| Edition and editorial data | Live baseline | Versioned evaluation, shortlist, article-evidence, selected-edition, review, and publication schemas; deterministic selection; optional model adapters; fixtures; one factual ten-story edition and local publication assembly | Corroboration, corrections, and production publication assembly |
 | Story discovery | Live baseline | Sixteen-source RSS/Atom allowlist, per-source discovery-only or ephemeral-analysis policy, bounded retrieval, canonical URL deduplication, source-run provenance, failure isolation, and one 54-candidate live pass | Conditional caching, stronger event clustering, ongoing source review and health reporting, and orchestration |
 | World generation | Live baseline | Provider-neutral interface, stable idempotency, persisted operation lifecycle, durable local artifact copy, failure/resume tests, mock CLI, Marble 1.1 adapter, and approved fictional and factual SPZ generations | Sanitized real response fixture and S3 artifact store |
-| Interaction mapping | Live local baseline | Provider-neutral landmark schema and live-validated multimodal detector, checksum-bound source and analysis images, local Spark.js spherical-raycast baking, factual publication assembly, runtime projection of fixed world positions, poster fallbacks, keyboard-accessible story index, and slide-out detail panels | Move baking into production orchestration, add formal interaction-artifact validation, occlusion, and collision behavior |
+| Interaction mapping | Live local baseline | Provider-neutral landmark and interaction schemas, live-validated multimodal detector, checksum-bound source and analysis images, browser-backed Spark.js spherical-raycast baking, factual publication assembly, runtime projection of fixed world positions, poster fallbacks, keyboard-accessible story index, and slide-out detail panels | Move baking into deployed orchestration and add occlusion and collision behavior |
 | AWS deployment | Not started | Target services and state model documented | CDK, S3, DynamoDB, Step Functions, CloudFront, alarms, approvals |
-| Daily automation | Foundation started | Proposed schedule, read-only artifact-chain inspection, and a resumable mock editorial-to-art-direction runner | Extend local orchestration through generated assets, Step Functions orchestration, review, atomic publication |
+| Daily automation | Live local baseline | Proposed schedule, read-only artifact-chain inspection, a resumable no-network runner, explicitly gated live providers, a human review checkpoint, and immutable local publication assembly | Step Functions, operator review UI, and atomic public publication |
 
 The active phase is **Phase 2: one manual vertical slice**. Phase 0 remains
 partially open because the editorial and operating policies still need to be
@@ -282,6 +282,9 @@ manually generated assets. Do not build live news ingestion yet.
 - Locate all ten landmarks in the source panorama through a provider-neutral
   multimodal detector, preserving bounding boxes, target pixels, confidence,
   model provenance, and source-image checksum.
+- Optionally identify up to eight non-clickable Story Echoes: distinct,
+  story-grounded environmental details that explain the world without
+  duplicating a primary landmark.
 - Convert each normalized equirectangular target into a spherical source-camera
   ray, resolve its nearest Spark.js splat intersection, and project that 3D hit
   through the moving camera. Keep every story available through the story index
@@ -311,12 +314,12 @@ development and iterate on composition before automating anything.
 ### Current status
 
 In progress. The validated publication schema, fictional ten-story artifact,
-panorama utility, provider-neutral landmark and world-operation layers, optional
-Marble 1.1 adapter, approved Marble 1.1 SPZs, locally automated 3D anchors, and
-the Spark.js frontend establish the slice. The remaining critical path is a
-reviewed live landmark-detection artifact, an automated interaction-baking
-stage, a sanitized real response fixture, durable cloud asset storage, and
-publication assembly.
+panorama utility, provider-neutral landmark, interaction, and world-operation
+layers, optional Marble 1.1 adapter, approved Marble 1.1 SPZs, locally automated
+3D anchors, browser-backed interaction baker, full resumable edition runner,
+human approval gate, and Spark.js frontend establish the slice. The remaining
+critical path is a sanitized real response fixture, durable cloud asset storage,
+deployed orchestration, and atomic public publication.
 
 ## Phase 3 — Create the editorial engine
 
@@ -746,7 +749,9 @@ Execute it in this order:
    **Complete with local utilities; production orchestration remains.**
 10. Test desktop, touch, keyboard, reduced motion, fallback behavior, retries,
     and a clean-clone mock run. Record quality, elapsed time, provider cost, and
-    lessons before starting ingestion or AWS automation.
+    lessons before starting AWS automation. **The resumable full mock run and
+    retry contracts are complete; browser coverage and clean-clone release
+    verification remain.**
 
 The milestone is complete only when a fresh local checkout can replay the whole
 flow with mocks, and an approved live run can produce an immutable publication

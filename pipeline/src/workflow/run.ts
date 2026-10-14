@@ -186,6 +186,15 @@ export async function runEditorialWorkflow({
 
   while (true) {
     const inspection = await inspectWorkflowDirectory(paths.root);
+    const evaluationStage = inspection.stages.find(({ stage }) => stage === "evaluation");
+    if (evaluationStage?.status === "complete") {
+      const evaluations = candidateEvaluationSetSchema.parse(await readJson(paths.evaluations));
+      if (evaluations.editionId !== editionId) {
+        throw new Error(
+          `Run directory belongs to edition ${evaluations.editionId}, not ${editionId}`,
+        );
+      }
+    }
     const nextStage = inspection.nextStage;
     if (!nextStage || workflowStageNames.indexOf(nextStage) > throughIndex) {
       return { executedStages, inspection };

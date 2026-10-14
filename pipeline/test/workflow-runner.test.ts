@@ -88,3 +88,23 @@ test("workflow refuses to continue when an upstream artifact changed", async () 
     /Cannot resume invalid evaluation artifact/,
   );
 });
+
+test("workflow refuses to reuse a run directory for another edition", async () => {
+  const runDirectory = await temporaryRun();
+  await runEditorialWorkflow({
+    editionId: "demo-2026-10-13",
+    providers: await createFixtureWorkflowProviders(),
+    runDirectory,
+    targetStories: 1,
+  });
+
+  await assert.rejects(
+    runEditorialWorkflow({
+      editionId: "demo-2026-10-14",
+      providers: await createFixtureWorkflowProviders(),
+      runDirectory,
+      targetStories: 1,
+    }),
+    /belongs to edition demo-2026-10-13/i,
+  );
+});
