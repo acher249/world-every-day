@@ -26,6 +26,9 @@
     "workflow:mock": "node --import tsx src/workflow/mock-cli.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1151.0",
+    "@aws-sdk/client-s3": "^3.1151.0",
+    "@aws-sdk/lib-dynamodb": "^3.1151.0",
     "@google/genai": "^2.3.0",
     "dotenv": "^17.2.3",
     "fast-xml-parser": "^5.11.2",
@@ -35,6 +38,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.0"
   }

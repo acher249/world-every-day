@@ -35,6 +35,7 @@ plan are not complete. Do not describe planned features as implemented.
 
 - The web frontend lives in `frontend/` and uses npm.
 - Server-side generation stages live in `pipeline/` and use npm.
+- AWS CDK infrastructure lives in `infra/aws/` and uses npm.
 - Keep code simple, typed, modular, and easy for contributors to replace or
   extend.
 - Keep providers behind small interfaces. Do not couple the core data model to
@@ -50,6 +51,8 @@ plan are not complete. Do not describe planned features as implemented.
 - Never commit API keys, credentials, signed URLs, private source content, or a
   populated `.env` file.
 - Never expose a secret through `NEXT_PUBLIC_*` or browser-delivered metadata.
+- Authenticate AWS tooling with a named IAM Identity Center or role-based CLI
+  profile. Never put AWS access keys in a repository environment file.
 - Add documented placeholders to `.env.example` and validate server-side
   configuration with actionable errors.
 - Do not call paid generation services, publish content, post to social media,
@@ -108,9 +111,27 @@ Use `npm run panorama -- --art-direction-file <path> --dry-run` to validate a
 structured prompt and local configuration without making a paid request. Never
 run a paid generation during ordinary tests or without explicit human approval.
 
+## AWS infrastructure workflow
+
+```bash
+cd pipeline
+npm i
+cd ../infra/aws
+npm i
+npm run license:check
+npm run typecheck
+npm test
+npm run synth
+npm run build
+```
+
+CDK synthesis and tests are local. Never bootstrap, deploy, enable a schedule,
+or create cloud secrets without explicit human approval.
+
 ## Before finishing
 
 - Confirm no secrets or private material were added.
+- Run `node scripts/check-secrets.mjs` from the repository root.
 - Run the checks relevant to the changed area.
 - Keep documentation consistent with the actual repository layout and current
   implementation status.

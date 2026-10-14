@@ -36,6 +36,13 @@ npm run build
 
 Add tests appropriate to new behavior. Pull requests should explain what
 changed, why it changed, and what was verified.
+
+From the repository root, scan tracked and untracked source files for common
+credential signatures:
+
+```bash
+node scripts/check-secrets.mjs
+```
 Include screenshots or recordings for visible interface changes.
 
 Server-side generation work lives in `pipeline/`:
@@ -51,6 +58,23 @@ npm run build
 
 Pipeline tests must use synthetic fixtures or mock providers. Paid generation is
 always opt-in and must never run in CI.
+
+AWS infrastructure lives in `infra/aws/`:
+
+```bash
+cd pipeline
+npm i
+cd ../infra/aws
+npm i
+npm run license:check
+npm run typecheck
+npm test
+npm run synth
+npm run build
+```
+
+Synthesis is local. Never bootstrap, deploy, enable the schedule, or populate
+cloud secrets without explicit approval for the target AWS account.
 
 ## Project expectations
 

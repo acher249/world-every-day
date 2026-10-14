@@ -18,7 +18,7 @@ and live provider calls require deliberate operator action.
 | Nano Banana panorama | One final image generation | Live-validated |
 | Landmark analysis | One multimodal analysis of the final panorama | Live-validated |
 | World Labs Marble | One world generation | Live-validated with Marble 1.1 |
-| AWS orchestration and delivery | Step Functions, Lambda, S3, DynamoDB, CloudFront, and CloudWatch usage | Planned |
+| AWS orchestration and delivery | Step Functions, Lambda, S3, DynamoDB, CloudFront, and CloudWatch usage | Foundation defined; not deployed |
 
 These counts are targets for the first complete pipeline, not a description of
 an already deployed system. Provider retries should remain limited and visible.
@@ -43,6 +43,12 @@ Per-edition summaries should make unusual retries or changes in usage obvious.
 Before an automated AWS deployment, add monthly provider totals, AWS cost tags,
 CloudWatch dashboards, and AWS Budgets alerts. These are visibility and alerting
 tools; they are not currently pipeline authorization gates.
+
+The development CDK stack creates the daily schedule disabled and only adds an
+AWS Budget when both a monthly threshold and notification email are explicitly
+provided. Workflow alarms notify an operator only when an optional alarm email
+is configured and its AWS subscription is confirmed. No AWS resources have
+been deployed from the repository.
 
 ## Keeping the baseline small
 

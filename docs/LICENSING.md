@@ -44,6 +44,7 @@ Run the audit in each package that has a dependency graph:
 ```bash
 cd frontend && npm run license:check
 cd ../pipeline && npm run license:check
+cd ../infra/aws && npm run license:check
 ```
 
 Each check reads the package's exact dependency graph from `package-lock.json`.

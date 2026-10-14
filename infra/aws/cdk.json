@@ -1,0 +1,21 @@
+{
+  "app": "node --import tsx bin/world-every-day.ts",
+  "context": {
+    "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/aws-lambda-nodejs:sdkV3ExcludeSmithyPackages": true,
+    "@aws-cdk/aws-lambda:useCdkManagedLogGroup": true,
+    "@aws-cdk/aws-s3:publicAccessBlockedByDefault": true,
+    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+    "@aws-cdk/core:automaticL1Traits": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/core:validateAgainstDefaultRules": true,
+    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false
+  }
+}
+

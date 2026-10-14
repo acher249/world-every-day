@@ -402,6 +402,23 @@ Never add that flag to tests or automated setup commands. Repeating the exact
 command resumes a persisted operation instead of intentionally starting a new
 one.
 
+## Cloud storage boundaries
+
+`src/storage/` defines provider-neutral artifact and edition-state contracts.
+The local artifact store remains available for fixture and contributor
+workflows. Optional AWS adapters add:
+
+- conditional S3 writes that accept an identical retry but refuse to overwrite
+  different bytes at the same key;
+- checksum metadata on every S3 artifact;
+- conditional DynamoDB edition creation, locking, and state transitions; and
+- an atomic transaction that marks a QA-approved edition published while
+  replacing the current-publication pointer.
+
+These adapters do not read credentials from project files. The AWS SDK uses the
+operator's normal credential chain only when an adapter is instantiated in a
+deployed or explicitly authorized runtime.
+
 ## Validation
 
 ```bash

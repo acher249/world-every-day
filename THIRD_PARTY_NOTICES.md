@@ -1,11 +1,10 @@
 # Third-Party Notices
 
 The repository is MIT-licensed, but third-party components retain their own
-licenses. This file summarizes the current direct frontend dependencies and
-pipeline dependencies, plus reviewed transitive exceptions. The exact installed
-graphs are recorded in `frontend/package-lock.json` and
-`pipeline/package-lock.json` and checked by each package's
-`npm run license:check` command.
+licenses. This file summarizes the current direct frontend, pipeline, and AWS
+infrastructure dependencies, plus reviewed transitive exceptions. Exact
+installed graphs are recorded in each package's `package-lock.json` and checked
+by its `npm run license:check` command.
 
 ## Direct runtime dependencies
 
@@ -22,6 +21,9 @@ graphs are recorded in `frontend/package-lock.json` and
 | Google Gen AI SDK | Nano Banana API client | Apache-2.0 | <https://github.com/googleapis/js-genai> |
 | Sharp | Deterministic image processing | Apache-2.0 | <https://github.com/lovell/sharp> |
 | dotenv | Local server-side environment loading | BSD-2-Clause | <https://github.com/motdotla/dotenv> |
+| AWS SDK for JavaScript v3 | Optional S3 and DynamoDB storage adapters | Apache-2.0 | <https://github.com/aws/aws-sdk-js-v3> |
+| AWS CDK | AWS infrastructure definitions | Apache-2.0 | <https://github.com/aws/aws-cdk> |
+| Constructs | Construct programming model used by AWS CDK | Apache-2.0 | <https://github.com/aws/constructs> |
 
 Next.js includes compiled third-party modules within its distribution and ships
 license files for those modules. Those notices remain applicable. Before a
@@ -33,6 +35,8 @@ receive a release-level notice audit in addition to the package-lock check.
 - TypeScript is licensed under Apache-2.0.
 - The installed DefinitelyTyped packages are licensed under MIT.
 - tsx is licensed under MIT.
+- esbuild is licensed under MIT.
+- The AWS CDK CLI is licensed under Apache-2.0.
 
 ## Reviewed transitive exceptions
 
@@ -60,6 +64,18 @@ attribution to the project.
 
 - Project: <https://github.com/browserslist/caniuse-lite>
 - License: <https://creativecommons.org/licenses/by/4.0/>
+
+### AWS CDK transitive license metadata
+
+AWS CDK currently depends on `case`, whose package metadata offers a choice of
+MIT or GPL-3.0-or-later. This project uses it under the included MIT license.
+AWS CDK also depends on `minimatch`, licensed under the permissive Blue Oak Model
+License 1.0.0. The infrastructure license checker restricts these exceptions to
+those named transitive packages and exact reported licenses.
+
+- case: <https://github.com/nbubna/Case>
+- minimatch: <https://github.com/isaacs/minimatch>
+- Blue Oak Model License: <https://blueoakcouncil.org/license/1.0.0>
 
 ## External services
 

@@ -1,0 +1,29 @@
+{
+  "name": "world-every-day-aws",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "diff": "cdk diff",
+    "license:check": "node scripts/check-licenses.mjs",
+    "synth": "cdk synth --quiet",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.273.0",
+    "constructs": "^10.8.1",
+    "dotenv": "^18.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "aws-cdk": "^2.1145.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.0"
+  }
+}

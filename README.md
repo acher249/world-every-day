@@ -115,6 +115,15 @@ These pieces remain separable so contributors can introduce other sources,
 generators, world models, interfaces, or cloud providers without rebuilding the
 entire system.
 
+### Backend and infrastructure
+
+Server-side stages live in `pipeline/`; the AWS CDK application lives in
+`infra/aws/`. For local infrastructure settings, copy
+`infra/aws/.env.example` to the ignored `infra/aws/.env.local`. That file is for
+non-secret settings only. Use a named AWS CLI profile backed by IAM Identity
+Center or an assumed role for AWS access, and keep provider credentials in AWS
+Secrets Manager. See the [AWS infrastructure guide](infra/aws/README.md).
+
 ## Make it your own
 
 This is an open building block, not a fixed news product. Follow the subjects
@@ -195,6 +204,25 @@ For opt-in live provider runs, copy `pipeline/.env.example` to `pipeline/.env`
 and populate the server-only keys documented there. The populated file is
 ignored by Git and must never be committed.
 
+### Validate the AWS foundation
+
+The AWS CDK foundation in `infra/aws/` defines private artifact storage,
+public-asset delivery, edition state, secret references, monitoring, and a
+schedule-disabled fixture workflow. It does not deploy resources, call paid
+providers, or run the live daily pipeline by itself.
+
+```bash
+cd pipeline
+npm i
+cd ../infra/aws
+npm i
+npm run synth
+```
+
+Synthesis is local and credential-free. See the
+[AWS infrastructure guide](infra/aws/README.md) for configuration, cost guards,
+and the explicit boundary around account-mutating commands.
+
 ## Contributing
 
 Contributions are welcome across the frontend, editorial system, source and
@@ -206,8 +234,9 @@ before opening an issue or pull request.
 
 Original code in this repository is released under the [MIT License](LICENSE).
 Direct runtime dependencies must use approved permissive open-source licenses;
-the dependency graphs are enforced by `npm run license:check` in `frontend/` and
-`pipeline/`. See [Third-Party Notices](THIRD_PARTY_NOTICES.md) and the full
+the dependency graphs are enforced by `npm run license:check` in `frontend/`,
+`pipeline/`, and `infra/aws/`. See
+[Third-Party Notices](THIRD_PARTY_NOTICES.md) and the full
 [licensing and service-boundary policy](docs/LICENSING.md).
 
 The reference deployment is being designed for AWS, but cloud-specific code will
