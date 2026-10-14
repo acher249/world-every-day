@@ -16,6 +16,9 @@ daily automation.
   `infra/aws/`.
 - Keep immutable private pipeline artifacts and publishable assets in separate,
   private, versioned S3 buckets.
+- Host the static marketing and explorer builds from separate private S3 origins
+  behind CloudFront. Keep custom domains optional and import an existing Route 53
+  hosted zone rather than coupling domain registration to the project.
 - Deliver publishable assets through CloudFront using origin access control;
   do not make the S3 bucket public.
 - Store edition state, locks, and the current-publication pointer in one
@@ -48,8 +51,9 @@ one transaction.
 
 The current state machine exercises the lifecycle with fictional marker
 artifacts and no provider calls. Its default path stops and releases its lock at
-editorial review. Live stage handlers, approval callbacks, public frontend
-hosting, and production publication remain future work.
+editorial review. Static hosting resources now exist, but uploading builds is a
+separate explicit operation. Live stage handlers, approval callbacks, and
+production publication remain future work.
 
 The Spark.js interaction baker still requires a browser-capable runtime. No AWS
 compute choice is accepted for that stage until a containerized deployment

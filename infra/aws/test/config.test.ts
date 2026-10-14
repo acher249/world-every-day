@@ -13,6 +13,7 @@ test("deployment defaults are development and schedule-disabled", () => {
     enableSchedule: false,
     environmentName: "development",
     monthlyBudgetUsd: undefined,
+    siteDomain: undefined,
   });
 });
 
@@ -46,6 +47,7 @@ test("ignored local environment settings are supported but CDK context wins", ()
       enableSchedule: true,
       environmentName: "production",
       monthlyBudgetUsd: 40,
+      siteDomain: undefined,
     },
   );
   assert.equal(
@@ -55,5 +57,35 @@ test("ignored local environment settings are supported but CDK context wins", ()
     ).environmentName,
     "development",
   );
+});
+
+test("custom domains require a hosted zone and us-east-1", () => {
+  assert.throws(
+    () => readDeploymentConfig(context({ siteDomainName: "example.com" }) as never),
+    /configured together/,
+  );
+  assert.throws(
+    () => readDeploymentConfig(context({
+      hostedZoneId: "Z123",
+      siteDomainName: "https://example.com",
+    }) as never),
+    /valid domain name/,
+  );
+  assert.throws(
+    () => readDeploymentConfig(context({
+      hostedZoneId: "Z123",
+      siteDomainName: "example.com",
+    }) as never, { CDK_DEFAULT_REGION: "us-west-2" }),
+    /us-east-1/,
+  );
+  assert.deepEqual(readDeploymentConfig(context({
+    explorerSubdomain: "explore",
+    hostedZoneId: "Z123",
+    siteDomainName: "Example.com",
+  }) as never, { CDK_DEFAULT_REGION: "us-east-1" }).siteDomain, {
+    explorerSubdomain: "explore",
+    hostedZoneId: "Z123",
+    rootDomain: "example.com",
+  });
 });
 

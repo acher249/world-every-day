@@ -6,6 +6,11 @@ export type DeploymentConfig = {
   enableSchedule: boolean;
   environmentName: "development" | "production";
   monthlyBudgetUsd?: number;
+  siteDomain?: {
+    explorerSubdomain: string;
+    hostedZoneId: string;
+    rootDomain: string;
+  };
 };
 
 type Environment = Record<string, string | undefined>;
@@ -79,6 +84,37 @@ export function readDeploymentConfig(
     alarmNotificationEmail &&
     !/^\S+@\S+\.\S+$/.test(String(alarmNotificationEmail))
   ) throw new Error("alarmNotificationEmail must be a valid email address");
+  const rootDomain = setting(
+    node,
+    environment,
+    "siteDomainName",
+    "WORLD_EVERY_DAY_SITE_DOMAIN",
+  );
+  const hostedZoneId = setting(
+    node,
+    environment,
+    "hostedZoneId",
+    "WORLD_EVERY_DAY_HOSTED_ZONE_ID",
+  );
+  const explorerSubdomain = setting(
+    node,
+    environment,
+    "explorerSubdomain",
+    "WORLD_EVERY_DAY_EXPLORER_SUBDOMAIN",
+  ) ?? "explore";
+  if ((rootDomain && !hostedZoneId) || (!rootDomain && hostedZoneId)) {
+    throw new Error("siteDomainName and hostedZoneId must be configured together");
+  }
+  if (
+    rootDomain &&
+    !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(String(rootDomain))
+  ) throw new Error("siteDomainName must be a valid domain name without a protocol or path");
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(String(explorerSubdomain))) {
+    throw new Error("explorerSubdomain must be a valid DNS label");
+  }
+  if (rootDomain && environment.CDK_DEFAULT_REGION && environment.CDK_DEFAULT_REGION !== "us-east-1") {
+    throw new Error("Custom CloudFront domains must be deployed from this stack in us-east-1");
+  }
   return {
     alarmNotificationEmail: alarmNotificationEmail
       ? String(alarmNotificationEmail)
@@ -87,6 +123,11 @@ export function readDeploymentConfig(
     enableSchedule,
     environmentName,
     monthlyBudgetUsd,
+    siteDomain: rootDomain && hostedZoneId ? {
+      explorerSubdomain: String(explorerSubdomain).toLowerCase(),
+      hostedZoneId: String(hostedZoneId),
+      rootDomain: String(rootDomain).toLowerCase(),
+    } : undefined,
   };
 }
 

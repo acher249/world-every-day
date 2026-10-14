@@ -34,6 +34,7 @@ plan are not complete. Do not describe planned features as implemented.
 ## Repository conventions
 
 - The web frontend lives in `frontend/` and uses npm.
+- The public project site lives in `marketing/` and uses npm.
 - Server-side generation stages live in `pipeline/` and use npm.
 - AWS CDK infrastructure lives in `infra/aws/` and uses npm.
 - Keep code simple, typed, modular, and easy for contributors to replace or
@@ -95,6 +96,26 @@ npm run build
 The frontend should remain usable without credentials or a 3D asset. Maintain
 keyboard and touch access, reduced-motion behavior, and the poster fallback when
 the spatial viewer is unavailable.
+
+## Marketing workflow
+
+```bash
+cd marketing
+npm i
+npm start
+```
+
+Before handing off a marketing-site change, run:
+
+```bash
+npm run license:check
+npm run typecheck
+npm test
+npm run build
+```
+
+The marketing application is a credential-free static export. Keep the explorer
+URL and repository URL in documented public build configuration only.
 
 ## Pipeline workflow
 

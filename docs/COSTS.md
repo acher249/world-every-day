@@ -19,6 +19,7 @@ and live provider calls require deliberate operator action.
 | Landmark analysis | One multimodal analysis of the final panorama | Live-validated |
 | World Labs Marble | One world generation | Live-validated with Marble 1.1 |
 | AWS orchestration and delivery | Step Functions, Lambda, S3, DynamoDB, CloudFront, and CloudWatch usage | Foundation defined; not deployed |
+| Public websites | Two private S3 origins, two CloudFront distributions, DNS queries, certificates, storage, and transfer | Foundation defined; not deployed |
 
 These counts are targets for the first complete pipeline, not a description of
 an already deployed system. Provider retries should remain limited and visible.
@@ -49,6 +50,12 @@ AWS Budget when both a monthly threshold and notification email are explicitly
 provided. Workflow alarms notify an operator only when an optional alarm email
 is configured and its AWS subscription is confirmed. No AWS resources have
 been deployed from the repository.
+
+The marketing site and explorer are static exports. Their baseline hosting cost
+comes from S3 storage and requests, CloudFront requests and transfer, and Route
+53 when custom domains are enabled. They do not require always-on application
+servers. CloudFront invalidations and repeated full-asset uploads should remain
+deliberate, especially as generated world files grow.
 
 ## Keeping the baseline small
 

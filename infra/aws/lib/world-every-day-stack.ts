@@ -6,6 +6,7 @@ import {
   Tags,
   TimeZone,
   aws_budgets as budgets,
+  aws_certificatemanager as acm,
   aws_cloudfront as cloudfront,
   aws_cloudfront_origins as origins,
   aws_cloudwatch as cloudwatch,
@@ -15,6 +16,7 @@ import {
   aws_lambda as lambda,
   aws_lambda_nodejs as lambdaNodejs,
   aws_logs as logs,
+  aws_route53 as route53,
   aws_s3 as s3,
   aws_scheduler as scheduler,
   aws_scheduler_targets as schedulerTargets,
@@ -30,6 +32,7 @@ import { Construct } from "constructs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DeploymentConfig } from "./config.js";
+import { StaticSite } from "./static-site.js";
 
 export type WorldEveryDayStackProps = StackProps & {
   config: DeploymentConfig;
@@ -86,6 +89,36 @@ export class WorldEveryDayStack extends Stack {
       enabled: true,
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+    });
+
+    const hostedZone = config.siteDomain
+      ? route53.HostedZone.fromHostedZoneAttributes(this, "SiteHostedZone", {
+          hostedZoneId: config.siteDomain.hostedZoneId,
+          zoneName: config.siteDomain.rootDomain,
+        })
+      : undefined;
+    const explorerDomain = config.siteDomain
+      ? `${config.siteDomain.explorerSubdomain}.${config.siteDomain.rootDomain}`
+      : undefined;
+    const siteCertificate = config.siteDomain && hostedZone
+      ? new acm.Certificate(this, "SiteCertificate", {
+          domainName: config.siteDomain.rootDomain,
+          subjectAlternativeNames: [explorerDomain!],
+          validation: acm.CertificateValidation.fromDns(hostedZone),
+        })
+      : undefined;
+    const marketingSite = new StaticSite(this, "MarketingSite", {
+      certificate: siteCertificate,
+      domainName: config.siteDomain?.rootDomain,
+      hostedZone,
+    });
+    const explorerSite = new StaticSite(this, "ExplorerSite", {
+      certificate: siteCertificate,
+      domainName: explorerDomain,
+      frameAncestor: config.siteDomain
+        ? `https://${config.siteDomain.rootDomain}`
+        : `https://${marketingSite.distribution.domainName}`,
+      hostedZone,
     });
 
     const editions = new dynamodb.Table(this, "EditionTable", {
@@ -386,6 +419,20 @@ export class WorldEveryDayStack extends Stack {
     new CfnOutput(this, "ArtifactBucketName", { value: artifacts.bucketName });
     new CfnOutput(this, "PublicAssetBucketName", { value: publicAssets.bucketName });
     new CfnOutput(this, "PublicAssetDomain", { value: distribution.domainName });
+    new CfnOutput(this, "MarketingSiteBucketName", { value: marketingSite.bucket.bucketName });
+    new CfnOutput(this, "MarketingSiteDomain", {
+      value: config.siteDomain?.rootDomain ?? marketingSite.distribution.domainName,
+    });
+    new CfnOutput(this, "MarketingSiteDistributionId", {
+      value: marketingSite.distribution.distributionId,
+    });
+    new CfnOutput(this, "ExplorerSiteBucketName", { value: explorerSite.bucket.bucketName });
+    new CfnOutput(this, "ExplorerSiteDomain", {
+      value: explorerDomain ?? explorerSite.distribution.domainName,
+    });
+    new CfnOutput(this, "ExplorerSiteDistributionId", {
+      value: explorerSite.distribution.distributionId,
+    });
     new CfnOutput(this, "EditionTableName", { value: editions.tableName });
     new CfnOutput(this, "StateMachineArn", { value: stateMachine.stateMachineArn });
     new CfnOutput(this, "GoogleSecretName", { value: googleSecret.secretName });

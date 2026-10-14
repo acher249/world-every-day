@@ -17,7 +17,7 @@ do not need advance discussion.
 
 ## Development
 
-The current application lives in `frontend/` and uses npm:
+The immersive explorer lives in `frontend/` and uses npm:
 
 ```bash
 cd frontend
@@ -44,6 +44,17 @@ credential signatures:
 node scripts/check-secrets.mjs
 ```
 Include screenshots or recordings for visible interface changes.
+
+The public project site lives in `marketing/` and follows the same checks:
+
+```bash
+cd marketing
+npm i
+npm run license:check
+npm run typecheck
+npm test
+npm run build
+```
 
 Server-side generation work lives in `pipeline/`:
 

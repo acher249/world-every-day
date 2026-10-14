@@ -10,6 +10,7 @@ const forbiddenPaths = [
 const allowedPaths = new Set([
   "frontend/.env.example",
   "infra/aws/.env.example",
+  "marketing/.env.example",
   "pipeline/.env.example",
 ]);
 const secretPatterns = [

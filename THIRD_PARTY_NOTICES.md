@@ -1,7 +1,7 @@
 # Third-Party Notices
 
 The repository is MIT-licensed, but third-party components retain their own
-licenses. This file summarizes the current direct frontend, pipeline, and AWS
+licenses. This file summarizes the current direct frontend, marketing, pipeline, and AWS
 infrastructure dependencies, plus reviewed transitive exceptions. Exact
 installed graphs are recorded in each package's `package-lock.json` and checked
 by its `npm run license:check` command.

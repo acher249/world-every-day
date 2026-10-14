@@ -43,6 +43,7 @@ Run the audit in each package that has a dependency graph:
 
 ```bash
 cd frontend && npm run license:check
+cd ../marketing && npm run license:check
 cd ../pipeline && npm run license:check
 cd ../infra/aws && npm run license:check
 ```

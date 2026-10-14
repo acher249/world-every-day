@@ -8,13 +8,17 @@ The current stack synthesizes:
 
 - a private, versioned S3 bucket for immutable pipeline artifacts;
 - a separate private S3 bucket served through CloudFront for publishable assets;
+- private S3 buckets and CloudFront distributions for the marketing site and
+  immersive explorer;
+- optional ACM and Route 53 configuration for a root domain and configurable
+  explorer subdomain;
 - an on-demand DynamoDB table for edition state, locks, and publication pointers;
 - references to pre-existing Google AI and World Labs secrets;
 - a Step Functions Standard fixture workflow and one bounded Lambda with
   CloudWatch logging;
 - a 7:30 AM `America/Los_Angeles` EventBridge Scheduler schedule, disabled by
   default, with two delivery retries and a retained dead-letter queue; and
-- workflow and scheduler-failure alarms with optional email delivery; and
+- workflow and scheduler-failure alarms with optional email delivery; plus
 - an optional monthly AWS Budget notification.
 
 The fixture workflow validates state transitions, immutable marker artifacts,
@@ -61,6 +65,9 @@ environment values.
 | `WORLD_EVERY_DAY_MONTHLY_BUDGET_USD` | `monthlyBudgetUsd` | unset | Positive monthly AWS cost threshold |
 | `WORLD_EVERY_DAY_BUDGET_ALERT_EMAIL` | `budgetAlertEmail` | unset | Email for the forecasted 80% budget notification |
 | `CDK_DEFAULT_REGION` | n/a | AWS CLI default | Deployment region |
+| `WORLD_EVERY_DAY_SITE_DOMAIN` | `siteDomainName` | unset | Optional root domain for the marketing site |
+| `WORLD_EVERY_DAY_HOSTED_ZONE_ID` | `hostedZoneId` | unset | Route 53 hosted-zone ID; required with the root domain |
+| `WORLD_EVERY_DAY_EXPLORER_SUBDOMAIN` | `explorerSubdomain` | `explore` | Explorer DNS label beneath the root domain |
 
 Budget amount and email must be supplied together. Example synthesis:
 
@@ -74,6 +81,21 @@ npm run synth -- \
 The budget is filtered to the stack's `Project=AWorldEveryDay` tag. That
 user-defined cost-allocation tag must be activated in the billing account for
 the filter to take effect.
+
+Custom-domain settings are optional and contain no credentials. When enabled,
+the stack creates one DNS-validated certificate covering the root and explorer
+domains, plus IPv4 and IPv6 Route 53 aliases for both distributions. Because
+CloudFront requires its certificates in `us-east-1`, deploy this combined stack
+in that region. The domain must already have a Route 53 hosted zone in the target
+account, or be delegated to one before deployment.
+
+CDK provisions the hosting resources but does not upload a build. Build
+`marketing/` and `frontend/` separately, then publish their respective `out/`
+directories to the bucket names emitted as `MarketingSiteBucketName` and
+`ExplorerSiteBucketName`. Invalidate the matching distribution using the emitted
+`MarketingSiteDistributionId` or `ExplorerSiteDistributionId` after an upload.
+This explicit boundary prevents an infrastructure synthesis from silently
+publishing website content.
 
 ## AWS access and secrets
 

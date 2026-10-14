@@ -17,8 +17,8 @@ attention and quickly displaced by whatever comes next. The news is perhaps the
 clearest example: an unending stream of headlines, clickbait, conflict, and
 crisis.
 
-**A World Every Day is an artistic counterproposal: what if information arrived
-as a place?**
+A World Every Day is an artistic exploration: what if information arrived as a
+place?
 
 The first experiment begins with the news. Each morning, credible stories of
 discovery, progress, repair, and cooperation become a single explorable world: a
@@ -33,8 +33,8 @@ information into worlds of their own.
 
 Each edition is a playful, diagrammatic world composed from a curated set of
 stories from the previous day. Ideas, discoveries, places, and events are brought
-together as one limited, navigable environment: something to wander through,
-look around, and slowly uncover.
+together as one limited, navigable environment: something to wander, look
+around, and slowly explore.
 
 Visitors move through it as an interactive 3D world. Its landmarks are more than
 scenery: select one to learn what it represents, read the story behind it, and
@@ -74,6 +74,11 @@ them.
 A world foundation model is a generative model that creates a spatial,
 explorable environment from inputs such as images or text. In this project, an
 image becomes the starting point for a 3D world rather than the final artifact.
+
+A World Every Day is also an ongoing exploration of world foundation models.
+As those models become more capable, the project will evolve with them, using
+newer models to create worlds with greater fidelity, coherence, and possibility
+over time.
 
 The pipeline is designed to gather the day's information, preserve each story
 and its sources in structured data, generate a single image from the selected
@@ -172,6 +177,23 @@ Then open [http://localhost:3000](http://localhost:3000). Environment variables
 needed by future integrations will be documented in `frontend/.env.example`;
 never commit a populated `.env` file.
 
+### Run the project site
+
+The separate `marketing/` application introduces the art project, links to the
+open-source repository, and embeds the current explorer as a lazy-loaded preview.
+It is a static Next.js application with no credentials or server runtime.
+
+```bash
+cd marketing
+npm i
+npm start
+```
+
+Public links are configured at build time through `marketing/.env.example`.
+They are intentionally browser-visible and must never contain secrets. The
+reference deployment serves this site at the root domain and the immersive
+`frontend/` application from the configurable `explore` subdomain.
+
 To preview a locally generated SPZ without committing it, copy it into the
 ignored public-asset directory and set the public URL in `frontend/.env.local`:
 
@@ -207,9 +229,10 @@ ignored by Git and must never be committed.
 ### Validate the AWS foundation
 
 The AWS CDK foundation in `infra/aws/` defines private artifact storage,
-public-asset delivery, edition state, secret references, monitoring, and a
-schedule-disabled fixture workflow. It does not deploy resources, call paid
-providers, or run the live daily pipeline by itself.
+static-site hosting for both web applications, optional Route 53 custom-domain
+records, public-asset delivery, edition state, secret references, monitoring,
+and a schedule-disabled fixture workflow. It does not deploy resources, upload
+site builds, call paid providers, or run the live daily pipeline by itself.
 
 ```bash
 cd pipeline
