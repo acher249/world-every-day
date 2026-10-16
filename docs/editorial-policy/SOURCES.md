@@ -1,11 +1,16 @@
 # Initial source policy
 
-The reference implementation uses an explicit allowlist of RSS and Atom feeds.
+The reference implementation uses an explicit allowlist of RSS feeds.
 Discovery through a feed does not imply permission to analyze or republish its
 articles. Every enabled source declares either `discovery-only` or
 `ephemeral-analysis`. Permitted article content is processed in memory and
 discarded. The pipeline retains citations, checksums, and original project
 summaries rather than source pages, article copies, or verbatim evidence.
+The current repository code evaluates feed metadata, analyzes permitted article
+text, and plans art direction with Amazon Nova through AWS-managed Bedrock, not
+a self-hosted model. Google image generation still receives an authored visual
+prompt with story-derived physical details. See the [data boundary](../DATA_BOUNDARY.md).
+These text workers have not yet been deployed to the development account.
 
 ## Enabled reference feeds
 
@@ -16,7 +21,10 @@ summaries rather than source pages, article copies, or verbatim evidence.
 | [NPR Top Stories](https://feeds.npr.org/1001/rss.xml) | Reporting | Discovery only | Public affairs, health, culture, and daily news |
 | [NPR Arts & Life](https://feeds.npr.org/1008/rss.xml) | Reporting | Discovery only | Arts, books, music, and culture |
 | [Smithsonian Magazine](https://www.smithsonianmag.com/rss/) | Reporting | Discovery only | Arts, history, nature, and culture |
-| [The Conversation US](https://theconversation.com/us/articles.atom) | Reporting | Discovery only | Academic analysis across public subjects |
+| [NSF News](https://www.nsf.gov/rss) | Primary | Ephemeral analysis | Science, engineering, education, and society |
+| [National Cancer Institute](https://www.cancer.gov/syndication/rss) | Primary | Ephemeral analysis | Cancer research and public health |
+| [NOAA National Ocean Service](https://oceanservice.noaa.gov/rss.html) | Primary | Ephemeral analysis | Oceans, coasts, and conservation |
+| [Yale News](https://news.yale.edu/rss-feeds) | Institutional reporting | Ephemeral analysis, `news.yale.edu` only | Culture, environment, health, and research |
 | [Positive News](https://www.positive.news/feed/) | Reporting | Ephemeral analysis | Environment, society, economics, and culture |
 | [Reasons to be Cheerful](https://reasonstobecheerful.world/feed/) | Reporting | Ephemeral analysis | Community responses to public problems |
 | [Global Voices](https://globalvoices.org/feed/) | Reporting | Ephemeral analysis | Languages, culture, civic life, and communities |
@@ -27,6 +35,7 @@ summaries rather than source pages, article copies, or verbatim evidence.
 | [University of Cambridge News](https://www.cam.ac.uk/news/feed) | Institutional reporting | Ephemeral analysis | Health, culture, and research |
 | [MIT Research News](https://news.mit.edu/rss) | Institutional reporting | Ephemeral analysis | Research, technology, health, and climate |
 | [NIST News](https://www.nist.gov/coo/nist-rss-feeds) | Primary | Ephemeral analysis | Standards, measurement, and applied science |
+| [Wikimedia Diff](https://diff.wikimedia.org/feed/) | Community reporting | Discovery only | Public knowledge, culture, and community projects |
 
 The machine-readable allowlist is
 `pipeline/config/source-configuration.initial.v1.json`. Adding or changing a
@@ -38,7 +47,7 @@ article pages must not be sent to an analysis provider.
 ## Reference boundary
 
 The reference implementation discovers stories only through reviewed official
-RSS and Atom feeds. It does not depend on social feeds or unbounded website
+RSS feeds. It does not depend on social feeds or unbounded website
 collection. A feed entry supplies discovery metadata and a link; it does not by
 itself grant permission to analyze or republish the linked page.
 
@@ -57,22 +66,34 @@ allowlist.
 
 | Source | Editorial role | Coverage |
 | --- | --- | --- |
-| [NSF News](https://www.nsf.gov/rss) | Primary institution | Science, engineering, education |
 | [DOE Office of Science](https://science.osti.gov/RSS) | Primary institution | Energy, computing, physics, climate |
-| [National Cancer Institute](https://www.cancer.gov/syndication/rss) | Primary institution | Cancer research and public health |
 | [CDC](https://www2c.cdc.gov/medialibrary/) | Primary institution | Public health and epidemiology |
 | [USGS News](https://www.usgs.gov/news/news-releases/national-news-releases) | Primary institution | Earth science, water, hazards, ecosystems |
-| [NOAA National Ocean Service](https://oceanservice.noaa.gov/rss.html) | Primary institution | Oceans, coasts, climate, conservation |
 | [ESA](https://www.esa.int/Services/RSS_Feeds) | Primary institution | Space science and Earth observation |
 | [European Commission Research and Innovation](https://research-and-innovation.ec.europa.eu/news/stay-connected_en) | Primary institution | European research and innovation |
 | [Horizon Magazine](https://projects.research-and-innovation.ec.europa.eu/ga/node/7459) | Institutional reporting | EU-funded research and its applications |
 | [WHO regional news](https://www.emro.who.int/rss-feeds.html) | Primary institution | Public health and international cooperation |
 | [UNESCO World Heritage](https://whc.unesco.org/en/news/) | Primary institution | Culture, conservation, and communities |
 | [Smithsonian Insider](https://insider.si.edu/rssfeeds/) | Institutional reporting | Science, nature, arts, and history |
-| [Yale News](https://news.yale.edu/rss-feeds) | Institutional reporting | Research, environment, health, culture |
 | [ETH Zurich News](https://ethz.ch/content/main/en/utils/rss.html) | Institutional reporting | Science, engineering, climate, health |
 | [PLOS](https://journals.plos.org/plosone/s/find-and-read-articles) | Open research | Peer-reviewed science, health, and sustainability |
 | [eLife](https://elifesciences.org/alerts) | Open research | Life science and medicine |
+| [USDA Rural Development](https://www.rd.usda.gov/newsroom/rss) | Primary institution | Rural communities and infrastructure |
+| [European Environment Agency](https://www.eea.europa.eu/en/newsroom/rss-feeds) | Primary institution | Climate, environment, and ecosystems |
+| [FAO Newsroom](https://www.fao.org/newsroom/en) | Primary institution | Food systems and agriculture |
+| [IRENA](https://www.irena.org/rssfeed) | Primary institution | Renewable energy |
+| [USDA Agricultural Research Service](https://www.ars.usda.gov/news-events/rss-feeds/) | Primary institution | Farming and food research |
+
+The October 2026 review kept the Library of Congress out of scope. NSF's
+official feed links to `/news/<story>` pages, which are outside its robots
+exclusion for `/news/releases`; its text-reuse policy permits most NSF-authored
+text. Smithsonian Insider and USGS returned HTTP 403 to feed
+requests. ETH Zurich's published copyright terms need further review before
+article text is sent to a hosted model. ESA offers a reachable Earth-observation
+RSS feed, but its article-use terms have not yet been cleared for that step.
+The DOE page lists feed categories, but an appropriate current news feed still
+needs live validation. None of these candidates should be treated as enabled
+or approved for article analysis.
 
 University and institutional newsrooms report on their own organizations. They
 are valuable direct sources, but consequential claims should also resolve to a
@@ -108,8 +129,9 @@ ten-story test edition spanning health, education, housing, space, civic
 governance, language, and ecological art. Permitted articles were read
 ephemerally and only project-authored evidence artifacts were retained.
 
-The run also tightened the source boundary. NPR and The Conversation remain
-discovery-only because their robots files prohibit named AI agents. Smithsonian
+The run also tightened the source boundary. NPR remains discovery-only and
+The Conversation's Atom feed has since been removed from the RSS-only reference
+configuration. Smithsonian
 returned HTTP 403 for an article request and UN News feed links did not expose a
 readable article body, so both remain discovery-only rather than being bypassed.
 An early Global Voices extraction selected a promotional card instead of the
@@ -118,3 +140,33 @@ regression-tested, and the two pages were reprocessed successfully.
 
 These observations are operational checks, not permanent guarantees. Source
 behavior and terms must be monitored and re-reviewed.
+
+On 2026-10-15, the local reference allowlist changed from 16 mixed RSS/Atom
+feeds to 19 RSS feeds. NSF, NCI, NOAA National Ocean Service, and Yale News were
+added for ephemeral article analysis; The Conversation's Atom feed was removed.
+The [NSF](https://www.nsf.gov/policies/digital),
+[NCI](https://www.cancer.gov/policies/copyright-reuse), and
+[NOAA](https://oceanservice.noaa.gov/about/faq.html) sites publish text-reuse
+guidance. Yale's official
+RSS feed links to multiple university subdomains, so only `news.yale.edu`
+articles enter discovery. The new host filter applies to every configured
+source. These are local changes, not an AWS deployment. Feed and article access
+must be rechecked before deployment; adding them does not guarantee a
+ten-story daily edition. NCI's news-release feed was reachable but its latest
+entry in this check was from May 2026, so its expected daily yield is low.
+
+A read-only local collection over a 36-hour October 14–16 window completed all
+19 feeds with no failures and returned 62 candidates. Of the four newly enabled
+sources, only Yale contributed an in-window candidate, on the reviewed
+`news.yale.edu` host. NSF, NCI, and NOAA had no in-window entries. This run
+did not call an editorial model or deploy the configuration.
+
+The next local review added Wikimedia Diff as discovery-only. Its official RSS
+feed responded successfully and its robots file did not restrict article or feed
+paths. The remaining proposed feeds are not enabled: USDA Rural Development and
+IRENA returned HTTP 403; FAO's tested feed URL did not resolve to a usable feed;
+the USDA ARS feed returns HTTP article links that fail this project's HTTPS-only
+policy; and EEA's robots file disallows its `*/rss.xml` paths despite its public
+RSS directory. These are current access observations, not judgments about the
+publishers. Wikimedia's community posts may carry per-item rights or
+attribution considerations, so full-article analysis remains off pending review.

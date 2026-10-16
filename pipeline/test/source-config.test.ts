@@ -26,13 +26,18 @@ test("the initial live source configuration is valid and contains no placeholder
   ) as unknown;
   const configuration = parseSourceConfiguration(input);
 
-  assert.equal(configuration.sources.length, 16);
+  assert.equal(configuration.sources.length, 20);
+  assert.ok(configuration.sources.every(({ type }) => type === "rss"));
   assert.ok(configuration.sources.every(({ feedUrl }) => !new URL(feedUrl).hostname.endsWith(".test")));
   assert.ok(configuration.sources.every(({ allowedArticleHosts }) => allowedArticleHosts.length > 0));
   assert.equal(configuration.sources.find(({ id }) => id === "nasa-news")?.articleAccess, "ephemeral-analysis");
   assert.equal(configuration.sources.find(({ id }) => id === "npr-top-stories")?.articleAccess, "discovery-only");
-  assert.equal(configuration.sources.find(({ id }) => id === "the-conversation-us")?.articleAccess, "discovery-only");
+  assert.equal(configuration.sources.find(({ id }) => id === "nci-news")?.articleAccess, "ephemeral-analysis");
+  assert.equal(configuration.sources.find(({ id }) => id === "nsf-news")?.articleAccess, "ephemeral-analysis");
+  assert.equal(configuration.sources.find(({ id }) => id === "noaa-ocean-service-news")?.articleAccess, "ephemeral-analysis");
+  assert.deepEqual(configuration.sources.find(({ id }) => id === "yale-news")?.allowedArticleHosts, ["news.yale.edu"]);
   assert.equal(configuration.sources.find(({ id }) => id === "smithsonian-latest")?.articleAccess, "discovery-only");
+  assert.equal(configuration.sources.find(({ id }) => id === "wikimedia-diff")?.articleAccess, "discovery-only");
 });
 
 test("source configuration rejects duplicate adapter ids", async () => {

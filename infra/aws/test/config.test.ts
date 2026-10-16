@@ -9,10 +9,15 @@ function context(values: Record<string, unknown>) {
 test("deployment defaults are development and schedule-disabled", () => {
   assert.deepEqual(readDeploymentConfig(context({}) as never), {
     alarmNotificationEmail: undefined,
+    articleAnalysisModel: "amazon.nova-lite-v1:0",
     budgetAlertEmail: undefined,
+    editorialModel: "amazon.nova-lite-v1:0",
+    landmarkVisionModel: "gemini-3.8-flash",
     enableSchedule: false,
     environmentName: "development",
     monthlyBudgetUsd: undefined,
+    nanoBananaModel: "gemini-nano-banana-2.1",
+    worldLabsModel: "marble-1.1",
     siteDomain: undefined,
   });
 });
@@ -43,10 +48,15 @@ test("ignored local environment settings are supported but CDK context wins", ()
     }),
     {
       alarmNotificationEmail: "operations@example.com",
+      articleAnalysisModel: "amazon.nova-lite-v1:0",
       budgetAlertEmail: "alerts@example.com",
+      editorialModel: "amazon.nova-lite-v1:0",
+      landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: true,
       environmentName: "production",
       monthlyBudgetUsd: 40,
+      nanoBananaModel: "gemini-nano-banana-2.1",
+      worldLabsModel: "marble-1.1",
       siteDomain: undefined,
     },
   );
@@ -56,6 +66,14 @@ test("ignored local environment settings are supported but CDK context wins", ()
       { WORLD_EVERY_DAY_ENVIRONMENT: "production" },
     ).environmentName,
     "development",
+  );
+  assert.throws(
+    () => readDeploymentConfig(context({ editorialModel: "gemini-3.8-flash" }) as never),
+    /source-bearing text/,
+  );
+  assert.throws(
+    () => readDeploymentConfig(context({ articleAnalysisModel: "anthropic.claude-v1" }) as never),
+    /Amazon-operated model/,
   );
 });
 

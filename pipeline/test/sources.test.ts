@@ -86,6 +86,19 @@ test("Atom discovery resolves alternate links", () => {
   assert.equal(candidates[0].canonicalUrl, "https://news.example.test/wetlands");
 });
 
+test("RSS discovery ignores links outside reviewed article hosts", () => {
+  const candidates = parseFeedCandidates({
+    configuration: { ...configuration, allowedArticleHosts: ["news.example.test"] },
+    discoveredAt: new Date("2026-10-13T14:30:00.000Z"),
+    xml: `<?xml version="1.0"?><rss version="2.0"><channel>
+      <item><title>Reviewed story</title><link>https://news.example.test/story</link><pubDate>Tue, 13 Oct 2026 12:00:00 GMT</pubDate></item>
+      <item><title>Unreviewed sister site</title><link>https://medicine.example.test/story</link><pubDate>Tue, 13 Oct 2026 12:00:00 GMT</pubDate></item>
+    </channel></rss>`,
+  });
+
+  assert.deepEqual(candidates.map(({ title }) => title), ["Reviewed story"]);
+});
+
 test("a failed feed is isolated and recorded", async () => {
   const successful = new FeedSourceAdapter(configuration, fixtureFetcher(await feedXml()));
   const failed = new FeedSourceAdapter(

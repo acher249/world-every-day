@@ -83,6 +83,7 @@ async function main(): Promise<void> {
       feedUrl: source.feedUrl,
       kind: source.kind,
       publisher: source.publisher,
+      allowedArticleHosts: source.allowedArticleHosts,
     }, fetcher);
   });
   const artifact = await collectCandidateSet({ adapters, window });

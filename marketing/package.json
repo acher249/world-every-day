@@ -8,6 +8,7 @@
   "scripts": {
     "start": "next dev",
     "build": "next build",
+    "verify:public-build": "node scripts/verify-public-build.mjs",
     "license:check": "node scripts/check-licenses.mjs",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "next typegen && tsc --noEmit"

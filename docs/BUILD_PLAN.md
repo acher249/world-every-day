@@ -1,7 +1,7 @@
 # A World Every Day — Phased Build Plan
 
 Status: working plan  
-Last updated: 2026-10-14
+Last updated: 2026-10-15
 
 ## 1. Outcome
 
@@ -26,9 +26,9 @@ The system is successful when a maintainer can:
 
 ## 2. Current implementation status
 
-As of 2026-10-14, the repository has a working local pipeline and the beginning
-of a schedule-disabled AWS foundation. It does not yet have a deployed daily
-pipeline.
+As of 2026-10-15, the repository has a working local pipeline and a
+schedule-disabled AWS editorial path. It does not yet have a deployed daily
+generation and publication pipeline.
 
 | Area | Status | What exists | What remains |
 | --- | --- | --- | --- |
@@ -36,16 +36,43 @@ pipeline.
 | Frontend | Working prototype | Separate static Next.js marketing site, full-viewport Next.js explorer, Motion interfaces, Spark.js integration, validated publication artifact, responsive fictional ten-story experience, poster fallback, local generated-world loading, fly navigation, and baked 3D hotspots projected through the live camera | Marketing visual QA, navigation tuning, touch translation controls, automated browser coverage, archive routes |
 | Panorama generation | Live baseline | Selected-edition-to-art-direction adapter, deterministic compositional roles and prompt construction, live-validated art direction, Nano Banana adapter, factual 4K generation, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifest, tests, and dry-run mode | Multi-edition visual evaluation, automated image QA, and pole repair only if downstream results justify it |
 | Edition and editorial data | Live baseline | Versioned evaluation, shortlist, article-evidence, selected-edition, review, and publication schemas; deterministic selection; optional model adapters; fixtures; one factual ten-story edition and local publication assembly | Corroboration, corrections, and production publication assembly |
-| Story discovery | Live baseline | Sixteen-source RSS/Atom allowlist, per-source discovery-only or ephemeral-analysis policy, bounded retrieval, canonical URL deduplication, source-run provenance, failure isolation, and one 54-candidate live pass | Conditional caching, stronger event clustering, ongoing source review and health reporting, and orchestration |
+| Story discovery | Live baseline | Local 20-source RSS-only allowlist, per-source discovery-only or ephemeral-analysis policy, bounded retrieval, reviewed-host filtering, canonical URL deduplication, source-run provenance, and failure isolation. Earlier live passes used the 16-source RSS/Atom configuration. | Validate and deploy the revised source mix, then measure its ten-story yield; add conditional caching, stronger event clustering, and source health reporting |
 | World generation | Live baseline | Provider-neutral interface, stable idempotency, persisted operation lifecycle, durable local artifact copy, failure/resume tests, mock CLI, Marble 1.1 adapter, and approved fictional and factual SPZ generations | Sanitized real response fixture and S3 artifact store |
-| Interaction mapping | Live local baseline | Provider-neutral landmark and interaction schemas, live-validated multimodal detector, checksum-bound source and analysis images, browser-backed Spark.js spherical-raycast baking, factual publication assembly, runtime projection of fixed world positions, poster fallbacks, keyboard-accessible story index, and slide-out detail panels | Move baking into deployed orchestration and add occlusion and collision behavior |
-| AWS deployment | Foundation started | Synthesizable CDK development stack, separate private artifact, public-asset, marketing-site, and explorer-site buckets; CloudFront delivery; optional Route 53 custom domains; DynamoDB state; secret references; disabled Pacific-time schedule; a fixture-only lifecycle Lambda; alarms; optional budget; and provider-neutral storage adapters | Static build publication, live stage handlers, browser-baking compute, operator approvals, deployment, and staged validation |
-| Daily automation | Live local baseline | Proposed schedule, read-only artifact-chain inspection, a resumable no-network runner, explicitly gated live providers, a human review checkpoint, immutable local publication assembly, and a fixture cloud workflow that stops at review by default | Live Step Functions stages, operator review UI, and production publication |
+| Interaction mapping | Live local and private AWS stage validated | Provider-neutral landmark and interaction schemas, live-validated multimodal detector, checksum-bound source and analysis images, browser-backed Spark.js spherical-raycast baking, factual publication assembly, runtime projection of fixed world positions, poster fallbacks, keyboard-accessible story index, and slide-out detail panels. The Lambda browser baker loaded a real private SPZ and wrote 12 anchors in a stage-level AWS test. | Validate anchors in an integrated private edition and add occlusion and collision behavior |
+| AWS deployment | Gated live stages deployed, not end-to-end validated | CDK development stack, private artifacts, public-asset and website buckets; CloudFront and Route 53 custom domains; DynamoDB state; secret references; disabled Pacific-time schedule; fixture workflow; manual RSS/Atom workflow with opt-in editorial, image, world-generation, landmark, browser-baking, and publication stages; alarms; optional budget; static sites. A poll-only world Lambda smoke test confirmed package, secret, and S3 access without a paid request. | Review a candidate edition and image, validate paid generation and private preview, then explicitly approve and test public publication |
+| Daily automation | Locally wired, disabled | Manual Step Functions chain with explicit paid-stage and publication gates, a resumable no-network runner, a human review checkpoint, and a fixture cloud workflow that stops at review by default | Validate the full live chain and a one-time EventBridge delivery before enabling any daily schedule |
 
 The active phase is **Phase 2: one manual vertical slice**. Phase 0 remains
 partially open because the editorial and operating policies still need to be
 written. Phase 1 is substantially complete. Later phases are designs, not
 implemented features.
+
+The first cloud shortlist is a pipeline test, not a publication candidate:
+eight of its fifteen stories came from discovery-only feeds. Later shortlists
+exclude those sources from the article-analysis queue and record the
+source-policy checksum. The October 15 manual AWS run used a 36-hour test window
+and successfully finalized ten cited stories, but several are announcements or
+commentary and some visual details are peripheral. It is a technical test, not
+a publishable daily edition.
+Human editorial review and quality improvements remain required before image
+generation. The standalone World Labs probe verified read access only; it did
+not verify generation permission, credits, or model output.
+The revised candidate-evaluation prompt favors a concrete newly reported change
+over briefings, recaps, awards roundups, and general explainers. On a fresh
+24-hour AWS run, it shortlisted six of 52 candidates; all six passed permitted
+article analysis and finalization. This is a quality improvement, not a claim
+that the six-story test edition is ready to publish or that the ten-story target
+is reliably met. A broader approved source mix may be needed.
+
+The current repository code routes candidate metadata, permitted full-article
+text, and art direction to an Amazon-operated Nova model through Bedrock. It
+removes Google-key access from those text workers and narrows their IAM model
+permission. It has not been deployed or paid-tested. AWS still processes these
+prompts; the Google image stage receives a project-authored visual prompt that
+can include compact story-derived physical details. See the
+[data boundary](DATA_BOUNDARY.md).
+Wikimedia Diff was added as a discovery-only feed; other proposed feeds remain
+candidates pending access, robots, and HTTPS-link checks.
 
 ## 3. Product constraints
 

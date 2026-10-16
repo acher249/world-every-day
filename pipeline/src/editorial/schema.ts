@@ -84,6 +84,7 @@ export const editorialSelectionConfigurationSchema = z.object({
 
 const exclusionReasonSchema = z.enum([
   "ineligible",
+  "source-not-approved-for-analysis",
   "credibility-below-threshold",
   "duplicate-event",
   "topic-cap",
@@ -99,6 +100,7 @@ export const editorialShortlistSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
   candidateSetSha256: sha256Schema,
   evaluationSetSha256: sha256Schema,
+  sourceConfigurationSha256: sha256Schema.optional(),
   configuration: editorialSelectionConfigurationSchema,
   selected: z.array(z.object({
     storyId: sha256Schema,

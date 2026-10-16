@@ -126,3 +126,31 @@ test("selection publishes fewer stories rather than violating diversity caps", (
   assert.ok(shortlist.excluded.some(({ reason }) => ["topic-cap", "publisher-cap", "geography-cap"].includes(reason)));
 });
 
+test("selection excludes discovery-only sources before article analysis", () => {
+  const original = inputs();
+  const candidates = candidateSetSchema.parse({
+    ...original.candidates,
+    candidates: original.candidates.candidates.map((candidate, index) => index === 0
+      ? { ...candidate, source: { ...candidate.source, adapterId: "discovery-only" } }
+      : candidate),
+  });
+  const evaluations = candidateEvaluationSetSchema.parse({
+    ...original.evaluations,
+    candidateSetSha256: candidateSetSha256(candidates),
+  });
+  const configurationSha256 = "a".repeat(64);
+  const shortlist = createEditorialShortlist({
+    candidateSet: candidates,
+    evaluations,
+    sourcePolicy: {
+      approvedSourceIds: new Set(["example"]),
+      configurationSha256,
+    },
+  });
+
+  assert.equal(shortlist.sourceConfigurationSha256, configurationSha256);
+  assert.ok(shortlist.excluded.some(({ storyId, reason }) =>
+    storyId === id("one") && reason === "source-not-approved-for-analysis"));
+  assert.ok(shortlist.selected.every(({ storyId }) => storyId !== id("one")));
+});
+

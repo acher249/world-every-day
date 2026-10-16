@@ -53,11 +53,16 @@ export function createEditorialShortlist({
   configuration = defaultEditorialSelectionConfiguration,
   createdAt = new Date(),
   evaluations,
+  sourcePolicy,
 }: {
   candidateSet: CandidateSet;
   configuration?: EditorialSelectionConfiguration;
   createdAt?: Date;
   evaluations: CandidateEvaluationSet;
+  sourcePolicy?: {
+    approvedSourceIds: ReadonlySet<string>;
+    configurationSha256: string;
+  };
 }): EditorialShortlist {
   const validatedCandidates = candidateSetSchema.parse(candidateSet);
   const validatedEvaluations = candidateEvaluationSetSchema.parse(evaluations);
@@ -95,7 +100,9 @@ export function createEditorialShortlist({
   for (const { evaluation, score } of ranked) {
     const candidate = candidatesById.get(evaluation.storyId)!;
     let reason: EditorialShortlist["excluded"][number]["reason"] | undefined;
-    if (!evaluation.eligibility.eligible) reason = "ineligible";
+    if (sourcePolicy && !sourcePolicy.approvedSourceIds.has(candidate.source.adapterId)) {
+      reason = "source-not-approved-for-analysis";
+    } else if (!evaluation.eligibility.eligible) reason = "ineligible";
     else if (evaluation.scores.credibility < validatedConfiguration.minimumCredibility) {
       reason = "credibility-below-threshold";
     } else if (eventKeys.has(evaluation.eventKey)) reason = "duplicate-event";
@@ -130,6 +137,7 @@ export function createEditorialShortlist({
     createdAt: createdAt.toISOString(),
     candidateSetSha256: inputHash,
     evaluationSetSha256: artifactSha256(validatedEvaluations),
+    sourceConfigurationSha256: sourcePolicy?.configurationSha256,
     configuration: validatedConfiguration,
     selected,
     excluded,

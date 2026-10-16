@@ -42,6 +42,7 @@ export class NanoBananaGenerator implements PanoramaGenerator {
           aspectRatio: DEFAULT_PANORAMA_CONFIG.generation.aspectRatio,
           imageSize: DEFAULT_PANORAMA_CONFIG.generation.imageSize,
         },
+        httpOptions: { timeout: 540_000, retryOptions: { attempts: 1 } },
       },
     });
 

@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
+import { AMAZON_NOVA_TEXT_MODEL, assertAmazonNovaTextModel } from "../bedrock/model.js";
 import { providerUsageSchema } from "../provider-usage.js";
 import {
   ART_DIRECTION_GENERATION_PROMPT_VERSION,
@@ -7,42 +8,7 @@ import {
   type ArtDirectionStoryInput,
 } from "./generate.js";
 
-const responseJsonSchema = {
-  type: "object",
-  required: ["world", "subjects"],
-  properties: {
-    world: {
-      type: "object",
-      required: ["title", "concept", "setting", "timeOfDay", "atmosphere", "palette", "navigation"],
-      properties: {
-        title: { type: "string" },
-        concept: { type: "string" },
-        setting: { type: "string" },
-        timeOfDay: { type: "string" },
-        atmosphere: { type: "string" },
-        palette: { type: "array", items: { type: "string" } },
-        navigation: { type: "string" },
-      },
-    },
-    subjects: {
-      type: "array",
-      items: {
-        type: "object",
-        required: ["storyId", "subject", "placement", "scale", "materials", "visualCues", "groundedDetailIndexes", "artisticInterpretation"],
-        properties: {
-          storyId: { type: "string" },
-          subject: { type: "string" },
-          placement: { type: "string" },
-          scale: { type: "string" },
-          materials: { type: "array", items: { type: "string" } },
-          visualCues: { type: "array", items: { type: "string" } },
-          groundedDetailIndexes: { type: "array", items: { type: "integer" } },
-          artisticInterpretation: { type: "string" },
-        },
-      },
-    },
-  },
-} as const;
+type ConverseClient = Pick<BedrockRuntimeClient, "send">;
 
 export function buildArtDirectionPrompt(stories: ArtDirectionStoryInput[]): string {
   return [
@@ -56,43 +22,48 @@ export function buildArtDirectionPrompt(stories: ArtDirectionStoryInput[]): stri
     "For each subject, groundedDetailIndexes may reference only indexes in that story's groundedDetails array. Use an empty array when no supplied detail applies. Explain invented connective forms or metaphors in artisticInterpretation and never present them as reported facts.",
     "Return three to eight palette entries. For each subject return one to six materials, one to six visual cues, and no more than six nonnegative grounded-detail indexes.",
     "Return exactly one subject for every storyId. Favor strong silhouettes, simple forms, readable materials, quiet cinematic light, and a human-free environment. Preserve low-detail ground or open space between neighboring subjects so they remain separable after world reconstruction.",
+    "Return only a JSON object with world and subjects. World needs title, concept, setting, timeOfDay, atmosphere, palette, and navigation. Each subject needs storyId, subject, placement, scale, materials, visualCues, groundedDetailIndexes, and artisticInterpretation. Do not use Markdown fences.",
     `Stories:\n${JSON.stringify(stories)}`,
   ].join("\n\n");
 }
 
-export class GoogleArtDirectionProvider implements ArtDirectionProvider {
-  readonly provider = "google-genai";
+export class BedrockArtDirectionProvider implements ArtDirectionProvider {
+  readonly provider = "aws-bedrock";
   readonly promptVersion = ART_DIRECTION_GENERATION_PROMPT_VERSION;
   readonly model: string;
-  readonly #client: GoogleGenAI;
+  readonly #client: ConverseClient;
 
-  constructor({ apiKey, model }: { apiKey: string; model: string }) {
-    if (!apiKey.trim()) throw new Error("GOOGLE_AI_API_KEY is required");
-    if (!model.trim()) throw new Error("ART_DIRECTION_MODEL is required");
-    this.#client = new GoogleGenAI({ apiKey: apiKey.trim() });
-    this.model = model.trim();
+  constructor({ client = new BedrockRuntimeClient({}), model = AMAZON_NOVA_TEXT_MODEL }: {
+    client?: ConverseClient;
+    model?: string;
+  } = {}) {
+    assertAmazonNovaTextModel(model);
+    this.#client = client;
+    this.model = model;
   }
 
   async propose(stories: ArtDirectionStoryInput[]) {
     if (stories.length === 0 || stories.length > 10) {
       throw new Error("Art direction requires between 1 and 10 stories");
     }
-    const response = await this.#client.models.generateContent({
-      model: this.model,
-      contents: buildArtDirectionPrompt(stories),
-      config: { responseMimeType: "application/json", responseJsonSchema },
-    });
-    if (!response.text) throw new Error("Art-direction provider returned no JSON response");
-    const metadata = response.usageMetadata;
+    const prompt = buildArtDirectionPrompt(stories);
+    if (prompt.length > 50_000) throw new Error("Art-direction prompt exceeds 50000 characters");
+    const response = await this.#client.send(new ConverseCommand({
+      modelId: this.model,
+      messages: [{ role: "user", content: [{ text: prompt }] }],
+      inferenceConfig: { maxTokens: 6500, temperature: 0.2 },
+    }));
+    const content = response.output?.message?.content?.find((part) => typeof part.text === "string")?.text;
+    if (!content) throw new Error("Bedrock art-direction provider returned no text response");
     return {
-      proposal: parseArtDirectionProposal(JSON.parse(response.text) as unknown),
+      proposal: parseArtDirectionProposal(JSON.parse(content) as unknown),
       usage: providerUsageSchema.parse({
         requestCount: 1,
         unit: "tokens",
-        inputUnits: metadata?.promptTokenCount,
-        outputUnits: metadata?.candidatesTokenCount,
-        totalUnits: metadata?.totalTokenCount,
-        providerReported: metadata !== undefined,
+        inputUnits: response.usage?.inputTokens,
+        outputUnits: response.usage?.outputTokens,
+        totalUnits: response.usage?.totalTokens,
+        providerReported: response.usage !== undefined,
       }),
     };
   }

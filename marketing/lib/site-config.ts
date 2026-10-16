@@ -23,7 +23,7 @@ function publicUrl(value: string | undefined, fallback: string, label: string): 
 export function resolveMarketingSiteConfig(
   environment: Environment = process.env,
 ): MarketingSiteConfig {
-  return {
+  const config = {
     explorerUrl: publicUrl(
       environment.NEXT_PUBLIC_EXPLORER_URL,
       "https://explore.aworldeveryday.com",
@@ -40,4 +40,12 @@ export function resolveMarketingSiteConfig(
       "NEXT_PUBLIC_SITE_URL",
     ),
   };
+  if (
+    environment.NODE_ENV === "production" &&
+    new URL(config.siteUrl).hostname === "aworldeveryday.com" &&
+    ["localhost", "127.0.0.1", "::1"].includes(new URL(config.explorerUrl).hostname)
+  ) {
+    throw new Error("Production marketing builds must use a public NEXT_PUBLIC_EXPLORER_URL");
+  }
+  return config;
 }

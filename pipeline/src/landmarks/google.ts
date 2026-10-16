@@ -27,6 +27,7 @@ export class GoogleLandmarkDetector implements LandmarkDetector {
       }],
       config: {
         responseMimeType: "application/json",
+        httpOptions: { timeout: 240_000, retryOptions: { attempts: 1 } },
       },
     });
 

@@ -105,6 +105,17 @@ model. Contributors may add other cloud implementations as long as provider-
 specific code stays behind documented interfaces and does not weaken the
 project's license or secret-handling rules.
 
+In the current repository code, candidate metadata, permitted article text,
+and art-direction inputs use Amazon Nova through Bedrock rather than Google or
+a third-party Bedrock model. This is managed AWS inference, not self-hosting;
+AWS processes those prompts. The subsequent Google image request receives an
+original visual prompt that may contain story-derived details, not source pages
+or evidence excerpts. Operators must verify each source's permission, model
+terms, account retention and invocation-logging settings before live use. See
+the [data boundary](DATA_BOUNDARY.md) and
+[AWS source-text privacy preflight](../infra/aws/README.md#source-text-privacy-preflight).
+The development stack still runs the earlier Google text workers until deployed.
+
 ### News and social sources
 
 Source adapters must respect each source's license, terms, robots directives,

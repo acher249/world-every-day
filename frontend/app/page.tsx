@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
-import { WorldExperience } from "@/components/world-experience";
+import { PublicationExperience } from "@/components/publication-experience";
 import demoPublication from "@/data/fixtures/demo-publication.v1.json";
 import { parsePublicationManifest } from "@/lib/publication-schema";
 
@@ -22,6 +22,6 @@ async function loadPublication() {
 export default async function Home() {
   const publication = await loadPublication();
 
-  return <WorldExperience publication={publication} />;
+  return <PublicationExperience fallback={publication} />;
 }
 

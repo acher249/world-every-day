@@ -3,13 +3,14 @@ import { XMLParser } from "fast-xml-parser";
 import { parse } from "node-html-parser";
 import { candidateSetSchema, discoveredStorySchema, type CandidateSet, type DiscoveredStory } from "./schema.js";
 import type { ResourceFetcher } from "./http.js";
-import { canonicalizeSourceUrl } from "./url.js";
+import { canonicalizeSourceUrl, hostnameAllowed } from "./url.js";
 
 type FeedConfiguration = {
   id: string;
   feedUrl: string;
   kind: "primary" | "reporting";
   publisher: string;
+  allowedArticleHosts?: readonly string[];
 };
 
 type FeedEntry = Record<string, unknown>;
@@ -113,6 +114,8 @@ export function parseFeedCandidates({
     let canonicalUrl: string;
     try {
       canonicalUrl = canonicalizeSourceUrl(link);
+      if (configuration.allowedArticleHosts &&
+          !hostnameAllowed(new URL(canonicalUrl), configuration.allowedArticleHosts)) return [];
     } catch {
       return [];
     }

@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { assertPathDoesNotExist } from "../files.js";
 import { candidateSetSchema } from "../sources/schema.js";
 import { EDITORIAL_EVALUATION_PROMPT_VERSION, evaluateCandidateSet } from "./evaluate.js";
-import { GoogleCandidateEvaluator, MAX_EVALUATION_CANDIDATES } from "./google-evaluator.js";
+import { BedrockCandidateEvaluator, EVALUATION_BATCH_SIZE, MAX_EVALUATION_CANDIDATES } from "./bedrock-evaluator.js";
 
 type Options = {
   candidateSet?: string;
@@ -59,17 +59,14 @@ async function main(): Promise<void> {
       editionId: options.editionId,
       output,
       promptVersion: EDITORIAL_EVALUATION_PROMPT_VERSION,
-      expectedModelRequests: candidateSet.candidates.length > 0 ? 1 : 0,
+      expectedModelRequests: Math.ceil(candidateSet.candidates.length / EVALUATION_BATCH_SIZE),
     }, null, 2));
     return;
   }
 
   await assertPathDoesNotExist(output, "Candidate-evaluation output");
 
-  const evaluator = new GoogleCandidateEvaluator({
-    apiKey: process.env.GOOGLE_AI_API_KEY ?? "",
-    model: process.env.EDITORIAL_MODEL ?? "",
-  });
+  const evaluator = new BedrockCandidateEvaluator({ model: process.env.EDITORIAL_MODEL });
   const artifact = await evaluateCandidateSet({
     candidateSet,
     editionId: options.editionId,

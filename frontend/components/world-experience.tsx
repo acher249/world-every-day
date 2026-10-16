@@ -8,6 +8,7 @@ import {
   type WorldAnchor,
 } from "@/components/spark-world";
 import { cycleId } from "@/lib/spatial-navigation";
+import { resolveProjectSiteUrl } from "@/lib/site-links";
 import { canRenderWorldInteractions } from "@/lib/world-interactions";
 import type {
   PublicationManifest,
@@ -73,6 +74,16 @@ function ControlsIcon() {
     <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
       <rect x="2.75" y="4.5" width="14.5" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.25" />
       <path d="M5.5 8h1.5M9.25 8h1.5M13 8h1.5M5.5 11h1.5M9.25 11h1.5M13 11h1.5M7.25 13.5h5.5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AboutIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+      <circle cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M10 9v4" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+      <circle cx="10" cy="6.75" r=".75" fill="currentColor" />
     </svg>
   );
 }
@@ -261,6 +272,7 @@ function viewerLabel(state: ViewerState) {
 }
 
 export function WorldExperience({ publication }: { publication: PublicationManifest }) {
+  const projectSiteUrl = resolveProjectSiteUrl(process.env.NEXT_PUBLIC_PROJECT_SITE_URL);
   const localSplatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
   const localSplatSha256 = process.env.NEXT_PUBLIC_WORLD_SPLAT_SHA256;
   const splatUrl = publication.world.splat?.url ?? localSplatUrl;
@@ -372,22 +384,30 @@ export function WorldExperience({ publication }: { publication: PublicationManif
       </div>
 
       <header className="viewer-header">
-        <motion.button
-          className="hud-button story-menu-button"
+        <motion.div
+          className="viewer-nav"
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.45, delay: 0.12, ease }}
-          onClick={() => {
-            setActiveId(null);
-            setControlsOpen(false);
-            setIndexOpen((open) => !open);
-          }}
-          aria-expanded={indexOpen}
-          aria-controls="story-index"
         >
-          <MenuIcon />
-          <span>Stories</span>
-        </motion.button>
+          <button
+            className="hud-button story-menu-button"
+            onClick={() => {
+              setActiveId(null);
+              setControlsOpen(false);
+              setIndexOpen((open) => !open);
+            }}
+            aria-expanded={indexOpen}
+            aria-controls="story-index"
+          >
+            <MenuIcon />
+            <span>Stories</span>
+          </button>
+          <a className="hud-button project-link" href={projectSiteUrl} target="_blank" rel="noopener noreferrer">
+            <AboutIcon />
+            <span>About the project</span>
+          </a>
+        </motion.div>
         <motion.div
           className="viewer-title"
           initial={{ opacity: 0, y: -8 }}
@@ -395,7 +415,10 @@ export function WorldExperience({ publication }: { publication: PublicationManif
           transition={{ duration: 0.5, delay: 0.08, ease }}
         >
           <span className="brand-orbit" aria-hidden="true"><i /></span>
-          <h1 id="edition-title">A World Every Day</h1>
+          <div className="viewer-title-copy">
+            <h1 id="edition-title">A World Every Day</h1>
+            <span className="viewer-edition-date">{edition.displayDate}</span>
+          </div>
         </motion.div>
         <motion.div
           className="viewer-actions"
@@ -441,7 +464,6 @@ export function WorldExperience({ publication }: { publication: PublicationManif
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.2, ease }}
         >
-          <span>{edition.displayDate}</span>
           <span>World {String(edition.sequence).padStart(3, "0")}</span>
         </motion.div>
         <motion.p

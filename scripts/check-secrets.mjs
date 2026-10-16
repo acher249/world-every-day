@@ -15,10 +15,11 @@ const allowedPaths = new Set([
 ]);
 const secretPatterns = [
   ["AWS access key", /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g],
-  ["Google API key", /\bAIza[\w-]{35}\b/g],
+  ["Google API key", /\b(?:AIza[\w-]{35}|AQ\.[A-Za-z0-9_-]{30,})\b/g],
   ["GitHub token", /\bgh[pousr]_[A-Za-z0-9]{36,255}\b/g],
   ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g],
   ["Stripe live secret", /\bsk_live_[A-Za-z0-9]{16,}\b/g],
+  ["provider credential assignment", /\b(?:GOOGLE_AI_API_KEY|WORLD_LABS_KEY|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN)\s*[:=]\s*["']?[A-Za-z0-9._-]{24,}\b/g],
 ];
 
 const repositoryRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
@@ -39,6 +40,8 @@ for (const path of repositoryFiles) {
   try {
     contents = readFileSync(resolve(repositoryRoot, path));
   } catch (error) {
+    // git ls-files still includes tracked paths deleted in the working tree.
+    if (error.code === "ENOENT") continue;
     failures.push(`${path}: could not read tracked file (${error.message})`);
     continue;
   }

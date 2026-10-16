@@ -1,8 +1,13 @@
 import type { Node } from "constructs";
 
 export type DeploymentConfig = {
+  articleAnalysisModel: string;
   alarmNotificationEmail?: string;
   budgetAlertEmail?: string;
+  editorialModel: string;
+  landmarkVisionModel: string;
+  nanoBananaModel: string;
+  worldLabsModel: string;
   enableSchedule: boolean;
   environmentName: "development" | "production";
   monthlyBudgetUsd?: number;
@@ -59,6 +64,51 @@ export function readDeploymentConfig(
     "WORLD_EVERY_DAY_ENABLE_SCHEDULE",
   );
   const enableSchedule = rawEnableSchedule === true || rawEnableSchedule === "true";
+  const editorialModel = setting(
+    node,
+    environment,
+    "editorialModel",
+    "WORLD_EVERY_DAY_EDITORIAL_MODEL",
+  ) ?? "amazon.nova-lite-v1:0";
+  if (editorialModel !== "amazon.nova-lite-v1:0") {
+    throw new Error("editorialModel must be amazon.nova-lite-v1:0 for source-bearing text stages");
+  }
+  const articleAnalysisModel = setting(
+    node,
+    environment,
+    "articleAnalysisModel",
+    "WORLD_EVERY_DAY_ARTICLE_ANALYSIS_MODEL",
+  ) ?? "amazon.nova-lite-v1:0";
+  if (articleAnalysisModel !== "amazon.nova-lite-v1:0") {
+    throw new Error("articleAnalysisModel must be amazon.nova-lite-v1:0 to keep article text on an Amazon-operated model");
+  }
+  const landmarkVisionModel = setting(
+    node,
+    environment,
+    "landmarkVisionModel",
+    "WORLD_EVERY_DAY_LANDMARK_VISION_MODEL",
+  ) ?? "gemini-3.8-flash";
+  if (typeof landmarkVisionModel !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,159}$/.test(landmarkVisionModel)) {
+    throw new Error("landmarkVisionModel must be a valid model identifier");
+  }
+  const nanoBananaModel = setting(
+    node,
+    environment,
+    "nanoBananaModel",
+    "WORLD_EVERY_DAY_NANO_BANANA_MODEL",
+  ) ?? "gemini-nano-banana-2.1";
+  if (typeof nanoBananaModel !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,159}$/.test(nanoBananaModel)) {
+    throw new Error("nanoBananaModel must be a valid model identifier");
+  }
+  const worldLabsModel = setting(
+    node,
+    environment,
+    "worldLabsModel",
+    "WORLD_EVERY_DAY_WORLD_LABS_MODEL",
+  ) ?? "marble-1.1";
+  if (typeof worldLabsModel !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,159}$/.test(worldLabsModel)) {
+    throw new Error("worldLabsModel must be a valid model identifier");
+  }
   const budgetAlertEmail = setting(
     node,
     environment,
@@ -116,13 +166,18 @@ export function readDeploymentConfig(
     throw new Error("Custom CloudFront domains must be deployed from this stack in us-east-1");
   }
   return {
+    articleAnalysisModel,
     alarmNotificationEmail: alarmNotificationEmail
       ? String(alarmNotificationEmail)
       : undefined,
     budgetAlertEmail: budgetAlertEmail ? String(budgetAlertEmail) : undefined,
+    editorialModel,
+    landmarkVisionModel,
     enableSchedule,
     environmentName,
     monthlyBudgetUsd,
+    nanoBananaModel,
+    worldLabsModel,
     siteDomain: rootDomain && hostedZoneId ? {
       explorerSubdomain: String(explorerSubdomain).toLowerCase(),
       hostedZoneId: String(hostedZoneId),

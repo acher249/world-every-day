@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
+import type { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import {
   ART_DIRECTION_GENERATION_PROMPT_VERSION,
   assignCompositionRoles,
   generateArtDirection,
   type ArtDirectionProvider,
 } from "../src/art-direction/generate.js";
-import { buildArtDirectionPrompt } from "../src/art-direction/google.js";
+import { BedrockArtDirectionProvider, buildArtDirectionPrompt } from "../src/art-direction/bedrock.js";
 import { buildScenePrompt } from "../src/art-direction/prompt.js";
 import { selectedEditionSchema } from "../src/editorial/edition.js";
 
@@ -140,4 +141,42 @@ test("art-direction generation requests flexible circulation and separate landma
   assert.match(prompt, /separate landmark bays/i);
   assert.match(prompt, /do not default every world/i);
   assert.match(prompt, /low-detail ground or open space/i);
+});
+
+test("Bedrock art direction pins Amazon Nova and validates structured output", async () => {
+  assert.throws(() => new BedrockArtDirectionProvider({ model: "google.gemini" }), /Amazon-operated/);
+  const stories = assignCompositionRoles(edition()).slice(0, 1);
+  const client = {
+    async send(command: ConverseCommand) {
+      assert.equal(command.input.modelId, "amazon.nova-lite-v1:0");
+      assert.match(command.input.messages?.[0]?.content?.[0]?.text ?? "", /Grounded physical detail/);
+      return {
+        output: { message: { content: [{ text: JSON.stringify({
+          world: {
+            title: "A Garden of Discoveries",
+            concept: "A connected garden of practical discoveries.",
+            setting: "A coastal garden with a clear path.",
+            timeOfDay: "Morning",
+            atmosphere: "Calm and curious",
+            palette: ["green", "silver", "blue"],
+            navigation: "An open path around the landmarks.",
+          },
+          subjects: stories.map((story) => ({
+            storyId: story.storyId,
+            subject: "A sculptural structure",
+            placement: "Beside the path",
+            scale: "Large",
+            materials: ["stone"],
+            visualCues: ["clear silhouette"],
+            groundedDetailIndexes: [0],
+            artisticInterpretation: "The path is an artistic connection.",
+          })),
+        }) }] } },
+        usage: { inputTokens: 120, outputTokens: 90, totalTokens: 210 },
+      };
+    },
+  } as unknown as BedrockRuntimeClient;
+  const result = await new BedrockArtDirectionProvider({ client }).propose(stories);
+  assert.equal(result.proposal.subjects[0].storyId, stories[0].storyId);
+  assert.equal(result.usage.totalUnits, 210);
 });

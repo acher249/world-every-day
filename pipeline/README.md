@@ -35,15 +35,20 @@ values you intend to use:
 GOOGLE_AI_API_KEY=
 NANO_BANANA_MODEL=gemini-nano-banana-2.1
 LANDMARK_VISION_MODEL=gemini-3.8-flash
-EDITORIAL_MODEL=gemini-3.8-flash
-ART_DIRECTION_MODEL=gemini-3.8-flash
+EDITORIAL_MODEL=amazon.nova-lite-v1:0
+ARTICLE_ANALYSIS_MODEL=amazon.nova-lite-v1:0
+ART_DIRECTION_MODEL=amazon.nova-lite-v1:0
 WORLD_LABS_KEY=
 WORLD_LABS_MODEL=marble-1.1
 ```
 
-`GOOGLE_AI_API_KEY` enables the optional Google adapters for Nano Banana,
-landmark detection, editorial analysis, and art direction when their model
-settings are configured. `WORLD_LABS_KEY` enables the optional World Labs
+`GOOGLE_AI_API_KEY` enables the optional Google adapters for Nano Banana and
+landmark detection. Source-metadata evaluation, permitted article analysis,
+and art direction use the pinned Amazon Nova model through Bedrock and the
+operator's AWS identity; no Bedrock API key belongs in `.env`.
+The visual scene prompt sent to Google can contain story-derived physical
+details. See the [data boundary](../docs/DATA_BOUNDARY.md).
+`WORLD_LABS_KEY` enables the optional World Labs
 adapter. Both providers can incur charges, so the project never calls them during
 installation, tests, builds, dry runs, or the mock world workflow. The populated
 `.env` is ignored by Git and must never be committed; `.env.example` contains
@@ -58,7 +63,8 @@ each generation artifact rather than inferred later.
 ## Story-discovery foundation
 
 The source module provides a bounded, provider-neutral foundation for daily
-story discovery. It parses allowlisted RSS and Atom feeds into a versioned
+story discovery. The parser supports RSS and Atom, while the default allowlist
+contains only RSS feeds. It parses them into a versioned
 candidate set, normalizes tracking URLs, applies the configured publication
 window, and deduplicates exact canonical URLs. One failed feed is isolated from
 the rest. Each source separately declares whether linked pages may be processed
@@ -69,15 +75,20 @@ article reader removes page furniture, reads the permitted article text in
 memory, verifies the generated analysis against that temporary text, and then
 discards it. Article bodies and verbatim evidence passages are never written to
 an artifact. The pipeline retains a checksum, source provenance, and original
-project-written analysis only. `GoogleArticleAnalyzer` is an optional paid adapter using
-`EDITORIAL_MODEL`; fixture analyzers remain the default for tests. A single
+project-written analysis only. `BedrockArticleAnalyzer` uses the pinned
+`ARTICLE_ANALYSIS_MODEL`; fixture analyzers remain the default for tests. A single
 analysis produces a clear headline, original summary, source-grounded claims,
 and granular visual details. Missing visual details remain non-fatal.
 
-Enabling a hosted analyzer transmits the ephemeral text to that provider. Review
-and accept its current data-use and retention terms before enabling it; a local
-or otherwise approved adapter can replace it without changing the artifact
-model.
+Bedrock is an AWS-managed service, not local inference. The reference text
+adapters accept only an Amazon-operated Nova model. Ephemeral project processing
+does not by itself control AWS retention or invocation logs. Before live use, verify
+model access, the source's permission for this processing, and the
+[AWS privacy preflight](../infra/aws/README.md#source-text-privacy-preflight).
+The deployed development text workers still use the earlier Google implementation;
+this repository change is not live until redeployed. The artifact model remains
+provider-neutral, but alternative text analyzers require an explicit privacy
+and source-policy review.
 
 Validate a versioned source configuration and collection window without making
 network requests:
@@ -137,9 +148,10 @@ npm run editorial:evaluate -- \
   --dry-run
 ```
 
-A live evaluation is one bounded model request and requires
-`--confirm-paid-analysis`, `GOOGLE_AI_API_KEY`, and `EDITORIAL_MODEL`. Provider
-usage is stored in the evaluation artifact when reported.
+A live evaluation uses batches of at most ten candidates, with at most ten
+Bedrock requests for the 100-candidate limit. It requires
+`--confirm-paid-analysis` and an AWS identity authorized for the pinned
+`EDITORIAL_MODEL`. Provider usage is stored when reported.
 
 Create a shortlist from validated artifacts without a provider call:
 
@@ -165,7 +177,8 @@ npm run articles:extract -- \
 ```
 
 A live run requires both `--confirm-live-fetch` and
-`--confirm-paid-analysis`, plus `GOOGLE_AI_API_KEY` and `EDITORIAL_MODEL`.
+`--confirm-paid-analysis`, plus an AWS profile authorized for the pinned Bedrock
+model.
 Only hosts explicitly listed in that source's `allowedArticleHosts` may be read.
 
 After the evidence artifacts exist, assemble the final edition locally:
@@ -206,8 +219,8 @@ npm run art-direction:create -- \
   --dry-run
 ```
 
-A live request requires `--confirm-paid-analysis`, `GOOGLE_AI_API_KEY`, and
-`ART_DIRECTION_MODEL`. The resulting artifact can be passed directly to
+A live request requires `--confirm-paid-analysis` and an AWS identity authorized
+for the pinned `ART_DIRECTION_MODEL`. The resulting artifact can be passed directly to
 `npm run panorama -- --art-direction-file <path> --dry-run`.
 
 ## Workflow inspection

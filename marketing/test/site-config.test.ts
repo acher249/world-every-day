@@ -28,3 +28,14 @@ test("marketing links reject non-web protocols", () => {
     /HTTP or HTTPS/,
   );
 });
+
+test("production site cannot point visitors at a local explorer", () => {
+  assert.throws(
+    () => resolveMarketingSiteConfig({
+      NODE_ENV: "production",
+      NEXT_PUBLIC_SITE_URL: "https://aworldeveryday.com",
+      NEXT_PUBLIC_EXPLORER_URL: "http://localhost:3001",
+    }),
+    /public NEXT_PUBLIC_EXPLORER_URL/,
+  );
+});

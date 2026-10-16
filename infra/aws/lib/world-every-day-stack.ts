@@ -2,6 +2,7 @@ import {
   CfnOutput,
   Duration,
   RemovalPolicy,
+  Size,
   Stack,
   Tags,
   TimeZone,
@@ -120,6 +121,26 @@ export class WorldEveryDayStack extends Stack {
         : `https://${marketingSite.distribution.domainName}`,
       hostedZone,
     });
+    explorerSite.distribution.addBehavior(
+      "generated/current.json",
+      origins.S3BucketOrigin.withOriginAccessControl(publicAssets),
+      {
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+    );
+    explorerSite.distribution.addBehavior(
+      "generated/*",
+      origins.S3BucketOrigin.withOriginAccessControl(publicAssets),
+      {
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+    );
 
     const editions = new dynamodb.Table(this, "EditionTable", {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -143,6 +164,32 @@ export class WorldEveryDayStack extends Stack {
     });
     const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
     const pipelineRoot = resolve(repositoryRoot, "pipeline");
+    const googleSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "GoogleApiSecret",
+      `world-every-day/${config.environmentName}/google-ai`,
+    );
+    const worldLabsSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "WorldLabsApiSecret",
+      `world-every-day/${config.environmentName}/world-labs`,
+    );
+    const worldLabsAuthProbe = new lambdaNodejs.NodejsFunction(this, "WorldLabsAuthProbe", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/world-labs-auth-probe.ts"),
+      environment: { WORLD_LABS_SECRET_NAME: worldLabsSecret.secretName },
+      handler: "main",
+      logGroup: new logs.LogGroup(this, "WorldLabsAuthProbeLogs", {
+        retention: logs.RetentionDays.ONE_MONTH,
+      }),
+      memorySize: 128,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(15),
+    });
+    worldLabsSecret.grantRead(worldLabsAuthProbe);
     const mockWorkflowHandler = new lambdaNodejs.NodejsFunction(this, "MockWorkflowHandler", {
       architecture: lambda.Architecture.ARM_64,
       bundling: {
@@ -162,7 +209,6 @@ export class WorldEveryDayStack extends Stack {
       logGroup: handlerLogs,
       memorySize: 256,
       projectRoot: pipelineRoot,
-      reservedConcurrentExecutions: 1,
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: Duration.seconds(30),
     });
@@ -182,6 +228,621 @@ export class WorldEveryDayStack extends Stack {
       ],
       resources: [editions.tableArn],
     }));
+
+    const collectCandidatesHandler = new lambdaNodejs.NodejsFunction(this, "CollectCandidatesHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: {
+        bundleAwsSDK: true,
+        minify: true,
+        sourceMap: true,
+        target: "node24",
+      },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/collect-candidates-handler.ts"),
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName },
+      handler: "main",
+      memorySize: 512,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(90),
+    });
+    collectCandidatesHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    collectCandidatesHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    const collectCandidates = new tasks.LambdaInvoke(this, "CollectLiveCandidates", {
+      lambdaFunction: collectCandidatesHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        "windowStart.$": "$.windowStart",
+        "windowEnd.$": "$.windowEnd",
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.collection",
+      retryOnServiceExceptions: false,
+    });
+    collectCandidates.addRetry({
+      backoffRate: 2,
+      errors: [
+        "Lambda.ServiceException",
+        "Lambda.AWSLambdaException",
+        "Lambda.ClientExecutionTimeoutException",
+        "Lambda.SdkClientException",
+      ],
+      interval: Duration.seconds(2),
+      maxAttempts: 2,
+    });
+    const editorialShortlistHandler = new lambdaNodejs.NodejsFunction(this, "EditorialShortlistHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: {
+        bundleAwsSDK: true,
+        minify: true,
+        sourceMap: true,
+        target: "node24",
+      },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/editorial-shortlist-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        EDITORIAL_MODEL: config.editorialModel,
+      },
+      handler: "main",
+      memorySize: 512,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(300),
+    });
+    editorialShortlistHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    editorialShortlistHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    editorialShortlistHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["bedrock:InvokeModel"],
+      resources: [`arn:aws:bedrock:${this.region}::foundation-model/${config.editorialModel}`],
+    }));
+    const createShortlist = new tasks.LambdaInvoke(this, "CreateLiveEditorialShortlist", {
+      lambdaFunction: editorialShortlistHandler,
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
+      payloadResponseOnly: true,
+      resultPath: "$.editorial",
+      retryOnServiceExceptions: false,
+    });
+    const prepareArticleAnalysisHandler = new lambdaNodejs.NodejsFunction(this, "PrepareArticleAnalysisHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/article-analysis-handler.ts"),
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName },
+      handler: "prepare",
+      memorySize: 256,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(30),
+    });
+    prepareArticleAnalysisHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    prepareArticleAnalysisHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    const articleAnalysisHandler = new lambdaNodejs.NodejsFunction(this, "ArticleAnalysisHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/article-analysis-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        ARTICLE_ANALYSIS_MODEL: config.articleAnalysisModel,
+      },
+      handler: "analyze",
+      memorySize: 512,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(300),
+    });
+    articleAnalysisHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    articleAnalysisHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    articleAnalysisHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["bedrock:InvokeModel"],
+      resources: [`arn:aws:bedrock:${this.region}::foundation-model/${config.articleAnalysisModel}`],
+    }));
+    const prepareArticleAnalysis = new tasks.LambdaInvoke(this, "PrepareLiveArticleAnalysis", {
+      lambdaFunction: prepareArticleAnalysisHandler,
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
+      payloadResponseOnly: true,
+      resultPath: "$.articlePreparation",
+      retryOnServiceExceptions: false,
+    });
+    const analyzeArticleTask = new tasks.LambdaInvoke(this, "AnalyzeLiveArticle", {
+      lambdaFunction: articleAnalysisHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        "storyId.$": "$.storyId",
+      }),
+      payloadResponseOnly: true,
+      retryOnServiceExceptions: false,
+    });
+    const analyzeArticles = new stepfunctions.Map(this, "AnalyzeLiveArticles", {
+      itemsPath: stepfunctions.JsonPath.stringAt("$.articlePreparation.tasks"),
+      maxConcurrency: 2,
+      resultPath: "$.articleResults",
+    });
+    analyzeArticles.itemProcessor(analyzeArticleTask);
+    const finalizeEditionHandler = new lambdaNodejs.NodejsFunction(this, "FinalizeEditionHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/finalize-edition-handler.ts"),
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName },
+      handler: "main",
+      memorySize: 256,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(30),
+    });
+    finalizeEditionHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    finalizeEditionHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    const finalizeEdition = new tasks.LambdaInvoke(this, "FinalizeLiveEdition", {
+      lambdaFunction: finalizeEditionHandler,
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
+      payloadResponseOnly: true,
+      resultPath: "$.finalEdition",
+      retryOnServiceExceptions: false,
+    });
+    const artDirectionHandler = new lambdaNodejs.NodejsFunction(this, "ArtDirectionHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/art-direction-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        ART_DIRECTION_MODEL: config.editorialModel,
+      },
+      handler: "main",
+      memorySize: 512,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(300),
+    });
+    artDirectionHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    artDirectionHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    artDirectionHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["bedrock:InvokeModel"],
+      resources: [`arn:aws:bedrock:${this.region}::foundation-model/${config.editorialModel}`],
+    }));
+    const createArtDirection = new tasks.LambdaInvoke(this, "CreateLiveArtDirection", {
+      lambdaFunction: artDirectionHandler,
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
+      payloadResponseOnly: true,
+      resultPath: "$.artDirection",
+      retryOnServiceExceptions: false,
+    });
+    const rawPanoramaHandler = new lambdaNodejs.NodejsFunction(this, "RawPanoramaHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/raw-panorama-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        GOOGLE_SECRET_NAME: googleSecret.secretName,
+        NANO_BANANA_MODEL: config.nanoBananaModel,
+      },
+      handler: "main",
+      memorySize: 1024,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.minutes(10),
+    });
+    rawPanoramaHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    rawPanoramaHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    googleSecret.grantRead(rawPanoramaHandler);
+    const generateRawPanorama = new tasks.LambdaInvoke(this, "CreateApprovedRawPanoramaSource", {
+      lambdaFunction: rawPanoramaHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        confirmPaidGeneration: true,
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.rawPanorama",
+      retryOnServiceExceptions: false,
+    });
+    const panoramaProcessingHandler = new lambdaNodejs.NodejsFunction(this, "PanoramaProcessingHandler", {
+      architecture: lambda.Architecture.X86_64,
+      bundling: {
+        bundleAwsSDK: true,
+        forceDockerBundling: true,
+        minify: true,
+        nodeModules: ["sharp"],
+        sourceMap: true,
+        target: "node24",
+      },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/panorama-processing-handler.ts"),
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName },
+      ephemeralStorageSize: Size.gibibytes(4),
+      handler: "main",
+      memorySize: 3008,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.minutes(15),
+    });
+    panoramaProcessingHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    panoramaProcessingHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    const processPanorama = new tasks.LambdaInvoke(this, "ProcessPrivatePanorama", {
+      lambdaFunction: panoramaProcessingHandler,
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
+      payloadResponseOnly: true,
+      resultPath: "$.panorama",
+      retryOnServiceExceptions: false,
+    });
+    const worldGenerationHandler = new lambdaNodejs.NodejsFunction(this, "WorldGenerationHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/world-generation-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        WORLD_LABS_MODEL: config.worldLabsModel,
+        WORLD_LABS_SECRET_NAME: worldLabsSecret.secretName,
+      },
+      ephemeralStorageSize: Size.gibibytes(4),
+      handler: "main",
+      memorySize: 3008,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.minutes(15),
+    });
+    worldGenerationHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    worldGenerationHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    worldLabsSecret.grantRead(worldGenerationHandler);
+    const startWorld = new tasks.LambdaInvoke(this, "StartApprovedWorldGeneration", {
+      lambdaFunction: worldGenerationHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        mode: "start",
+        confirmPaidWorld: true,
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.worldGeneration",
+      retryOnServiceExceptions: false,
+    });
+    const pollWorld = new tasks.LambdaInvoke(this, "PollWorldGeneration", {
+      lambdaFunction: worldGenerationHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        "pollCount.$": "$.worldGeneration.pollCount",
+        mode: "poll",
+        confirmPaidWorld: true,
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.worldGeneration",
+      retryOnServiceExceptions: false,
+    });
+    const waitForWorld = new stepfunctions.Wait(this, "WaitForWorldGeneration", {
+      time: stepfunctions.WaitTime.duration(Duration.minutes(1)),
+    });
+    const landmarkHandler = new lambdaNodejs.NodejsFunction(this, "LandmarkDetectionHandler", {
+      architecture: lambda.Architecture.X86_64,
+      bundling: {
+        bundleAwsSDK: true,
+        forceDockerBundling: true,
+        minify: true,
+        nodeModules: ["sharp"],
+        sourceMap: true,
+        target: "node24",
+      },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/landmark-detection-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        GOOGLE_SECRET_NAME: googleSecret.secretName,
+        LANDMARK_VISION_MODEL: config.landmarkVisionModel,
+      },
+      ephemeralStorageSize: Size.gibibytes(2),
+      handler: "main",
+      memorySize: 3008,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.minutes(7),
+    });
+    landmarkHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    landmarkHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    googleSecret.grantRead(landmarkHandler);
+    const detectLandmarks = new tasks.LambdaInvoke(this, "DetectPrivateLandmarks", {
+      lambdaFunction: landmarkHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        confirmPaidLandmarks: true,
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.landmarks",
+      retryOnServiceExceptions: false,
+    });
+    const interactionBakingHandler = new lambdaNodejs.NodejsFunction(this, "InteractionBakingHandler", {
+      architecture: lambda.Architecture.X86_64,
+      bundling: {
+        banner: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+        bundleAwsSDK: true,
+        forceDockerBundling: true,
+        format: lambdaNodejs.OutputFormat.ESM,
+        minify: true,
+        nodeModules: ["@sparticuz/chromium", "puppeteer-core"],
+        sourceMap: true,
+        target: "node24",
+      },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/interaction-baking-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        EXPLORER_SITE_BUCKET: explorerSite.bucket.bucketName,
+      },
+      ephemeralStorageSize: Size.gibibytes(4),
+      handler: "main",
+      memorySize: 3008,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.minutes(15),
+    });
+    interactionBakingHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    interactionBakingHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    interactionBakingHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject"],
+      resources: [
+        explorerSite.bucket.arnForObjects("bake/*"),
+        explorerSite.bucket.arnForObjects("_next/static/*"),
+        explorerSite.bucket.arnForObjects("images/*"),
+      ],
+    }));
+    const bakeInteractions = new tasks.LambdaInvoke(this, "BakePrivateInteractions", {
+      lambdaFunction: interactionBakingHandler,
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
+      payloadResponseOnly: true,
+      resultPath: "$.interactions",
+      retryOnServiceExceptions: false,
+    });
+    const publicationStageHandler = new lambdaNodejs.NodejsFunction(this, "PublicationStageHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/publication-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        PUBLIC_ASSET_BUCKET: publicAssets.bucketName,
+      },
+      handler: "main",
+      memorySize: 1024,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.minutes(3),
+    });
+    publicationStageHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    publicationStageHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    const publishHandler = new lambdaNodejs.NodejsFunction(this, "PublicPublicationHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/publication-handler.ts"),
+      environment: {
+        ARTIFACT_BUCKET: artifacts.bucketName,
+        PUBLIC_ASSET_BUCKET: publicAssets.bucketName,
+      },
+      handler: "main",
+      memorySize: 3008,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.minutes(15),
+    });
+    publishHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    publishHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    publishHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject", "s3:PutObject"],
+      resources: [publicAssets.arnForObjects("generated/*")],
+    }));
+    publishHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "generated/*" } },
+      resources: [publicAssets.bucketArn],
+    }));
+    const stagePublication = new tasks.LambdaInvoke(this, "StagePrivatePublication", {
+      lambdaFunction: publicationStageHandler,
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId", mode: "stage" }),
+      payloadResponseOnly: true,
+      resultPath: "$.publication",
+      retryOnServiceExceptions: false,
+    });
+    const publishEdition = new tasks.LambdaInvoke(this, "PublishApprovedEdition", {
+      lambdaFunction: publishHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        mode: "publish",
+        confirmPublish: true,
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.publication",
+      retryOnServiceExceptions: false,
+    });
+    const candidatesReady = new stepfunctions.Succeed(this, "LiveCandidatesCollected");
+    const shortlistReady = new stepfunctions.Succeed(this, "LiveEditorialShortlistReady");
+    const articlesReady = new stepfunctions.Succeed(this, "LiveEditionReadyForReview");
+    const artDirectionReady = new stepfunctions.Succeed(this, "LiveArtDirectionReadyForReview");
+    const panoramaReady = new stepfunctions.Succeed(this, "LivePrivatePanoramaReadyForReview");
+    const worldReady = new stepfunctions.Succeed(this, "LivePrivateWorldReadyForReview");
+    const previewReady = new stepfunctions.Succeed(this, "LivePrivatePreviewReadyForReview");
+    const published = new stepfunctions.Succeed(this, "LiveEditionPublished");
+    const publicationGate = new stepfunctions.Choice(this, "ConfirmPublicPublication")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPublish"),
+          stepfunctions.Condition.booleanEquals("$.confirmPublish", true),
+        ),
+        publishEdition.next(published),
+      )
+      .otherwise(previewReady);
+    const landmarkGate = new stepfunctions.Choice(this, "ConfirmPaidLandmarkDetection")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPaidLandmarks"),
+          stepfunctions.Condition.booleanEquals("$.confirmPaidLandmarks", true),
+        ),
+        detectLandmarks.next(bakeInteractions).next(stagePublication).next(publicationGate),
+      )
+      .otherwise(worldReady);
+    const worldFailed = new stepfunctions.Fail(this, "LiveWorldGenerationFailed");
+    const worldTimedOut = new stepfunctions.Fail(this, "LiveWorldGenerationTimedOut");
+    const worldStatus = new stepfunctions.Choice(this, "CheckWorldGenerationStatus")
+      .when(stepfunctions.Condition.stringEquals("$.worldGeneration.status", "completed"), landmarkGate)
+      .when(stepfunctions.Condition.stringEquals("$.worldGeneration.status", "failed"), worldFailed)
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.stringEquals("$.worldGeneration.status", "running"),
+          stepfunctions.Condition.numberLessThan("$.worldGeneration.pollCount", 90),
+        ),
+        waitForWorld,
+      )
+      .otherwise(worldTimedOut);
+    waitForWorld.next(pollWorld).next(worldStatus);
+    const worldGate = new stepfunctions.Choice(this, "ConfirmPaidWorldGeneration")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPaidWorld"),
+          stepfunctions.Condition.booleanEquals("$.confirmPaidWorld", true),
+        ),
+        startWorld.next(worldStatus),
+      )
+      .otherwise(panoramaReady);
+    const panoramaGate = new stepfunctions.Choice(this, "ConfirmPaidPanorama")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPaidPanorama"),
+          stepfunctions.Condition.booleanEquals("$.confirmPaidPanorama", true),
+        ),
+        generateRawPanorama.next(processPanorama).next(worldGate),
+      )
+      .otherwise(artDirectionReady);
+    const artDirectionGate = new stepfunctions.Choice(this, "ConfirmPaidArtDirection")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPaidArtDirection"),
+          stepfunctions.Condition.booleanEquals("$.confirmPaidArtDirection", true),
+        ),
+        createArtDirection.next(panoramaGate),
+      )
+      .otherwise(articlesReady);
+    const articleAnalysisGate = new stepfunctions.Choice(this, "ConfirmPaidArticleAnalysis")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmLiveArticleFetch"),
+          stepfunctions.Condition.booleanEquals("$.confirmLiveArticleFetch", true),
+          stepfunctions.Condition.isPresent("$.confirmPaidArticleAnalysis"),
+          stepfunctions.Condition.booleanEquals("$.confirmPaidArticleAnalysis", true),
+        ),
+        prepareArticleAnalysis.next(analyzeArticles).next(finalizeEdition).next(artDirectionGate),
+      )
+      .otherwise(shortlistReady);
+    const paidAnalysisGate = new stepfunctions.Choice(this, "ConfirmPaidEditorialAnalysis")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPaidAnalysis"),
+          stepfunctions.Condition.booleanEquals("$.confirmPaidAnalysis", true),
+        ),
+        createShortlist.next(articleAnalysisGate),
+      )
+      .otherwise(candidatesReady);
+    const liveCollectionStateMachine = new stepfunctions.StateMachine(this, "LiveCollectionStateMachine", {
+      definitionBody: stepfunctions.DefinitionBody.fromChainable(
+        collectCandidates.next(paidAnalysisGate),
+      ),
+      logs: {
+        destination: workflowLogs,
+        includeExecutionData: false,
+        level: stepfunctions.LogLevel.ALL,
+      },
+      stateMachineType: stepfunctions.StateMachineType.STANDARD,
+      tracingEnabled: true,
+    });
 
     const invoke = (
       id: string,
@@ -405,17 +1066,6 @@ export class WorldEveryDayStack extends Stack {
       });
     }
 
-    const googleSecret = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      "GoogleApiSecret",
-      `world-every-day/${config.environmentName}/google-ai`,
-    );
-    const worldLabsSecret = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      "WorldLabsApiSecret",
-      `world-every-day/${config.environmentName}/world-labs`,
-    );
-
     new CfnOutput(this, "ArtifactBucketName", { value: artifacts.bucketName });
     new CfnOutput(this, "PublicAssetBucketName", { value: publicAssets.bucketName });
     new CfnOutput(this, "PublicAssetDomain", { value: distribution.domainName });
@@ -435,8 +1085,14 @@ export class WorldEveryDayStack extends Stack {
     });
     new CfnOutput(this, "EditionTableName", { value: editions.tableName });
     new CfnOutput(this, "StateMachineArn", { value: stateMachine.stateMachineArn });
+    new CfnOutput(this, "LiveCollectionStateMachineArn", {
+      value: liveCollectionStateMachine.stateMachineArn,
+    });
     new CfnOutput(this, "GoogleSecretName", { value: googleSecret.secretName });
     new CfnOutput(this, "WorldLabsSecretName", { value: worldLabsSecret.secretName });
+    new CfnOutput(this, "WorldLabsAuthProbeFunctionName", {
+      value: worldLabsAuthProbe.functionName,
+    });
     new CfnOutput(this, "ScheduleEnabled", { value: String(config.enableSchedule) });
   }
 }

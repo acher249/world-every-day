@@ -15,10 +15,15 @@ function template(options: {
   const stack = new WorldEveryDayStack(app, "TestStack", {
     config: {
       alarmNotificationEmail: options.alarm ? "operations@example.com" : undefined,
+      articleAnalysisModel: "amazon.nova-lite-v1:0",
       budgetAlertEmail: options.budget ? "alerts@example.com" : undefined,
+      editorialModel: "amazon.nova-lite-v1:0",
+      landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: options.enableSchedule ?? false,
       environmentName: options.environmentName ?? "development",
       monthlyBudgetUsd: options.budget ? 25 : undefined,
+      nanoBananaModel: "gemini-nano-banana-2.1",
+      worldLabsModel: "marble-1.1",
       siteDomain: options.siteDomain ? {
         explorerSubdomain: "explore",
         hostedZoneId: "Z123456789",
@@ -74,14 +79,32 @@ test("foundation creates on-demand state, observability, and disabled automation
       PointInTimeRecoveryEnabled: false,
     },
   });
-  rendered.hasResourceProperties("AWS::StepFunctions::StateMachine", {
-    StateMachineType: "STANDARD",
+  rendered.resourceCountIs("AWS::StepFunctions::StateMachine", 2);
+  rendered.resourceCountIs("AWS::Lambda::Function", 15);
+  rendered.hasResourceProperties("AWS::Lambda::Function", {
+    Architectures: ["arm64"],
+    ReservedConcurrentExecutions: Match.absent(),
+    Runtime: "nodejs24.x",
+    Timeout: 30,
   });
   rendered.hasResourceProperties("AWS::Lambda::Function", {
     Architectures: ["arm64"],
-    ReservedConcurrentExecutions: 1,
+    ReservedConcurrentExecutions: Match.absent(),
     Runtime: "nodejs24.x",
-    Timeout: 30,
+    Timeout: 90,
+  });
+  rendered.hasResourceProperties("AWS::Lambda::Function", {
+    Architectures: ["arm64"],
+    ReservedConcurrentExecutions: Match.absent(),
+    Runtime: "nodejs24.x",
+    Timeout: 300,
+  });
+  rendered.hasResourceProperties("AWS::Lambda::Function", {
+    Architectures: ["x86_64"],
+    EphemeralStorage: { Size: 4096 },
+    MemorySize: 3008,
+    Runtime: "nodejs24.x",
+    Timeout: 900,
   });
   rendered.hasResourceProperties("AWS::Scheduler::Schedule", {
     ScheduleExpression: "cron(30 7 * * ? *)",
@@ -100,13 +123,67 @@ test("foundation creates on-demand state, observability, and disabled automation
   rendered.resourceCountIs("AWS::Budgets::Budget", 0);
 
   const body = JSON.stringify(rendered.toJSON());
+  const articleWorker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
+    .find(([id]) => id.startsWith("ArticleAnalysisHandler"))?.[1] as {
+      Properties?: { Environment?: { Variables?: Record<string, string> } };
+    } | undefined;
+  assert.equal(articleWorker?.Properties?.Environment?.Variables?.ARTICLE_ANALYSIS_MODEL, "amazon.nova-lite-v1:0");
+  assert.equal(articleWorker?.Properties?.Environment?.Variables?.GOOGLE_SECRET_NAME, undefined);
+  for (const prefix of ["EditorialShortlistHandler", "ArtDirectionHandler"]) {
+    const worker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
+      .find(([id]) => id.startsWith(prefix))?.[1] as {
+        Properties?: { Environment?: { Variables?: Record<string, string> } };
+      } | undefined;
+    assert.equal(worker?.Properties?.Environment?.Variables?.GOOGLE_SECRET_NAME, undefined);
+    assert.equal(
+      worker?.Properties?.Environment?.Variables?.[prefix === "EditorialShortlistHandler" ? "EDITORIAL_MODEL" : "ART_DIRECTION_MODEL"],
+      "amazon.nova-lite-v1:0",
+    );
+  }
+  assert.match(body, /foundation-model\/amazon\.nova-lite-v1:0/);
   assert.match(body, /ContinueAfterExplicitReview/);
   assert.match(body, /AwaitingExplicitReview/);
+  assert.match(body, /CollectLiveCandidates/);
+  assert.match(body, /ConfirmPaidEditorialAnalysis/);
+  assert.match(body, /CreateLiveEditorialShortlist/);
+  assert.match(body, /ConfirmPaidArticleAnalysis/);
+  assert.match(body, /PrepareLiveArticleAnalysis/);
+  assert.match(body, /AnalyzeLiveArticles/);
+  assert.match(body, /FinalizeLiveEdition/);
+  assert.match(body, /ConfirmPaidArtDirection/);
+  assert.match(body, /CreateLiveArtDirection/);
+  assert.match(body, /ConfirmPaidPanorama/);
+  assert.match(body, /CreateApprovedRawPanoramaSource/);
+  assert.match(body, /ProcessPrivatePanorama/);
+  assert.match(body, /ConfirmPaidWorldGeneration/);
+  assert.match(body, /StartApprovedWorldGeneration/);
+  assert.match(body, /PollWorldGeneration/);
+  assert.match(body, /LivePrivateWorldReadyForReview/);
+  assert.match(body, /ConfirmPaidLandmarkDetection/);
+  assert.match(body, /DetectPrivateLandmarks/);
+  assert.match(body, /BakePrivateInteractions/);
+  assert.match(body, /StagePrivatePublication/);
+  assert.match(body, /ConfirmPublicPublication/);
+  assert.match(body, /PublishApprovedEdition/);
+  assert.match(body, /WorldLabsAuthProbe/);
+  assert.match(body, /LiveEditionReadyForReview/);
+  assert.match(body, /LiveArtDirectionReadyForReview/);
+  assert.match(body, /confirmLiveArticleFetch/);
+  assert.match(body, /confirmPaidArticleAnalysis/);
+  assert.match(body, /confirmPaidArtDirection/);
+  assert.match(body, /confirmPaidPanorama/);
+  assert.match(body, /MaxConcurrency\\?":2/);
+  assert.match(body, /IsPresent/);
   assert.match(body, /fixtures\/\*/);
+  assert.match(body, /editions\/\*/);
   assert.equal(body.includes('MaxAttempts\\":6'), false);
   assert.ok(body.includes('MaxAttempts\\":2'));
   assert.doesNotMatch(body, /GOOGLE_API_KEY|WORLD_LABS_KEY/);
-  assert.doesNotMatch(body, /s3:DeleteObject|s3:ListBucket|dynamodb:Scan/);
+  assert.match(body, /s3:ListBucket/);
+  assert.match(body, /s3:prefix/);
+  assert.doesNotMatch(body, /s3:DeleteObject|dynamodb:Scan/);
+  assert.ok(rendered.toJSON().Outputs?.LiveCollectionStateMachineArn);
+  assert.ok(rendered.toJSON().Outputs?.WorldLabsAuthProbeFunctionName);
 });
 
 test("production state enables deletion protection and point-in-time recovery", () => {

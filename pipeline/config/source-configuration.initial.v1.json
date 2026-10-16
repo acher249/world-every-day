@@ -59,14 +59,47 @@
       ]
     },
     {
-      "id": "the-conversation-us",
-      "type": "atom",
-      "publisher": "The Conversation",
-      "feedUrl": "https://theconversation.com/us/articles.atom",
-      "kind": "reporting",
-      "articleAccess": "discovery-only",
+      "id": "nsf-news",
+      "type": "rss",
+      "publisher": "U.S. National Science Foundation",
+      "feedUrl": "https://www.nsf.gov/rss/rss_www_news.xml",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
-        "theconversation.com"
+        "www.nsf.gov"
+      ]
+    },
+    {
+      "id": "nci-news",
+      "type": "rss",
+      "publisher": "National Cancer Institute",
+      "feedUrl": "https://www.cancer.gov/publishedcontent/rss/syndication/rss/ncinewsreleases.rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "www.cancer.gov"
+      ]
+    },
+    {
+      "id": "noaa-ocean-service-news",
+      "type": "rss",
+      "publisher": "NOAA National Ocean Service",
+      "feedUrl": "https://oceanservice.noaa.gov/rss/nosnews.xml",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "oceanservice.noaa.gov"
+      ]
+    },
+    {
+      "id": "yale-news",
+      "type": "rss",
+      "publisher": "Yale News",
+      "feedUrl": "https://news.yale.edu/news-rss",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "news.yale.edu"
       ]
     },
     {
@@ -178,6 +211,17 @@
       "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
         "www.nist.gov"
+      ]
+    },
+    {
+      "id": "wikimedia-diff",
+      "type": "rss",
+      "publisher": "Wikimedia Diff",
+      "feedUrl": "https://diff.wikimedia.org/feed/",
+      "kind": "reporting",
+      "articleAccess": "discovery-only",
+      "allowedArticleHosts": [
+        "diff.wikimedia.org"
       ]
     }
   ]

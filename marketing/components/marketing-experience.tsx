@@ -45,7 +45,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         <nav aria-label="Primary navigation">
           <a className="text-link desktop-link" href="#project">The project</a>
           <a className="text-link desktop-link" href={githubUrl} target="_blank" rel="noreferrer">GitHub <Arrow diagonal /></a>
-          <a className="pill-link" href={explorerUrl}>Explore today <Arrow /></a>
+          <a className="pill-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">Explore today <Arrow /></a>
         </nav>
       </header>
 
@@ -65,7 +65,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
             look around, and slowly explore.
           </p>
           <div className="hero-actions">
-            <a className="primary-link" href={explorerUrl}>Enter today’s world <Arrow /></a>
+            <a className="primary-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">Enter today’s world <Arrow /></a>
             <a className="secondary-link" href="#project">Discover the project</a>
           </div>
         </motion.div>
@@ -172,7 +172,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
               The world below is the current immersive edition. Move through it here,
               or open the full experience for its complete controls and story index.
             </p>
-            <a className="secondary-link" href={explorerUrl}>Open full experience <Arrow diagonal /></a>
+            <a className="secondary-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">Open full experience <Arrow diagonal /></a>
           </div>
         </motion.div>
         <motion.div className={`world-frame${previewActive ? " is-active" : ""}`} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.08 }} variants={reveal} transition={transition}>
@@ -196,7 +196,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
             allowFullScreen
           />
           <noscript>
-            <p className="frame-fallback">JavaScript is required for the embedded world. <a href={explorerUrl}>Open it directly.</a></p>
+            <p className="frame-fallback">JavaScript is required for the embedded world. <a href={explorerUrl} target="_blank" rel="noopener noreferrer">Open it directly.</a></p>
           </noscript>
         </motion.div>
       </section>
@@ -242,7 +242,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         <p>A living, evolving digital installation.</p>
         <div>
           <a href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
-          <a href={explorerUrl}>Explore today</a>
+          <a href={explorerUrl} target="_blank" rel="noopener noreferrer">Explore today</a>
         </div>
       </footer>
     </main>

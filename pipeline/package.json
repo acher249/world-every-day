@@ -26,13 +26,17 @@
     "workflow:mock": "node --import tsx src/workflow/mock-cli.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1152.0",
     "@aws-sdk/client-dynamodb": "^3.1151.0",
     "@aws-sdk/client-s3": "^3.1151.0",
+    "@aws-sdk/client-secrets-manager": "^3.1152.0",
     "@aws-sdk/lib-dynamodb": "^3.1151.0",
     "@google/genai": "^2.3.0",
+    "@sparticuz/chromium": "153.0.0",
     "dotenv": "^17.2.3",
     "fast-xml-parser": "^5.11.2",
     "node-html-parser": "^7.1.0",
+    "puppeteer-core": "25.14.0",
     "sharp": "^0.35.3",
     "zod": "^4.6.7"
   },

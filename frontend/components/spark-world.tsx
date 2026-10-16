@@ -8,7 +8,8 @@ import type {
   SplatMesh as SplatMeshInstance,
 } from "@sparkjsdev/spark";
 import {
-  clampToNavigationSphere,
+  clampToNavigationBounds,
+  getNavigationFloor,
   getFocusPosition,
   getNavigationRadius,
   smootherstep,
@@ -48,6 +49,7 @@ type SparkWorldProps = {
   posterSrc: string;
   splatSha256?: string;
   splatUrl?: string;
+  enableBake?: boolean;
 };
 
 export function SparkWorld({
@@ -59,6 +61,7 @@ export function SparkWorld({
   posterSrc,
   splatSha256,
   splatUrl,
+  enableBake = false,
 }: SparkWorldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const anchorElementsRef = useRef(new Map<string, HTMLElement>());
@@ -95,6 +98,7 @@ export function SparkWorld({
     async function initialize() {
       try {
         setViewerState("loading");
+        if (enableBake) console.info("bake:loading-modules");
 
         const [{ Euler, Matrix4, Object3D, PerspectiveCamera, Quaternion, Raycaster, Scene, SRGBColorSpace, Vector3, WebGLRenderer }, sparkModule] =
           await Promise.all([
@@ -103,6 +107,7 @@ export function SparkWorld({
           ]);
 
         if (cancelled || !canvas) return;
+        if (enableBake) console.info("bake:modules-loaded");
 
         const context = canvas.getContext("webgl2", {
           alpha: true,
@@ -130,20 +135,28 @@ export function SparkWorld({
         });
         scene.add(spark);
 
+        let lastBakeProgress = -1;
         splat = new sparkModule.SplatMesh({
           minRaycastOpacity: 0.01,
           raycastable: true,
           url: sourceSplatUrl,
           onProgress: (event) => {
             if (!event.lengthComputable || cancelled) return;
-            setProgress(Math.round((event.loaded / event.total) * 100));
+            const percent = Math.round((event.loaded / event.total) * 100);
+            if (enableBake && Math.floor(percent / 25) > lastBakeProgress) {
+              lastBakeProgress = Math.floor(percent / 25);
+              console.info("bake:splat-progress", percent);
+            }
+            setProgress(percent);
           },
         });
         splat.quaternion.set(1, 0, 0, 0);
         scene.add(splat);
 
+        if (enableBake) console.info("bake:loading-splat");
         await splat.initialized;
         if (cancelled || !renderer || !scene || !camera || !splat) return;
+        if (enableBake) console.info("bake:splat-loaded");
 
         scene.updateMatrixWorld(true);
         const bounds = splat.getBoundingBox().applyMatrix4(splat.matrixWorld);
@@ -155,10 +168,16 @@ export function SparkWorld({
         camera.far = Math.max(maxDimension * 100, 100);
         camera.position.set(0, 0, 0);
         camera.updateProjectionMatrix();
-        renderer.render(scene, camera);
+        if (!enableBake) renderer.render(scene, camera);
         camera.updateMatrixWorld();
 
-        if (process.env.NODE_ENV === "development") {
+        if (enableBake) {
+          // Spark normally updates this during rendering. The bake page skips
+          // rendering, but CPU raycasts still need the loaded splat count.
+          const splatCount = splat.packedSplats?.getNumSplats() ?? splat.extSplats?.getNumSplats() ?? 0;
+          if (splatCount < 1) throw new Error("The world contains no raycastable splats");
+          splat.context.numSplats.value = splatCount;
+          console.info("bake:raycast-ready", splatCount);
           const developmentWindow = window as typeof window & {
             __WORLD_EVERY_DAY_BAKE_INFO__?: {
               sourceSplatSha256?: string;
@@ -236,7 +255,30 @@ export function SparkWorld({
             splatUrl: sourceSplatUrl,
           };
           developmentWindow.__WORLD_EVERY_DAY_BAKE__ = bakeInteractions;
+          console.info("bake:hook-ready");
+          setProgress(100);
+          setViewerState("ready");
+          return;
         }
+
+        let groundHeight: number | undefined;
+        try {
+          const groundRaycaster = new Raycaster();
+          groundRaycaster.set(new Vector3(0, 0, 0), new Vector3(0, -1, 0));
+          groundRaycaster.near = 0.001;
+          groundRaycaster.far = Math.max(navigationRadius * 2, 1);
+          const groundHits: Array<{
+            distance: number;
+            point: InstanceType<typeof Vector3>;
+            object: InstanceType<typeof Object3D>;
+          }> = [];
+          splat.raycast(groundRaycaster, groundHits);
+          groundHits.sort((first, second) => first.distance - second.distance);
+          groundHeight = groundHits[0]?.point?.y;
+        } catch (error) {
+          console.warn("Could not locate the ground; using the conservative navigation floor", error);
+        }
+        const navigationFloor = getNavigationFloor(navigationRadius, groundHeight);
 
         const resize = () => {
           if (!renderer || !camera) return;
@@ -327,7 +369,7 @@ export function SparkWorld({
           cancelCameraFocus();
           const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
           camera.position.addScaledVector(forward, event.deltaY * -maxDimension * 0.00022);
-          clampToNavigationSphere(camera.position, navigationRadius);
+          clampToNavigationBounds(camera.position, navigationRadius, navigationFloor);
         };
         const onBlur = () => pressedKeys.clear();
 
@@ -363,6 +405,7 @@ export function SparkWorld({
         const focusDirection = new Vector3();
         const focusLookMatrix = new Matrix4();
         const focusRotation = new Quaternion();
+        const floatedCameraPosition = new Vector3();
         const flightSpeed = Math.max(maxDimension * 0.014, 0.08);
         const floatPositionAmplitude = Math.min(
           navigationRadius * 0.034,
@@ -388,7 +431,7 @@ export function SparkWorld({
               let destinationRotation: InstanceType<typeof Quaternion> | null = null;
               if (anchor) {
                 focusTarget.set(anchor.worldPosition.x, anchor.worldPosition.y, anchor.worldPosition.z);
-                const focusPosition = getFocusPosition(anchor.worldPosition, navigationRadius);
+                const focusPosition = getFocusPosition(anchor.worldPosition, navigationRadius, navigationFloor);
                 destination = focusDirection.set(
                   focusPosition.x,
                   focusPosition.y,
@@ -436,7 +479,7 @@ export function SparkWorld({
                 focusTransition.position,
                 transitionProgress,
               );
-              clampToNavigationSphere(camera.position, navigationRadius);
+              clampToNavigationBounds(camera.position, navigationRadius, navigationFloor);
               camera.quaternion.slerpQuaternions(
                 focusTransition.startRotation,
                 focusTransition.rotation,
@@ -473,7 +516,7 @@ export function SparkWorld({
                 velocity.set(0, 0, 0);
               }
               camera.position.addScaledVector(velocity, deltaSeconds);
-              clampToNavigationSphere(camera.position, navigationRadius);
+              clampToNavigationBounds(camera.position, navigationRadius, navigationFloor);
             }
 
             if (reducedMotionQuery.matches) {
@@ -507,6 +550,12 @@ export function SparkWorld({
               );
               cameraFloatRig.quaternion.setFromEuler(cameraFloatEuler);
             }
+
+            floatedCameraPosition.copy(camera.position).applyQuaternion(cameraFloatRig.quaternion);
+            cameraFloatRig.position.y = Math.max(
+              cameraFloatRig.position.y,
+              navigationFloor - floatedCameraPosition.y,
+            );
 
             renderer.render(scene, camera);
             camera.updateMatrixWorld();
@@ -559,6 +608,10 @@ export function SparkWorld({
         setViewerState("ready");
       } catch (error) {
         if (!cancelled) {
+          if (enableBake) {
+            (window as typeof window & { __WORLD_EVERY_DAY_BAKE_ERROR__?: string }).__WORLD_EVERY_DAY_BAKE_ERROR__ =
+              error instanceof Error ? error.message : "Unknown bake viewer error";
+          }
           console.error("Spark.js world failed to initialize", error);
           setViewerState("error");
         }
@@ -569,13 +622,16 @@ export function SparkWorld({
 
     return () => {
       cancelled = true;
-      if (process.env.NODE_ENV === "development") {
+      if (enableBake) {
         delete (window as typeof window & {
           __WORLD_EVERY_DAY_BAKE_INFO__?: unknown;
         }).__WORLD_EVERY_DAY_BAKE_INFO__;
         delete (window as typeof window & {
           __WORLD_EVERY_DAY_BAKE__?: unknown;
         }).__WORLD_EVERY_DAY_BAKE__;
+        delete (window as typeof window & {
+          __WORLD_EVERY_DAY_BAKE_ERROR__?: unknown;
+        }).__WORLD_EVERY_DAY_BAKE_ERROR__;
       }
       resizeObserver?.disconnect();
       removeInputListeners.forEach((remove) => remove());
@@ -584,7 +640,7 @@ export function SparkWorld({
       spark?.dispose();
       renderer?.dispose();
     };
-  }, [splatSha256, splatUrl]);
+  }, [enableBake, splatSha256, splatUrl]);
 
   const showPoster = viewerState === "poster" || viewerState === "error";
 

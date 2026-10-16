@@ -18,10 +18,12 @@ by its `npm run license:check` command.
 | Zod | Artifact validation | MIT | <https://github.com/colinhacks/zod> |
 | fast-xml-parser | RSS and Atom parsing | MIT | <https://github.com/NaturalIntelligence/fast-xml-parser> |
 | node-html-parser | Shortlisted article text extraction | MIT | <https://github.com/taoqf/node-fast-html-parser> |
-| Google Gen AI SDK | Nano Banana API client | Apache-2.0 | <https://github.com/googleapis/js-genai> |
+| Google Gen AI SDK | Nano Banana and generated-image landmark API client | Apache-2.0 | <https://github.com/googleapis/js-genai> |
 | Sharp | Deterministic image processing | Apache-2.0 | <https://github.com/lovell/sharp> |
+| Puppeteer Core | Headless browser control for private interaction baking | Apache-2.0 | <https://github.com/puppeteer/puppeteer> |
+| @sparticuz/chromium | Lambda-compatible Chromium packaging | MIT | <https://github.com/Sparticuz/chromium> |
 | dotenv | Local server-side environment loading | BSD-2-Clause | <https://github.com/motdotla/dotenv> |
-| AWS SDK for JavaScript v3 | Optional S3 and DynamoDB storage adapters | Apache-2.0 | <https://github.com/aws/aws-sdk-js-v3> |
+| AWS SDK for JavaScript v3 | Optional S3, DynamoDB, Secrets Manager, and Bedrock adapters | Apache-2.0 | <https://github.com/aws/aws-sdk-js-v3> |
 | AWS CDK | AWS infrastructure definitions | Apache-2.0 | <https://github.com/aws/aws-cdk> |
 | Constructs | Construct programming model used by AWS CDK | Apache-2.0 | <https://github.com/aws/constructs> |
 
@@ -39,6 +41,11 @@ receive a release-level notice audit in addition to the package-lock check.
 - The AWS CDK CLI is licensed under Apache-2.0.
 
 ## Reviewed transitive exceptions
+
+The serverless Chromium package includes a Chromium binary and its component
+notices. The binary is not relicensed under this repository's MIT license;
+retain its bundled notices when distributing the Lambda artifact. The browser
+runs only against a loopback server for the private interaction-baking stage.
 
 ### libvips binaries used by Sharp
 

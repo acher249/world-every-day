@@ -7,8 +7,16 @@ communities around the world.
 **Status:** Early prototype. The repository includes a fictional interactive
 demonstration and one live local factual vertical slice spanning bounded story
 discovery, editorial selection, image and world generation, landmark detection,
-3D hotspot baking, and local publication assembly. The scheduled AWS pipeline
-and public publication system are not yet implemented end to end.
+3D hotspot baking, and local publication assembly. AWS now runs manual live
+feed collection, an opt-in editorial shortlist, and a separately gated
+article-analysis stage. It can finalize a ten-story edition and, with a separate
+approval flag, create art direction for review. Additional gated AWS stages can
+request one raw Nano Banana image only after a checksum-bound review artifact
+is present, then process it into a private 8K panorama. Gated cloud world
+generation, landmark detection, interaction baking, and publication are now
+deployed behind explicit review gates and pass fixture tests, but are not yet
+validated end to end with a live AWS edition. The daily schedule remains
+disabled.
 
 ## Thesis
 
@@ -49,7 +57,7 @@ headlines, but as a collection of places.
 The reference implementation is a daily state-machine pipeline:
 
 ```text
-reviewed official RSS and Atom feeds
+reviewed official RSS feeds
       ↓
 ten stories + summaries + links
       ↓
@@ -60,7 +68,7 @@ a world foundation model
 an interactive world + historical archive
 ```
 
-The reference implementation uses official RSS and Atom feeds for story
+The reference implementation uses official RSS feeds for story
 discovery. It does not depend on social feeds or unbounded website collection.
 After shortlisting, it may read a linked source ephemerally only when that use
 has been reviewed and permitted. Sources can remain discovery-only when their
@@ -89,10 +97,16 @@ web experience rendered with Spark.js.
 Source articles are processed **ephemerally in memory** and then discarded.
 Their bodies and verbatim passages are never copied into project storage or
 republished. Persistent artifacts contain source links and provenance, content
-hashes, and original project-written summaries, claims, and visual details. An
-optional hosted analysis adapter transmits temporary article text to its
-provider, so it must remain disabled until that provider's data-use and
-retention terms have been reviewed for the deployment.
+hashes, and original project-written summaries, claims, and visual details.
+In the current repository code, feed-metadata evaluation, permitted article
+analysis, and art direction use Amazon Nova through AWS-managed Bedrock.
+AWS processes these prompts; this is not self-hosted inference or a guarantee
+of zero AWS retention. Google still receives the original visual prompt, which
+may include story-derived physical details, and World Labs receives the image.
+The deployed development workers still use the earlier Google text path and
+must not be used under the new policy until updated and verified. See the
+[source-data boundary](docs/DATA_BOUNDARY.md) and
+[deployment preflight](infra/aws/README.md#source-text-privacy-preflight).
 
 ## Technical architecture
 
@@ -107,6 +121,8 @@ The main building blocks are:
 - [AWS](https://aws.amazon.com/) for the complete reference cloud deployment,
   with [AWS Step Functions](https://aws.amazon.com/step-functions/) at the center
   of the pipeline.
+- [Amazon Bedrock](https://aws.amazon.com/bedrock/) with Amazon Nova for
+  source-metadata evaluation, permitted article analysis, and art direction.
 - [Nano Banana](https://ai.google.dev/gemini-api/docs/image-generation) for
   creating a 360-degree equirectangular source image from the selected stories.
 - [World Labs Marble](https://www.worldlabs.ai/blog/marble-world-model) for
@@ -165,6 +181,9 @@ image as a poster; set the optional public
 `NEXT_PUBLIC_WORLD_SPLAT_URL` described in `frontend/.env.example` to activate
 the interactive Gaussian-splat viewer.
 
+The explorer's project-site link defaults to `https://aworldeveryday.com`.
+Forks can change it with the public `NEXT_PUBLIC_PROJECT_SITE_URL` build setting.
+
 You will need Node.js 20.9 or newer and npm.
 
 ```bash
@@ -193,6 +212,10 @@ Public links are configured at build time through `marketing/.env.example`.
 They are intentionally browser-visible and must never contain secrets. The
 reference deployment serves this site at the root domain and the immersive
 `frontend/` application from the configurable `explore` subdomain.
+For a production build, set `NEXT_PUBLIC_SITE_URL` and
+`NEXT_PUBLIC_EXPLORER_URL` to their public HTTPS URLs; local `.env.local`
+values are for development only. The build rejects a production root domain
+that links visitors to a local explorer.
 
 To preview a locally generated SPZ without committing it, copy it into the
 ignored public-asset directory and set the public URL in `frontend/.env.local`:
