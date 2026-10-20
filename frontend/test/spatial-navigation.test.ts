@@ -4,6 +4,7 @@ import {
   clampToNavigationBounds,
   clampToNavigationSphere,
   cycleId,
+  getClearFocusPosition,
   getFocusPosition,
   getNavigationFloor,
   getNavigationRadius,
@@ -40,6 +41,27 @@ test("nearby hotspots still keep the minimum camera distance", () => {
 
   assert.ok(Math.abs(position.x + 2.05) < 0.000001);
   assert.ok(Math.abs(target.x - position.x - 2.5) < 0.000001);
+});
+
+test("focus tries a different viewing angle when the preferred view is blocked", () => {
+  const target = { x: 0.45, y: 0, z: 0 };
+  const preferred = getFocusPosition(target, 5.3703);
+  const checked: Array<{ x: number; y: number; z: number }> = [];
+  const position = getClearFocusPosition(target, 5.3703, -0.25, (candidate) => {
+    checked.push(candidate);
+    return candidate.z < -1 ? 1 : 0;
+  });
+  assert.deepEqual(checked[0], preferred);
+  assert.notDeepEqual(position, preferred);
+  assert.ok(position.z < -1);
+  assert.ok(Math.hypot(position.x - target.x, position.y, position.z - target.z) >= 2.5 - 0.001);
+});
+
+test("focus chooses the least-obstructed bounded view when none is clear", () => {
+  const target = { x: 0.45, y: 0, z: 0 };
+  const position = getClearFocusPosition(target, 5.3703, -0.25, (candidate) => candidate.z < -1 ? 0.8 : 0.2);
+  assert.ok(position.z < -1);
+  assert.deepEqual(getClearFocusPosition(target, 5.3703, -0.25, () => 0), getFocusPosition(target, 5.3703));
 });
 
 test("navigation radius uses the configured spherical limit", () => {

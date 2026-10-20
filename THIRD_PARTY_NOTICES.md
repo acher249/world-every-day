@@ -41,6 +41,10 @@ receive a release-level notice audit in addition to the package-lock check.
 - esbuild is licensed under MIT.
 - The AWS CDK CLI is licensed under Apache-2.0.
 
+## GitHub link icon
+
+The marketing site's GitHub link uses the [Primer Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg), copyright GitHub, Inc. It links only to this project's GitHub repository. The mark remains a [GitHub trademark](https://brand.github.com/foundations/logo) and is not the project's logo.
+
 ## Reviewed transitive exceptions
 
 The serverless Chromium package includes a Chromium binary and its component

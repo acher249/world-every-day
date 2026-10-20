@@ -29,6 +29,8 @@ button, a { font: inherit; }
 .mark i { width: 4px; height: 4px; border-radius: 50%; background: var(--coral); box-shadow: 0 0 9px var(--coral); }
 .site-header nav { display: flex; align-items: center; gap: clamp(20px, 3vw, 46px); }
 .text-link { position: relative; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-decoration: none; text-transform: uppercase; }
+.github-link { display: inline-flex; align-items: center; gap: 7px; }
+.github-link svg, .primary-link svg { flex: 0 0 auto; }
 .text-link::after, .secondary-link::after { content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: right; transition: transform .35s ease; }
 .text-link:hover::after, .text-link:focus-visible::after, .secondary-link:hover::after, .secondary-link:focus-visible::after { transform: scaleX(1); transform-origin: left; }
 .pill-link, .primary-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 28px; min-height: 48px; padding: 0 19px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-decoration: none; text-transform: uppercase; transition: color .25s ease, background .25s ease, transform .25s ease; }

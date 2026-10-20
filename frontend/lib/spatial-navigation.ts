@@ -87,6 +87,44 @@ export function getFocusPosition(
   return position;
 }
 
+/** Try the usual origin-facing view, then bounded alternatives; retain the least-obstructed view. */
+export function getClearFocusPosition(
+  target: Point3,
+  navigationRadius: number,
+  floor: number,
+  visibility: (position: Point3) => number,
+): Point3 {
+  const preferred = getFocusPosition(target, navigationRadius, floor);
+  const candidates: Point3[] = [preferred];
+  if (Math.hypot(target.x, target.y, target.z) >= MINIMUM_FOCUS_DISTANCE && floor <= 0) {
+    candidates.push({ x: 0, y: 0, z: 0 });
+  }
+  const offsetX = preferred.x - target.x;
+  const offsetZ = preferred.z - target.z;
+  for (const degrees of [45, -45, 90, -90, 180]) {
+    const angle = degrees * Math.PI / 180;
+    candidates.push({
+      x: target.x + offsetX * Math.cos(angle) - offsetZ * Math.sin(angle),
+      y: preferred.y,
+      z: target.z + offsetX * Math.sin(angle) + offsetZ * Math.cos(angle),
+    });
+  }
+
+  let best = preferred;
+  let bestVisibility = -Infinity;
+  for (const position of candidates) {
+    if (position.y < floor || Math.hypot(position.x, position.y, position.z) > navigationRadius + 0.001) continue;
+    if (Math.hypot(position.x - target.x, position.y - target.y, position.z - target.z) < MINIMUM_FOCUS_DISTANCE - 0.001) continue;
+    const score = visibility(position);
+    if (score >= 1) return position;
+    if (score > bestVisibility) {
+      best = position;
+      bestVisibility = score;
+    }
+  }
+  return best;
+}
+
 export function cycleId(ids: string[], currentId: string | null, direction: -1 | 1) {
   if (ids.length === 0) return null;
   const currentIndex = currentId === null ? -1 : ids.indexOf(currentId);

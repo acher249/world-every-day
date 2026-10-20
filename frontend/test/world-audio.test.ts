@@ -63,3 +63,23 @@ test("first interaction fades in ambience without a tap effect", async () => {
     globalThis.window = previousWindow;
   }
 });
+
+test("electric buzz follows movement intensity without adding one-shot tones", async () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { AudioContext: FakeAudioContext } as unknown as Window & typeof globalThis;
+  const audio = new WorldAudio();
+  try {
+    await audio.enable();
+    const context = FakeAudioContext.latest;
+    const startingOscillators = context.oscillators;
+    audio.setMovement(0.7);
+    assert.equal(context.oscillators, startingOscillators);
+    assert.ok(context.gains.some((node) => node.gain.targets.includes(0.7)));
+    audio.setMovement(0);
+    assert.ok(context.gains.some((node) => node.gain.targets.includes(0)));
+    assert.equal(context.oscillators, startingOscillators);
+  } finally {
+    audio.dispose();
+    globalThis.window = previousWindow;
+  }
+});

@@ -1,5 +1,7 @@
 export type WorldSound = "hover" | "tap" | "story" | "travel";
 
+const movementMix = { wind: 0.022, tone: 0.01, buzz: 0.07 };
+
 const chords = [
   [130.81, 164.81, 196, 293.66], // C add9
   [110, 164.81, 196, 261.63], // A minor 7
@@ -14,6 +16,7 @@ export class WorldAudio {
   private movementGain: GainNode | null = null;
   private movementFilter: BiquadFilterNode | null = null;
   private movementTone: OscillatorNode | null = null;
+  private movementBuzz: OscillatorNode | null = null;
   private pad: { gain: GainNode; tones: OscillatorNode[] } | null = null;
   private chordTimer: ReturnType<typeof setInterval> | null = null;
   private accentTimer: ReturnType<typeof setInterval> | null = null;
@@ -99,7 +102,8 @@ export class WorldAudio {
     const level = Math.max(0, Math.min(1, intensity));
     this.movementGain?.gain.setTargetAtTime(level, context.currentTime, level > 0 ? 0.15 : 0.25);
     this.movementFilter?.frequency.setTargetAtTime(220 + level * 350, context.currentTime, 0.15);
-    this.movementTone?.frequency.setTargetAtTime(90 + level * 45, context.currentTime, 0.15);
+    this.movementTone?.frequency.setTargetAtTime(130 + level * 60, context.currentTime, 0.15);
+    this.movementBuzz?.frequency.setTargetAtTime(115 + level * 75, context.currentTime, 0.15);
   }
 
   dispose(): void {
@@ -113,6 +117,7 @@ export class WorldAudio {
     this.movementGain = null;
     this.movementFilter = null;
     this.movementTone = null;
+    this.movementBuzz = null;
   }
 
   private createSoundscape(): void {
@@ -148,6 +153,10 @@ export class WorldAudio {
     const movementWindGain = context.createGain();
     const movementTone = context.createOscillator();
     const movementToneGain = context.createGain();
+    const movementBuzz = context.createOscillator();
+    const movementBuzzFilter = context.createBiquadFilter();
+    const movementBuzzGain = context.createGain();
+    const mix = movementMix;
     movementGain.gain.value = 0;
     movementGain.connect(ambience);
     movementFilter.type = "bandpass";
@@ -155,17 +164,25 @@ export class WorldAudio {
     movementFilter.Q.value = 0.5;
     movementWind.buffer = buffer;
     movementWind.loop = true;
-    movementWindGain.gain.value = 0.027;
+    movementWindGain.gain.value = mix.wind;
     movementWind.connect(movementFilter).connect(movementWindGain).connect(movementGain);
     movementWind.start();
     movementTone.type = "sine";
-    movementTone.frequency.value = 90;
-    movementToneGain.gain.value = 0.014;
+    movementTone.frequency.value = 130;
+    movementToneGain.gain.value = mix.tone;
     movementTone.connect(movementToneGain).connect(movementGain);
     movementTone.start();
+    movementBuzz.type = "sawtooth";
+    movementBuzz.frequency.value = 115;
+    movementBuzzFilter.type = "lowpass";
+    movementBuzzFilter.frequency.value = 500;
+    movementBuzzGain.gain.value = mix.buzz;
+    movementBuzz.connect(movementBuzzFilter).connect(movementBuzzGain).connect(movementGain);
+    movementBuzz.start();
     this.movementGain = movementGain;
     this.movementFilter = movementFilter;
     this.movementTone = movementTone;
+    this.movementBuzz = movementBuzz;
   }
 
   private startMusic(context: AudioContext): void {
@@ -252,4 +269,5 @@ export class WorldAudio {
     noise.start(now);
     noise.stop(now + duration);
   }
+
 }

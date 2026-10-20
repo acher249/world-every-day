@@ -65,6 +65,14 @@ function ArrowUpRight() {
   );
 }
 
+function LinkIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="15" height="15">
+      <path d="m8 12 4-4m-5.5 1.5-1 1a3 3 0 0 0 4.25 4.25l2-2a3 3 0 0 0 0-4.25m-3.5 3.5a3 3 0 0 1 0-4.25l2-2a3 3 0 0 1 4.25 4.25l-1 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
@@ -235,10 +243,10 @@ function StoryPanel({
         </motion.div>
         {story.sources.length > 0 ? (
           <motion.div className="story-sources" aria-label="Sources" variants={staggeredText}>
-            <span>Continue exploring</span>
+            <span>View full article{story.sources.length === 1 ? "" : "s"}</span>
             {story.sources.map((source) => (
               <motion.a variants={textReveal} key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">
-                <span>{source.publisher}<strong>{source.title}</strong></span>
+                <span>{source.publisher}<strong><LinkIcon />{source.title}</strong></span>
                 <ArrowUpRight />
               </motion.a>
             ))}
@@ -348,6 +356,9 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const focusedIdRef = useRef<string | null>(null);
+  const [focusCycleRevision, setFocusCycleRevision] = useState(0);
+  const [focusResetRevision, setFocusResetRevision] = useState(0);
   const [indexOpen, setIndexOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -367,15 +378,18 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   const setMovementSound = useCallback((intensity: number) => audioRef.current?.setMovement(intensity), []);
   const closeStory = useCallback(() => {
     setActiveId(null);
-    if (!window.matchMedia(mobileLayoutQuery).matches) setFocusedId(null);
+    focusedIdRef.current = null;
+    setFocusedId(null);
   }, []);
   const focusNextStory = useCallback((direction: -1 | 1, openPanel: boolean) => {
-    const nextId = cycleId(storyIds, focusedId, direction);
+    const nextId = cycleId(storyIds, focusedIdRef.current, direction);
     if (nextId) playSound("travel");
+    if (nextId) setFocusCycleRevision((revision) => revision + 1);
+    focusedIdRef.current = nextId;
     setFocusedId(nextId);
     setActiveId(openPanel ? nextId : null);
     setIndexOpen(false);
-  }, [focusedId, playSound, storyIds]);
+  }, [playSound, storyIds]);
   const anchors = useMemo<WorldAnchor[]>(
     () => interactionsMatchRenderedWorld ? [
       ...stories.map((story, index): WorldAnchor => ({
@@ -459,6 +473,17 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (archiveOpen || activeId || indexOpen || controlsOpen || focusedId) {
+          event.preventDefault();
+          setArchiveOpen(false);
+          closeStory();
+          setIndexOpen(false);
+          setControlsOpen(false);
+          setFocusResetRevision((revision) => revision + 1);
+        }
+        return;
+      }
       const target = event.target;
       if (
         target instanceof HTMLInputElement ||
@@ -466,27 +491,22 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         target instanceof HTMLSelectElement ||
         (target instanceof HTMLElement && target.isContentEditable)
       ) return;
-      if (event.key === "Escape") {
-        setArchiveOpen(false);
-        closeStory();
-        setIndexOpen(false);
-        setControlsOpen(false);
-        return;
-      }
       if (controlsOpen) return;
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
+      if (event.repeat) return;
       const direction = event.key === "ArrowRight" ? 1 : -1;
       focusNextStory(direction, !window.matchMedia(mobileLayoutQuery).matches);
     }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeStory, controlsOpen, focusNextStory]);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [activeId, archiveOpen, closeStory, controlsOpen, focusNextStory, focusedId, indexOpen]);
 
   function selectStory(story: PublicationStory, openPanel: boolean) {
     playSound(openPanel ? "story" : "travel");
     setActiveId(openPanel ? story.id : null);
+    focusedIdRef.current = story.id;
     setFocusedId(story.id);
     setIndexOpen(false);
     setControlsOpen(false);
@@ -507,9 +527,24 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   return (
     <MotionConfig reducedMotion="user">
     <main className="world-app" aria-labelledby="edition-title">
-      <div className="world-canvas">
+      <div
+        className="world-canvas"
+        onPointerDown={(event) => {
+          if (
+            event.target instanceof HTMLCanvasElement &&
+            !window.matchMedia(mobileLayoutQuery).matches
+          ) {
+            setIndexOpen(false);
+            setArchiveOpen(false);
+            if (activeId) closeStory();
+          }
+        }}
+      >
         <SparkWorld
           focusedAnchorId={focusedId}
+          focusCycleRevision={focusCycleRevision}
+          focusResetRevision={focusResetRevision}
+          storyPanelOpen={activeId !== null}
           mobileMovementRef={mobileMovementRef}
           posterSrc={publication.world.poster.src}
           splatSha256={renderedSplatSha256}
@@ -527,21 +562,26 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         <div className="world-wash" aria-hidden="true" />
       </div>
 
-      <motion.button
-        className="sound-toggle hud-button"
-        type="button"
-        aria-label={soundAvailable ? (soundEnabled ? "Mute world sound" : "Enable world sound") : "World sound unavailable"}
-        aria-pressed={soundEnabled}
-        title={soundEnabled ? "Mute world sound" : "Enable ambient sound and effects"}
-        disabled={!soundAvailable}
-        onClick={() => void toggleSound()}
+      <motion.div
+        className="sound-controls"
+        data-shifted={Boolean(activeStory)}
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.2, ease }}
       >
-        <SoundIcon enabled={soundEnabled} />
-        <span>Sound {soundEnabled ? "on" : "off"}</span>
-      </motion.button>
+        <button
+          className="sound-toggle hud-button"
+          type="button"
+          aria-label={soundAvailable ? (soundEnabled ? "Mute world sound" : "Enable world sound") : "World sound unavailable"}
+          aria-pressed={soundEnabled}
+          title={soundEnabled ? "Mute world sound" : "Enable ambient sound and effects"}
+          disabled={!soundAvailable}
+          onClick={() => void toggleSound()}
+        >
+          <SoundIcon enabled={soundEnabled} />
+          <span>Sound {soundEnabled ? "on" : "off"}</span>
+        </button>
+      </motion.div>
 
       <header className="viewer-header">
         <motion.div

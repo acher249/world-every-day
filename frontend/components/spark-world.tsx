@@ -9,12 +9,15 @@ import type {
 } from "@sparkjsdev/spark";
 import {
   clampToNavigationBounds,
+  getClearFocusPosition,
   getNavigationFloor,
   getFocusPosition,
   getNavigationRadius,
   smootherstep,
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
+import { withFocusSplatShader } from "@/lib/splat-focus-shader";
+import { focusEffectId, focusPanelYaw, hotspotVisualScale } from "@/lib/viewer-presentation";
 import type { StickValue } from "@/lib/touch-navigation";
 
 export type ViewerState = "poster" | "loading" | "ready" | "error";
@@ -47,6 +50,9 @@ function echoDescription(anchor: Extract<WorldAnchor, { kind: "echo" }>): string
 
 type SparkWorldProps = {
   focusedAnchorId?: string | null;
+  focusCycleRevision?: number;
+  focusResetRevision?: number;
+  storyPanelOpen?: boolean;
   alt: string;
   anchors?: WorldAnchor[];
   onAnchorHover?: () => void;
@@ -62,6 +68,9 @@ type SparkWorldProps = {
 
 export function SparkWorld({
   focusedAnchorId = null,
+  focusCycleRevision = 0,
+  focusResetRevision = 0,
+  storyPanelOpen = false,
   alt,
   anchors = [],
   onAnchorHover,
@@ -78,12 +87,38 @@ export function SparkWorld({
   const anchorElementsRef = useRef(new Map<string, HTMLElement>());
   const anchorsRef = useRef(anchors);
   const focusedAnchorIdRef = useRef(focusedAnchorId);
+  const focusCycleRevisionRef = useRef(focusCycleRevision);
+  const focusResetRevisionRef = useRef(focusResetRevision);
+  const storyPanelOpenRef = useRef(storyPanelOpen);
+  const hoveredAnchorIdRef = useRef<string | null>(null);
+  const cycleHoverLockedRef = useRef(false);
+  const cycleNavigationActiveRef = useRef(false);
+  const [hoverSuppressed, setHoverSuppressed] = useState(false);
   const [viewerState, setViewerState] = useState<ViewerState>(
     splatUrl ? "loading" : "poster",
   );
   const [progress, setProgress] = useState<number | null>(null);
   anchorsRef.current = anchors;
   focusedAnchorIdRef.current = focusedAnchorId;
+  focusCycleRevisionRef.current = focusCycleRevision;
+  focusResetRevisionRef.current = focusResetRevision;
+  storyPanelOpenRef.current = storyPanelOpen;
+
+  useEffect(() => {
+    if (focusResetRevision === 0) return;
+    cycleHoverLockedRef.current = false;
+    cycleNavigationActiveRef.current = false;
+    setHoverSuppressed(true);
+    hoveredAnchorIdRef.current = null;
+    canvasRef.current?.focus({ preventScroll: true });
+  }, [focusResetRevision]);
+
+  useEffect(() => {
+    if (focusCycleRevision === 0) return;
+    cycleHoverLockedRef.current = true;
+    setHoverSuppressed(true);
+    hoveredAnchorIdRef.current = null;
+  }, [focusCycleRevision]);
 
   useEffect(() => {
     onViewerStateChange?.(viewerState);
@@ -144,6 +179,30 @@ export function SparkWorld({
           renderer,
           minSortIntervalMs: 32,
         });
+        const focusShader = enableBake ? null : withFocusSplatShader(spark.material.vertexShader);
+        const focusCenterUniform = { value: new Vector3() };
+        const focusRadiiUniform = { value: new Vector3(1, 1, 1) };
+        const focusStrengthUniform = { value: 0 };
+        const focusOpacityUniform = { value: 0.78 };
+        const focusWaveTimeUniform = { value: 0 };
+        const focusWaveFrequencyUniform = { value: 0 };
+        const focusWaveAmplitudeUniform = { value: 0 };
+        if (focusShader) {
+          spark.material.vertexShader = focusShader;
+          Object.assign(spark.material.uniforms, {
+            focusCenterWorld: focusCenterUniform,
+            focusRadii: focusRadiiUniform,
+            focusStrength: focusStrengthUniform,
+            focusDotRadius: { value: 3.15 },
+            focusOutsideOpacity: focusOpacityUniform,
+            focusWaveTime: focusWaveTimeUniform,
+            focusWaveFrequency: focusWaveFrequencyUniform,
+            focusWaveAmplitude: focusWaveAmplitudeUniform,
+          });
+          spark.material.needsUpdate = true;
+        } else if (!enableBake) {
+          console.warn("The installed Spark shader changed; the focus-splat effect is unavailable.");
+        }
         scene.add(spark);
 
         let lastBakeProgress = -1;
@@ -174,6 +233,7 @@ export function SparkWorld({
         const size = bounds.getSize(new Vector3());
         const maxDimension = Math.max(size.x, size.y, size.z, 0.01);
         const navigationRadius = getNavigationRadius(maxDimension);
+        focusWaveFrequencyUniform.value = (Math.PI * 2) / (navigationRadius * 2.2);
 
         camera.near = Math.max(maxDimension / 10000, 0.001);
         camera.far = Math.max(maxDimension * 100, 100);
@@ -317,6 +377,18 @@ export function SparkWorld({
         const initialCameraRotation = new Quaternion();
         const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
         const mobileLayoutQuery = window.matchMedia("(max-width: 760px), (orientation: landscape) and (pointer: coarse)");
+        // Spark's depth of field is part of its splat renderer, not a second
+        // full-screen post-processing pass. Keep mobile aperture restrained.
+        spark.focalDistance = Math.max(navigationRadius, 2);
+        spark.apertureAngle = mobileLayoutQuery.matches ? 0.0025 : 0.004;
+        const bubbleRadius = Math.max(navigationRadius * 0.28, 0.8) * 1.3;
+        let bubbleTargetId: string | null = null;
+        const bubblePoint = new Vector3();
+        const bubbleCycleStart = new Vector3();
+        let bubbleCycleActive = false;
+        let bubbleCycleTargetId: string | null = null;
+        let lastFocusCycleRevision = focusCycleRevisionRef.current;
+        let lastFocusResetRevision = focusResetRevisionRef.current;
         let focusTransition: {
           duration: number;
           elapsed: number;
@@ -326,6 +398,7 @@ export function SparkWorld({
           startRotation: InstanceType<typeof Quaternion>;
         } | null = null;
         let lastFocusedAnchorId: string | null = null;
+        let lastFocusPanelOpen = false;
 
         const updateCameraRotation = () => {
           cameraEuler.set(pitch, yaw, 0);
@@ -421,9 +494,28 @@ export function SparkWorld({
         const right = new Vector3();
         const up = new Vector3(0, 1, 0);
         const focusTarget = new Vector3();
+        const focalPoint = new Vector3();
         const focusDirection = new Vector3();
         const focusLookMatrix = new Matrix4();
         const focusRotation = new Quaternion();
+        const focusRaycaster = new Raycaster();
+        const focusPositions = new Map<string, InstanceType<typeof Vector3>>();
+        const focusHits: Array<{ distance: number; point: InstanceType<typeof Vector3>; object: InstanceType<typeof Object3D> }> = [];
+        const viewVisibility = (position: { x: number; y: number; z: number }, target: InstanceType<typeof Vector3>) => {
+          if (!splat) return 0;
+          const direction = new Vector3().subVectors(target, new Vector3(position.x, position.y, position.z));
+          const distance = direction.length();
+          focusRaycaster.set(new Vector3(position.x, position.y, position.z), direction.divideScalar(distance));
+          focusRaycaster.near = 0.05;
+          // Ignore the target's own soft splats, but reject nearer terrain or scenery.
+          focusRaycaster.far = distance - Math.min(0.6, distance * 0.12);
+          focusHits.length = 0;
+          splat.raycast(focusRaycaster, focusHits);
+          if (focusHits.length === 0) return 1;
+          let closest = Infinity;
+          for (const hit of focusHits) closest = Math.min(closest, hit.distance);
+          return Math.max(0, Math.min(1, closest / focusRaycaster.far));
+        };
         const floatedCameraPosition = new Vector3();
         const flightSpeed = Math.max(maxDimension * 0.014, 0.08);
         const floatPositionAmplitude = Math.min(
@@ -442,16 +534,48 @@ export function SparkWorld({
             const deltaSeconds = Math.min((frameTime - previousFrameTime) / 1000, 0.1);
             previousFrameTime = frameTime;
             const requestedFocusId = focusedAnchorIdRef.current;
-            if (requestedFocusId !== lastFocusedAnchorId) {
+            const desktopEffects = !mobileLayoutQuery.matches;
+            const panelOpen = storyPanelOpenRef.current && desktopEffects;
+            if (focusResetRevisionRef.current !== lastFocusResetRevision) {
+              lastFocusResetRevision = focusResetRevisionRef.current;
+              hoveredAnchorIdRef.current = null;
+              bubbleCycleActive = false;
+            }
+            if (focusCycleRevisionRef.current !== lastFocusCycleRevision) {
+              lastFocusCycleRevision = focusCycleRevisionRef.current;
+              hoveredAnchorIdRef.current = null;
+              cycleHoverLockedRef.current = true;
+              bubbleCycleStart.copy(focusCenterUniform.value);
+              bubbleCycleActive = true;
+              bubbleCycleTargetId = requestedFocusId;
+            }
+            if (requestedFocusId !== lastFocusedAnchorId || panelOpen !== lastFocusPanelOpen) {
               const previousFocusedAnchorId = lastFocusedAnchorId;
               lastFocusedAnchorId = requestedFocusId;
+              lastFocusPanelOpen = panelOpen;
               focusTransition = null;
               const anchor = anchorsRef.current.find(({ id }) => id === requestedFocusId);
               let destination: InstanceType<typeof Vector3> | null = null;
               let destinationRotation: InstanceType<typeof Quaternion> | null = null;
               if (anchor) {
                 focusTarget.set(anchor.worldPosition.x, anchor.worldPosition.y, anchor.worldPosition.z);
-                const focusPosition = getFocusPosition(anchor.worldPosition, navigationRadius, navigationFloor);
+                let focusPosition = focusPositions.get(anchor.id);
+                if (!focusPosition) {
+                  try {
+                    const selected = getClearFocusPosition(
+                      anchor.worldPosition,
+                      navigationRadius,
+                      navigationFloor,
+                      (candidate) => viewVisibility(candidate, focusTarget),
+                    );
+                    focusPosition = new Vector3(selected.x, selected.y, selected.z);
+                  } catch (error) {
+                    console.warn("Could not check the hotspot view; using the standard focus position", error);
+                    const fallback = getFocusPosition(anchor.worldPosition, navigationRadius, navigationFloor);
+                    focusPosition = new Vector3(fallback.x, fallback.y, fallback.z);
+                  }
+                  focusPositions.set(anchor.id, focusPosition);
+                }
                 destination = focusDirection.set(
                   focusPosition.x,
                   focusPosition.y,
@@ -459,6 +583,12 @@ export function SparkWorld({
                 );
                 focusLookMatrix.lookAt(destination, focusTarget, up);
                 focusRotation.setFromRotationMatrix(focusLookMatrix);
+                if (panelOpen) {
+                  const panelWidth = document.querySelector(".story-panel")?.getBoundingClientRect().width
+                    ?? Math.min(430, canvas.clientWidth * 0.92);
+                  const panelYaw = focusPanelYaw(canvas.clientWidth, panelWidth, camera.aspect, camera.fov);
+                  focusRotation.multiply(new Quaternion().setFromAxisAngle(up, panelYaw));
+                }
                 destinationRotation = focusRotation;
               } else if (requestedFocusId === null && previousFocusedAnchorId !== null) {
                 if (mobileLayoutQuery.matches) {
@@ -567,6 +697,8 @@ export function SparkWorld({
               }
             }
 
+            cycleNavigationActiveRef.current = cycleHoverLockedRef.current && focusTransition !== null;
+
             if (reducedMotionQuery.matches) {
               cameraFloatRig.position.set(0, 0, 0);
               cameraFloatRig.quaternion.identity();
@@ -605,6 +737,47 @@ export function SparkWorld({
               navigationFloor - floatedCameraPosition.y,
             );
 
+            const hoveredId = hoveredAnchorIdRef.current;
+            const effectId = desktopEffects
+              ? focusEffectId(requestedFocusId, hoveredId, panelOpen, cycleHoverLockedRef.current)
+              : requestedFocusId;
+            const effectAnchor = anchorsRef.current.find((anchor) => anchor.id === effectId && anchor.kind === "story");
+            if (focusShader && effectAnchor) {
+              bubblePoint.set(effectAnchor.worldPosition.x, effectAnchor.worldPosition.y, effectAnchor.worldPosition.z);
+              if (bubbleCycleActive && effectAnchor.id === bubbleCycleTargetId && focusTransition && !reducedMotionQuery.matches) {
+                const progress = smootherstep(focusTransition.elapsed / focusTransition.duration);
+                focusCenterUniform.value.lerpVectors(bubbleCycleStart, bubblePoint, progress);
+              } else {
+                bubbleCycleActive = false;
+                if (bubbleTargetId === null || reducedMotionQuery.matches) focusCenterUniform.value.copy(bubblePoint);
+                else focusCenterUniform.value.lerp(bubblePoint, 1 - Math.exp(-7 * deltaSeconds));
+              }
+              bubbleTargetId = effectAnchor.id;
+              focusStrengthUniform.value += (1 - focusStrengthUniform.value) * (reducedMotionQuery.matches ? 1 : 1 - Math.exp(-5 * deltaSeconds));
+              const targetOpacity = storyPanelOpenRef.current && effectAnchor.id === requestedFocusId ? 0.72 : 0.84;
+              focusOpacityUniform.value += (targetOpacity - focusOpacityUniform.value) * (1 - Math.exp(-5 * deltaSeconds));
+              const breathe = reducedMotionQuery.matches ? 1 : 1 + Math.sin(frameTime * 0.0017) * 0.045;
+              focusRadiiUniform.value.set(bubbleRadius * 1.3 * breathe, bubbleRadius / breathe, bubbleRadius * 1.3 / breathe);
+              focusWaveTimeUniform.value = frameTime * 0.001;
+              focusWaveAmplitudeUniform.value = reducedMotionQuery.matches ? 0 : navigationRadius * 0.055;
+            } else {
+              bubbleCycleActive = false;
+              focusStrengthUniform.value *= reducedMotionQuery.matches ? 0 : Math.exp(-5 * deltaSeconds);
+              if (focusStrengthUniform.value < 0.001) {
+                focusStrengthUniform.value = 0;
+                bubbleTargetId = null;
+              }
+            }
+            if (spark) {
+              const aperture = desktopEffects ? 0.004 : 0.0025;
+              if (spark.apertureAngle !== aperture) spark.apertureAngle = aperture;
+              const focalAnchor = anchorsRef.current.find((anchor) => anchor.id === requestedFocusId);
+              const focalDistance = focalAnchor
+                ? camera.position.distanceTo(focalPoint.set(focalAnchor.worldPosition.x, focalAnchor.worldPosition.y, focalAnchor.worldPosition.z))
+                : Math.max(navigationRadius, 2);
+              spark.focalDistance += (focalDistance - spark.focalDistance) * (1 - Math.exp(-3 * deltaSeconds));
+            }
+
             renderer.render(scene, camera);
             camera.updateMatrixWorld();
 
@@ -631,6 +804,14 @@ export function SparkWorld({
 
               const screenX = (projectedAnchor.x * 0.5 + 0.5) * 100;
               const screenY = (-projectedAnchor.y * 0.5 + 0.5) * 100;
+              if (anchor.kind === "story") {
+                const scale = hotspotVisualScale(screenX, screenY);
+                const visualSize = `${(50 * scale).toFixed(1)}px`;
+                if (element.style.getPropertyValue("--hotspot-visual-size") !== visualSize) {
+                  element.style.setProperty("--hotspot-visual-size", visualSize);
+                  element.style.setProperty("--hotspot-core-size", `${(34 * scale).toFixed(1)}px`);
+                }
+              }
               const previousPosition = projectedAnchorPositions.get(anchor.id);
               if (
                 !previousPosition ||
@@ -694,7 +875,23 @@ export function SparkWorld({
   const showPoster = viewerState === "poster" || viewerState === "error";
 
   return (
-    <div className="spark-world" data-viewer-state={viewerState}>
+    <div
+      className="spark-world"
+      data-viewer-state={viewerState}
+      data-hover-suppressed={hoverSuppressed}
+      onPointerMove={(event) => {
+        if (
+          event.pointerType === "touch" ||
+          cycleNavigationActiveRef.current ||
+          Math.hypot(event.movementX, event.movementY) < 2 ||
+          (!cycleHoverLockedRef.current && !hoverSuppressed)
+        ) return;
+        cycleHoverLockedRef.current = false;
+        setHoverSuppressed(false);
+        const hotspot = event.target instanceof Element ? event.target.closest<HTMLButtonElement>(".hotspot") : null;
+        hoveredAnchorIdRef.current = hotspot?.dataset.anchorId ?? null;
+      }}
+    >
       {showPoster ? (
         <Image
           className="world-poster"
@@ -726,7 +923,22 @@ export function SparkWorld({
             transform: `translate3d(${anchor.fallbackScreenPosition.x * 100}vw, ${anchor.fallbackScreenPosition.y * 100}vh, 0) translate(-50%, -50%)`,
           }}
           onPointerEnter={(event) => {
-            if (event.pointerType !== "touch") onAnchorHover?.();
+            if (event.pointerType !== "touch" && !hoverSuppressed && !cycleHoverLockedRef.current) {
+              hoveredAnchorIdRef.current = anchor.id;
+              onAnchorHover?.();
+            }
+          }}
+          onPointerLeave={() => {
+            if (hoveredAnchorIdRef.current === anchor.id) hoveredAnchorIdRef.current = null;
+            if (!cycleHoverLockedRef.current) setHoverSuppressed(false);
+          }}
+          onFocus={() => {
+            cycleHoverLockedRef.current = false;
+            setHoverSuppressed(false);
+            hoveredAnchorIdRef.current = anchor.id;
+          }}
+          onBlur={() => {
+            if (hoveredAnchorIdRef.current === anchor.id) hoveredAnchorIdRef.current = null;
           }}
           onClick={() => onAnchorSelect?.(anchor.id)}
           aria-label={`Explore story ${anchor.number}: ${anchor.label}`}
@@ -735,7 +947,7 @@ export function SparkWorld({
           <span className="hotspot-visual" aria-hidden="true">
             <span className="hotspot-pulse" />
             <span className="hotspot-orbit"><i /></span>
-            <span className="hotspot-core">{anchor.number}</span>
+            <span className="hotspot-core"><span className="hotspot-number">{anchor.number}</span></span>
           </span>
           <span className="hotspot-label hotspot-story-label">
             <small>Story {anchor.number} · {anchor.category}</small>
