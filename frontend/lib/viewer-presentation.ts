@@ -22,3 +22,27 @@ export function focusEffectId(
 ): string | null {
   return cycling ? requestedId : hoveredId ?? (panelOpen ? requestedId : null);
 }
+
+/** Keep the idle scene gently focused; focus a landmark as it is highlighted. */
+export function depthOfFieldTarget(
+  navigationRadius: number,
+  anchorDistance: number | null,
+  mobile: boolean,
+): { focalDistance: number; apertureAngle: number } {
+  const idleDistance = Math.max(navigationRadius * 0.7, 2);
+  const idleAperture = mobile ? 0.0025 : 0.0032;
+  if (anchorDistance === null) {
+    return { focalDistance: idleDistance, apertureAngle: idleAperture };
+  }
+  const distance = Math.max(anchorDistance, 0.1);
+  const proximity = Math.max(0, Math.min(1, 1 - distance / idleDistance));
+  return {
+    focalDistance: distance,
+    apertureAngle: idleAperture * (0.75 - proximity * 0.25),
+  };
+}
+
+/** Bound splat fill rate on touch layouts without changing desktop sharpness. */
+export function viewerPixelRatio(devicePixelRatio: number, mobile: boolean): number {
+  return Math.min(Math.max(devicePixelRatio, 1), mobile ? 1.25 : 1.5);
+}

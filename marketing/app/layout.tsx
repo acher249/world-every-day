@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "A World Every Day | Information, as a place",
   description:
-    "A living digital installation that turns a curated set of daily stories into an explorable world.",
+    "A living digital installation that turns curated stories and discoveries into an explorable world each day.",
   openGraph: {
     title: "A World Every Day",
     description: "A living digital installation. A new world, every day.",

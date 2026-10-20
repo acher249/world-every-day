@@ -19,6 +19,9 @@ still receives an authored visual prompt with story-derived physical details. Se
 
 The reference configuration and AWS development deployment have 32 sources:
 31 RSS feeds and one Atom feed.
+They span reporting, research journals, university newsrooms, and public
+institutions. The current mix often favors science, health, and technology;
+editions are curated perspectives, not comprehensive daily news digests.
 
 | Source | Role | Article access | Coverage |
 | --- | --- | --- | --- |

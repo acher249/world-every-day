@@ -5,8 +5,8 @@ import { useState } from "react";
 import type { MarketingSiteConfig } from "@/lib/site-config";
 
 const stages = [
-  ["01", "Discover", "A bounded set of credible stories from reviewed RSS and Atom sources."],
-  ["02", "Compose", "Ten developments become one playful, diagrammatic panoramic image."],
+  ["01", "Discover", "Stories, research, and updates from reviewed RSS and Atom feeds."],
+  ["02", "Compose", "Selected developments become one playful, diagrammatic panoramic image."],
   ["03", "Generate", "A world foundation model turns that image into a spatial environment."],
   ["04", "Explore", "Story landmarks connect the generated world back to their original sources."],
 ] as const;
@@ -14,7 +14,7 @@ const stages = [
 const possibilities = [
   ["Follow your interests", "Curate a world around the subjects and sources that matter to you."],
   ["Change the rhythm", "Create one world each week, several each day, or one for every category."],
-  ["Use other information", "Turn research, archives, collections, or an agent’s work into places."],
+  ["Use other information", "Turn archives, collections, datasets, or an agent’s work into places."],
   ["Replace every layer", "Bring another source, image model, world model, cloud, or interface."],
 ] as const;
 
@@ -69,7 +69,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
           <p className="eyebrow">A living digital installation</p>
           <h1>Information,<br /><em>as a place.</em></h1>
           <p className="hero-intro">
-            Every day, a curated set of stories becomes a new world to wander,
+            Every day, curated stories and discoveries become a new world to wander,
             look around, and slowly explore.
           </p>
           <div className="hero-actions">
@@ -126,9 +126,9 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         </motion.div>
         <motion.div className="thesis-note" initial="hidden" whileInView="visible" viewport={viewport} variants={reveal} transition={transition}>
           <p>
-            The first experiment begins with the news. Stories of discovery, progress,
-            repair, and cooperation are gathered into a slower, more curious way of
-            encountering what is happening around us and around the world.
+            The first experiment draws from reporting, research, and public-interest
+            updates. The current sources often lean toward science, health, and
+            technology: a curated view of the day, not a comprehensive news digest.
           </p>
           <p>
             Each day becomes one limited, navigable environment. Over time, those
@@ -215,7 +215,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
             <p className="section-index">04 / Open by design</p>
             <h2>One project.<br /><em>Many possible worlds.</em></h2>
             <p>
-              News is only the beginning. The project is MIT-licensed, open source, and
+              The daily edition is only the beginning. The project is MIT-licensed, open source, and
               designed so every layer can be changed.
             </p>
           </motion.div>

@@ -24,19 +24,20 @@ crisis.
 A World Every Day is an artistic exploration: what if information arrived as a
 place?
 
-The first experiment begins with the news. Each morning, credible stories of
-discovery, progress, repair, and cooperation become a single explorable world: a
-slower, more curious way of encountering what is happening around us and across
-the world.
+The first experiment draws from reporting, newly published research, and
+public-interest updates. The current sources often lean toward science, health,
+and technology. Each morning, selected developments become a single explorable
+world: a slower, more curious way of encountering what is happening around us
+and across the world.
 
-But news is only the beginning. The same pattern could turn research, archives,
-community knowledge, cultural collections, or entirely different kinds of
-information into worlds of their own.
+This is only the beginning. The same pattern could turn archives, community
+knowledge, cultural collections, or entirely different kinds of information
+into worlds of their own.
 
 ## The daily world
 
 Each edition is a playful, diagrammatic world composed from a curated set of
-stories from the previous day. Ideas, discoveries, places, and events are brought
+recent developments. Ideas, discoveries, places, and events are brought
 together as one limited, navigable environment: something to wander, look
 around, and slowly explore.
 

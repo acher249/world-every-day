@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import type { PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import type { BufferGeometry, PerspectiveCamera, Scene, ShaderMaterial, WebGLRenderer } from "three";
 import type {
   SparkRenderer as SparkRendererInstance,
   SplatMesh as SplatMeshInstance,
@@ -17,7 +17,14 @@ import {
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
 import { withFocusSplatShader } from "@/lib/splat-focus-shader";
-import { focusEffectId, focusPanelYaw, hotspotVisualScale } from "@/lib/viewer-presentation";
+import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, viewerPixelRatio } from "@/lib/viewer-presentation";
+import {
+  boundaryFragmentShader,
+  boundaryLatitudeSegments,
+  boundaryLongitudeSegments,
+  boundaryOpacity,
+  boundaryVertexShader,
+} from "@/lib/navigation-boundary";
 import type { StickValue } from "@/lib/touch-navigation";
 
 export type ViewerState = "poster" | "loading" | "ready" | "error";
@@ -135,9 +142,12 @@ export function SparkWorld({
     let cancelled = false;
     let renderer: WebGLRenderer | undefined;
     let scene: Scene | undefined;
+    let boundaryScene: Scene | undefined;
     let camera: PerspectiveCamera | undefined;
     let spark: SparkRendererInstance | undefined;
     let splat: SplatMeshInstance | undefined;
+    let boundaryGeometry: BufferGeometry | undefined;
+    let boundaryMaterial: ShaderMaterial | undefined;
     let resizeObserver: ResizeObserver | undefined;
     const removeInputListeners: Array<() => void> = [];
 
@@ -146,7 +156,7 @@ export function SparkWorld({
         setViewerState("loading");
         if (enableBake) console.info("bake:loading-modules");
 
-        const [{ Euler, Matrix4, Object3D, PerspectiveCamera, Quaternion, Raycaster, Scene, SRGBColorSpace, Vector3, WebGLRenderer }, sparkModule] =
+        const [{ BackSide, Euler, Matrix4, Mesh, Object3D, PerspectiveCamera, Quaternion, Raycaster, Scene, ShaderMaterial, SphereGeometry, SRGBColorSpace, Vector3, WebGLRenderer }, sparkModule] =
           await Promise.all([
             import("three"),
             import("@sparkjsdev/spark"),
@@ -165,9 +175,10 @@ export function SparkWorld({
           throw new Error("WebGL 2 is not available on this device.");
         }
 
+        const mobileLayoutQuery = window.matchMedia("(max-width: 760px), (orientation: landscape) and (pointer: coarse)");
         renderer = new WebGLRenderer({ canvas, context, antialias: false, alpha: true });
         renderer.outputColorSpace = SRGBColorSpace;
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.setPixelRatio(viewerPixelRatio(window.devicePixelRatio, mobileLayoutQuery.matches));
 
         scene = new Scene();
         camera = new PerspectiveCamera(60, 1, 0.01, 1000);
@@ -234,6 +245,26 @@ export function SparkWorld({
         const maxDimension = Math.max(size.x, size.y, size.z, 0.01);
         const navigationRadius = getNavigationRadius(maxDimension);
         focusWaveFrequencyUniform.value = (Math.PI * 2) / (navigationRadius * 2.2);
+
+        const boundaryOpacityUniform = { value: 0 };
+        if (!enableBake) {
+          boundaryScene = new Scene();
+          boundaryGeometry = new SphereGeometry(navigationRadius * 1.04, boundaryLongitudeSegments, boundaryLatitudeSegments);
+          boundaryMaterial = new ShaderMaterial({
+            uniforms: {
+              boundaryOpacity: boundaryOpacityUniform,
+              boundaryRadius: { value: navigationRadius },
+            },
+            vertexShader: boundaryVertexShader,
+            fragmentShader: boundaryFragmentShader,
+            side: BackSide,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+          });
+          const boundaryMesh = new Mesh(boundaryGeometry, boundaryMaterial);
+          boundaryScene.add(boundaryMesh);
+        }
 
         camera.near = Math.max(maxDimension / 10000, 0.001);
         camera.far = Math.max(maxDimension * 100, 100);
@@ -356,6 +387,8 @@ export function SparkWorld({
           const width = canvas.clientWidth;
           const height = canvas.clientHeight;
           if (!width || !height) return;
+          const pixelRatio = viewerPixelRatio(window.devicePixelRatio, mobileLayoutQuery.matches);
+          if (renderer.getPixelRatio() !== pixelRatio) renderer.setPixelRatio(pixelRatio);
           renderer.setSize(width, height, false);
           camera.aspect = width / height;
           camera.updateProjectionMatrix();
@@ -363,6 +396,8 @@ export function SparkWorld({
 
         resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(canvas);
+        mobileLayoutQuery.addEventListener("change", resize);
+        removeInputListeners.push(() => mobileLayoutQuery.removeEventListener("change", resize));
         resize();
 
         let yaw = 0;
@@ -373,14 +408,12 @@ export function SparkWorld({
         const pressedKeys = new Set<string>();
         const cameraEuler = new Euler(0, 0, 0, "YXZ");
         const cameraFloatEuler = new Euler(0, 0, 0, "YXZ");
-        const initialCameraPosition = new Vector3(0, 0, 0);
-        const initialCameraRotation = new Quaternion();
         const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-        const mobileLayoutQuery = window.matchMedia("(max-width: 760px), (orientation: landscape) and (pointer: coarse)");
         // Spark's depth of field is part of its splat renderer, not a second
         // full-screen post-processing pass. Keep mobile aperture restrained.
-        spark.focalDistance = Math.max(navigationRadius, 2);
-        spark.apertureAngle = mobileLayoutQuery.matches ? 0.0025 : 0.004;
+        const initialDepthOfField = depthOfFieldTarget(navigationRadius, null, mobileLayoutQuery.matches);
+        spark.focalDistance = initialDepthOfField.focalDistance;
+        spark.apertureAngle = initialDepthOfField.apertureAngle;
         const bubbleRadius = Math.max(navigationRadius * 0.28, 0.8) * 1.3;
         let bubbleTargetId: string | null = null;
         const bubblePoint = new Vector3();
@@ -550,7 +583,6 @@ export function SparkWorld({
               bubbleCycleTargetId = requestedFocusId;
             }
             if (requestedFocusId !== lastFocusedAnchorId || panelOpen !== lastFocusPanelOpen) {
-              const previousFocusedAnchorId = lastFocusedAnchorId;
               lastFocusedAnchorId = requestedFocusId;
               lastFocusPanelOpen = panelOpen;
               focusTransition = null;
@@ -590,15 +622,11 @@ export function SparkWorld({
                   focusRotation.multiply(new Quaternion().setFromAxisAngle(up, panelYaw));
                 }
                 destinationRotation = focusRotation;
-              } else if (requestedFocusId === null && previousFocusedAnchorId !== null) {
-                if (mobileLayoutQuery.matches) {
-                  cameraEuler.setFromQuaternion(camera.quaternion, "YXZ");
-                  pitch = cameraEuler.x;
-                  yaw = cameraEuler.y;
-                } else {
-                  destination = initialCameraPosition;
-                  destinationRotation = initialCameraRotation;
-                }
+              } else if (requestedFocusId === null) {
+                // Closing a panel clears focus without moving the visitor.
+                cameraEuler.setFromQuaternion(camera.quaternion, "YXZ");
+                pitch = cameraEuler.x;
+                yaw = cameraEuler.y;
               }
 
               if (destination && destinationRotation) {
@@ -769,16 +797,25 @@ export function SparkWorld({
               }
             }
             if (spark) {
-              const aperture = desktopEffects ? 0.004 : 0.0025;
-              if (spark.apertureAngle !== aperture) spark.apertureAngle = aperture;
-              const focalAnchor = anchorsRef.current.find((anchor) => anchor.id === requestedFocusId);
-              const focalDistance = focalAnchor
-                ? camera.position.distanceTo(focalPoint.set(focalAnchor.worldPosition.x, focalAnchor.worldPosition.y, focalAnchor.worldPosition.z))
-                : Math.max(navigationRadius, 2);
-              spark.focalDistance += (focalDistance - spark.focalDistance) * (1 - Math.exp(-3 * deltaSeconds));
+              const anchorDistance = effectAnchor
+                ? camera.position.distanceTo(focalPoint.set(effectAnchor.worldPosition.x, effectAnchor.worldPosition.y, effectAnchor.worldPosition.z))
+                : null;
+              const target = depthOfFieldTarget(navigationRadius, anchorDistance, !desktopEffects);
+              const focusBlend = reducedMotionQuery.matches ? 1 : 1 - Math.exp(-6 * deltaSeconds);
+              spark.focalDistance += (target.focalDistance - spark.focalDistance) * focusBlend;
+              spark.apertureAngle += (target.apertureAngle - spark.apertureAngle) * focusBlend;
             }
 
+            const boundaryTarget = boundaryOpacity(camera.position.length(), navigationRadius);
+            boundaryOpacityUniform.value += (boundaryTarget - boundaryOpacityUniform.value) *
+              (reducedMotionQuery.matches ? 1 : 1 - Math.exp(-5 * deltaSeconds));
             renderer.render(scene, camera);
+            if (boundaryScene && boundaryOpacityUniform.value > 0.003) {
+              const autoClear = renderer.autoClear;
+              renderer.autoClear = false;
+              renderer.render(boundaryScene, camera);
+              renderer.autoClear = autoClear;
+            }
             camera.updateMatrixWorld();
 
             for (const anchor of anchorsRef.current) {
@@ -868,6 +905,8 @@ export function SparkWorld({
       renderer?.setAnimationLoop(null);
       splat?.dispose();
       spark?.dispose();
+      boundaryGeometry?.dispose();
+      boundaryMaterial?.dispose();
       renderer?.dispose();
     };
   }, [enableBake, mobileMovementRef, onMovementChange, splatSha256, splatUrl]);
