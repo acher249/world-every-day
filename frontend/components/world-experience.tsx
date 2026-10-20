@@ -72,6 +72,21 @@ function CloseIcon() {
   );
 }
 
+function StoryArrow({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="17" height="17">
+      <path
+        d={direction === "left" ? "M15 10H5m0 0 4-4m-4 4 4 4" : "M5 10h10m0 0-4-4m4 4-4 4"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function MenuIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
@@ -411,8 +426,8 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeStory, controlsOpen, focusNextStory]);
 
-  function selectStory(story: PublicationStory) {
-    setActiveId(story.id);
+  function selectStory(story: PublicationStory, openPanel: boolean) {
+    setActiveId(openPanel ? story.id : null);
     setFocusedId(story.id);
     setIndexOpen(false);
     setControlsOpen(false);
@@ -431,7 +446,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           anchors={anchors}
           onAnchorSelect={(id) => {
             const story = stories.find((candidate) => candidate.id === id);
-            if (story) selectStory(story);
+            if (story) selectStory(story, true);
           }}
           onViewerStateChange={setViewerState}
           alt={publication.world.poster.alt}
@@ -622,8 +637,8 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           role="group"
           aria-label="Navigate through stories"
         >
-          <button type="button" aria-label="Previous story" onClick={() => focusNextStory(-1, false)}>←</button>
-          <button type="button" aria-label="Next story" onClick={() => focusNextStory(1, false)}>→</button>
+          <button type="button" aria-label="Previous story" onClick={() => focusNextStory(-1, false)}><StoryArrow direction="left" /></button>
+          <button type="button" aria-label="Next story" onClick={() => focusNextStory(1, false)}><StoryArrow direction="right" /></button>
         </motion.div>
       )}
 
@@ -647,7 +662,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
             stories={stories}
             activeId={activeId}
             onClose={() => setIndexOpen(false)}
-            onSelect={selectStory}
+            onSelect={(story) => selectStory(story, !window.matchMedia(mobileLayoutQuery).matches)}
           />
         ) : null}
       </AnimatePresence>
