@@ -308,6 +308,7 @@ export function SparkWorld({
         const initialCameraPosition = new Vector3(0, 0, 0);
         const initialCameraRotation = new Quaternion();
         const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const mobileLayoutQuery = window.matchMedia("(max-width: 760px)");
         let focusTransition: {
           duration: number;
           elapsed: number;
@@ -450,8 +451,14 @@ export function SparkWorld({
                 focusRotation.setFromRotationMatrix(focusLookMatrix);
                 destinationRotation = focusRotation;
               } else if (requestedFocusId === null && previousFocusedAnchorId !== null) {
-                destination = initialCameraPosition;
-                destinationRotation = initialCameraRotation;
+                if (mobileLayoutQuery.matches) {
+                  cameraEuler.setFromQuaternion(camera.quaternion, "YXZ");
+                  pitch = cameraEuler.x;
+                  yaw = cameraEuler.y;
+                } else {
+                  destination = initialCameraPosition;
+                  destinationRotation = initialCameraRotation;
+                }
               }
 
               if (destination && destinationRotation) {

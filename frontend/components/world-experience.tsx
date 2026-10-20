@@ -570,6 +570,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
 
       <motion.div
         className="movement-keys"
+        data-shifted={indexOpen}
         aria-hidden="true"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -585,6 +586,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
 
       <motion.div
         className="story-cycle-hint"
+        data-shifted={Boolean(activeStory)}
         aria-label="Use the left and right arrow keys to navigate through stories"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
