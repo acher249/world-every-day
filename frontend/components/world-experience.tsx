@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   SparkWorld,
   type ViewerState,
@@ -19,6 +19,7 @@ import type {
 } from "@/lib/publication-schema";
 
 const ease = [0.22, 1, 0.36, 1] as const;
+const mobileLayoutQuery = "(max-width: 760px), (orientation: landscape) and (pointer: coarse)";
 const textReveal = {
   hidden: { opacity: 0, y: 9 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease } },
@@ -50,6 +51,7 @@ const controls = [
 const mobileControls = [
   { action: "Move", keys: ["Left stick"] },
   { action: "Look around", keys: ["Drag the world"] },
+  { action: "Cycle stories", keys: ["←", "→"] },
   { action: "Open a story", keys: ["Tap a landmark"] },
   { action: "Close a panel", keys: ["Tap outside"] },
 ] as const;
@@ -314,6 +316,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     splatUrl,
   });
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [indexOpen, setIndexOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -324,11 +327,22 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     () => stories.find((story) => story.id === activeId) ?? null,
     [activeId, stories],
   );
+  const storyIds = useMemo(() => stories.map(({ id }) => id), [stories]);
+  const closeStory = useCallback(() => {
+    setActiveId(null);
+    if (!window.matchMedia(mobileLayoutQuery).matches) setFocusedId(null);
+  }, []);
+  const focusNextStory = useCallback((direction: -1 | 1, openPanel: boolean) => {
+    const nextId = cycleId(storyIds, focusedId, direction);
+    setFocusedId(nextId);
+    setActiveId(openPanel ? nextId : null);
+    setIndexOpen(false);
+  }, [focusedId, storyIds]);
   const anchors = useMemo<WorldAnchor[]>(
     () => interactionsMatchRenderedWorld ? [
       ...stories.map((story, index): WorldAnchor => ({
       kind: "story",
-      active: activeId === story.id,
+      active: focusedId === story.id,
       category: story.category,
       fallbackScreenPosition: {
         x: story.interaction.screenRegion.x,
@@ -356,7 +370,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         };
       }),
     ] : [],
-    [activeId, interactionsMatchRenderedWorld, stories, storyEchoes],
+    [focusedId, interactionsMatchRenderedWorld, stories, storyEchoes],
   );
   const activeStoryIndex = activeStory
     ? stories.findIndex((story) => story.id === activeStory.id)
@@ -381,7 +395,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       ) return;
       if (event.key === "Escape") {
         setArchiveOpen(false);
-        setActiveId(null);
+        closeStory();
         setIndexOpen(false);
         setControlsOpen(false);
         return;
@@ -390,16 +404,16 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
       const direction = event.key === "ArrowRight" ? 1 : -1;
-      setActiveId((currentId) => cycleId(stories.map(({ id }) => id), currentId, direction));
-      setIndexOpen(false);
+      focusNextStory(direction, !window.matchMedia(mobileLayoutQuery).matches);
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [controlsOpen, stories]);
+  }, [closeStory, controlsOpen, focusNextStory]);
 
   function selectStory(story: PublicationStory) {
     setActiveId(story.id);
+    setFocusedId(story.id);
     setIndexOpen(false);
     setControlsOpen(false);
   }
@@ -409,7 +423,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     <main className="world-app" aria-labelledby="edition-title">
       <div className="world-canvas">
         <SparkWorld
-          focusedAnchorId={activeId}
+          focusedAnchorId={focusedId}
           mobileMovementRef={mobileMovementRef}
           posterSrc={publication.world.poster.src}
           splatSha256={renderedSplatSha256}
@@ -435,7 +449,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           <button
             className="hud-button story-menu-button"
             onClick={() => {
-              setActiveId(null);
+              closeStory();
               setControlsOpen(false);
               setIndexOpen((open) => !open);
             }}
@@ -535,7 +549,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           <button
             className="hud-button controls-button"
             onClick={() => {
-              setActiveId(null);
+              closeStory();
               setIndexOpen(false);
               setControlsOpen(true);
             }}
@@ -564,7 +578,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           transition={{ duration: 0.45, delay: 0.26, ease }}
         >
           <span className="desktop-interaction-hint">Drag to look · WASD to fly · Shift to boost</span>
-          <span className="mobile-interaction-hint">Left stick to move · Drag to look · Tap landmarks</span>
+          <span className="mobile-interaction-hint">Left stick to move · Drag to look</span>
         </motion.p>
       </div>
 
@@ -599,6 +613,20 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         </span>
       </motion.div>
 
+      {viewerState === "ready" && stories.length > 0 && (
+        <motion.div
+          className="mobile-story-navigation"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.32, ease }}
+          role="group"
+          aria-label="Navigate through stories"
+        >
+          <button type="button" aria-label="Previous story" onClick={() => focusNextStory(-1, false)}>←</button>
+          <button type="button" aria-label="Next story" onClick={() => focusNextStory(1, false)}>→</button>
+        </motion.div>
+      )}
+
       {viewerState === "ready" && <MobileJoystick movementRef={mobileMovementRef} />}
 
       {(indexOpen || activeStory) && (
@@ -608,7 +636,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           aria-label="Close the open panel"
           onClick={() => {
             setIndexOpen(false);
-            setActiveId(null);
+            closeStory();
           }}
         />
       )}
@@ -631,7 +659,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
             story={activeStory}
             storyNumber={String(activeStoryIndex + 1).padStart(2, "0")}
             storyCount={stories.length}
-            onClose={() => setActiveId(null)}
+            onClose={closeStory}
           />
         ) : null}
       </AnimatePresence>

@@ -308,7 +308,7 @@ export function SparkWorld({
         const initialCameraPosition = new Vector3(0, 0, 0);
         const initialCameraRotation = new Quaternion();
         const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-        const mobileLayoutQuery = window.matchMedia("(max-width: 760px)");
+        const mobileLayoutQuery = window.matchMedia("(max-width: 760px), (orientation: landscape) and (pointer: coarse)");
         let focusTransition: {
           duration: number;
           elapsed: number;
