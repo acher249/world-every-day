@@ -1,53 +1,65 @@
 import { resolve } from "node:path";
 import { ART_DIRECTION_GENERATION_PROMPT_VERSION, type ArtDirectionProvider } from "../art-direction/generate.js";
-import { BedrockArtDirectionProvider } from "../art-direction/bedrock.js";
 import { AMAZON_NOVA_TEXT_MODEL } from "../bedrock/model.js";
 import { EDITORIAL_EVALUATION_PROMPT_VERSION, type CandidateEvaluator } from "../editorial/evaluate.js";
-import { BedrockCandidateEvaluator } from "../editorial/bedrock-evaluator.js";
+import {
+  articleAnalyzer as selectedArticleAnalyzer,
+  artDirectionProvider as selectedArtDirectionProvider,
+  candidateEvaluator as selectedCandidateEvaluator,
+  textProvider,
+} from "../cloud/text-provider.js";
+import { DEFAULT_GEMINI_EDITORIAL_MODEL } from "../gemini/client.js";
 import { BrowserInteractionBaker } from "../interactions/browser.js";
 import { GoogleLandmarkDetector } from "../landmarks/google.js";
 import type { LandmarkDetector } from "../landmarks/provider.js";
 import { NanoBananaGenerator, type PanoramaGenerator } from "../panorama/generator.js";
 import type { ArticleAnalyzer } from "../sources/article.js";
-import type { SourceConfiguration } from "../sources/config.js";
+import { assertConfiguredCandidates, type SourceConfiguration } from "../sources/config.js";
 import { collectCandidateSet, FeedSourceAdapter } from "../sources/feed.js";
-import { ARTICLE_ANALYSIS_MODEL, BedrockArticleAnalyzer } from "../sources/bedrock-article-analysis.js";
+import { localRequestPacer } from "../sources/pacing.js";
 import { AllowlistedHttpFetcher } from "../sources/http.js";
 import type { WorldGenerator } from "../world/provider.js";
 import { worldLabsGeneratorFromEnvironment } from "../world/world-labs.js";
 import type { EditionProviders } from "./edition-run.js";
 
-function lazyCandidateEvaluator(environment: NodeJS.ProcessEnv): CandidateEvaluator {
-  const model = environment.EDITORIAL_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;
+function textModel(environment: NodeJS.ProcessEnv, stage: "evaluation" | "article" | "art"): string {
+  const provider = textProvider(environment);
+  if (provider === "google-gemini") return environment.GEMINI_EDITORIAL_MODEL?.trim() || DEFAULT_GEMINI_EDITORIAL_MODEL;
+  if (provider === "google-vertex-claude") return environment.VERTEX_CLAUDE_MODEL?.trim() || "";
+  if (stage === "article") return environment.ARTICLE_ANALYSIS_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;
+  if (stage === "art") return environment.ART_DIRECTION_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;
+  return environment.EDITORIAL_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;
+}
+
+function lazyCandidateEvaluator(environment: NodeJS.ProcessEnv, configuration: SourceConfiguration): CandidateEvaluator {
   return {
-    provider: "aws-bedrock",
-    model,
+    provider: textProvider(environment),
+    model: textModel(environment, "evaluation"),
     promptVersion: EDITORIAL_EVALUATION_PROMPT_VERSION,
     evaluate(candidates) {
-      return new BedrockCandidateEvaluator({ model }).evaluate(candidates);
+      assertConfiguredCandidates(candidates, configuration);
+      return selectedCandidateEvaluator(environment).evaluate(candidates);
     },
   };
 }
 
 function lazyArticleAnalyzer(environment: NodeJS.ProcessEnv): ArticleAnalyzer {
-  const model = environment.ARTICLE_ANALYSIS_MODEL?.trim() || ARTICLE_ANALYSIS_MODEL;
   return {
-    provider: "aws-bedrock",
-    model,
+    provider: textProvider(environment),
+    model: textModel(environment, "article"),
     analyze(input) {
-      return new BedrockArticleAnalyzer({ model }).analyze(input);
+      return selectedArticleAnalyzer(environment).analyze(input);
     },
   };
 }
 
 function lazyArtDirectionProvider(environment: NodeJS.ProcessEnv): ArtDirectionProvider {
-  const model = environment.ART_DIRECTION_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;
   return {
-    provider: "aws-bedrock",
-    model,
+    provider: textProvider(environment),
+    model: textModel(environment, "art"),
     promptVersion: ART_DIRECTION_GENERATION_PROMPT_VERSION,
     propose(stories) {
-      return new BedrockArtDirectionProvider({ model }).propose(stories);
+      return selectedArtDirectionProvider(environment).propose(stories);
     },
   };
 }
@@ -126,19 +138,24 @@ export function createLiveEditionProviders({
         kind: source.kind,
         publisher: source.publisher,
         allowedArticleHosts: source.allowedArticleHosts,
+        upgradeHttpArticleLinksToHttps: source.upgradeHttpArticleLinksToHttps,
       }, new AllowlistedHttpFetcher({
         allowedHosts: [new URL(source.feedUrl).hostname, ...source.allowedArticleHosts],
+        pacer: localRequestPacer(source.crawlDelayMs),
       })));
       return collectCandidateSet({ adapters, window });
     },
-    candidateEvaluator: lazyCandidateEvaluator(environment),
+    candidateEvaluator: lazyCandidateEvaluator(environment, sourceConfiguration),
     articleAnalyzer: lazyArticleAnalyzer(environment),
     articleFetcher(story) {
       const source = sourcesById.get(story.source.adapterId);
       if (!source) {
         throw new Error(`Story source is not approved for ephemeral analysis: ${story.source.adapterId}`);
       }
-      return new AllowlistedHttpFetcher({ allowedHosts: source.allowedArticleHosts });
+      return new AllowlistedHttpFetcher({
+        allowedHosts: source.allowedArticleHosts,
+        pacer: localRequestPacer(source.crawlDelayMs),
+      });
     },
     artDirectionProvider: lazyArtDirectionProvider(environment),
     interactionBaker: new BrowserInteractionBaker({

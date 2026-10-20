@@ -27,9 +27,13 @@ story discovery, hosted editorial analysis, art direction, panorama generation,
 Marble 1.1 world generation, landmark detection, Spark.js raycast baking, and
 local publication assembly. A fixture-backed runner exercises that full artifact
 chain without network access or paid services, and an explicitly gated live
-local runner can resume each stage around a required human review. Public
-publication, scheduled automation, and the AWS pipeline described in the build
-plan are not complete. Do not describe planned features as implemented.
+local runner can resume each stage around a required human review. The AWS
+workflow also has an explicitly opted-in unattended path through image and
+Marble generation, interaction baking, and public publication. An October 19
+nine-story test was promoted to the current edition. Daily live RSS/Atom collection is scheduled,
+and recurring generation and publication are enabled in the development stack;
+a publication-quality daily edition remains incomplete. Do not describe planned
+features as implemented.
 
 ## Repository conventions
 

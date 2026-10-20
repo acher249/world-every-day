@@ -7,8 +7,9 @@ import { editorialShortlistSchema } from "../editorial/schema.js";
 import { candidateSetSha256 } from "../editorial/select.js";
 import { analyzeArticle } from "./article.js";
 import { parseSourceConfiguration } from "./config.js";
-import { BedrockArticleAnalyzer } from "./bedrock-article-analysis.js";
+import { articleAnalyzer } from "../cloud/text-provider.js";
 import { AllowlistedHttpFetcher } from "./http.js";
+import { localRequestPacer } from "./pacing.js";
 import { articleEvidenceSchema, candidateSetSchema } from "./schema.js";
 
 type Options = {
@@ -94,7 +95,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const analyzer = new BedrockArticleAnalyzer({ model: process.env.ARTICLE_ANALYSIS_MODEL });
+  const analyzer = articleAnalyzer();
   const outputDirectory = resolve(options.outputDirectory);
   await mkdir(outputDirectory, { recursive: true });
   let completedCount = 0;
@@ -121,6 +122,7 @@ async function main(): Promise<void> {
       }
       const fetcher = new AllowlistedHttpFetcher({
         allowedHosts: source.allowedArticleHosts,
+        pacer: localRequestPacer(source.crawlDelayMs),
       });
       const artifact = await analyzeArticle({
         analyzer,

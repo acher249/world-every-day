@@ -2,9 +2,11 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { createSourceAdapter } from "./adapter.js";
 import { parseSourceConfiguration } from "./config.js";
-import { collectCandidateSet, FeedSourceAdapter } from "./feed.js";
+import { collectCandidateSet } from "./feed.js";
 import { AllowlistedHttpFetcher } from "./http.js";
+import { localRequestPacer } from "./pacing.js";
 
 type Options = {
   config?: string;
@@ -77,14 +79,9 @@ async function main(): Promise<void> {
     const feedHost = new URL(source.feedUrl).hostname;
     const fetcher = new AllowlistedHttpFetcher({
       allowedHosts: [feedHost, ...source.allowedArticleHosts],
+      pacer: localRequestPacer(source.crawlDelayMs),
     });
-    return new FeedSourceAdapter({
-      id: source.id,
-      feedUrl: source.feedUrl,
-      kind: source.kind,
-      publisher: source.publisher,
-      allowedArticleHosts: source.allowedArticleHosts,
-    }, fetcher);
+    return createSourceAdapter(source, fetcher);
   });
   const artifact = await collectCandidateSet({ adapters, window });
   const output = resolve(options.output);
@@ -93,6 +90,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     candidateCount: artifact.candidates.length,
     failedSourceCount: artifact.sourceRuns.filter(({ status }) => status === "failed").length,
+    omittedCandidateCount: artifact.omittedCandidateCount ?? 0,
     output,
   }, null, 2));
 }

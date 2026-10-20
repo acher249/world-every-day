@@ -29,6 +29,7 @@ export function buildCandidateEvaluationPrompt(candidates: DiscoveredStory[]): s
     "Constructive significance means credible progress, possibility, discovery, repair, cooperation, or a meaningful attempt to address a real problem. It does not mean cheerful tone.",
     "Prefer a specific, newly reported development: a result, discovery, deployment, implemented change, concrete action, or consequential decision. Judge what happened in this story, not the general importance of its subject or organization.",
     "A scheduled briefing, routine announcement, award roundup, generic explainer, opinion, or recap is not by itself a substantive new development. Mark it ineligible unless the metadata clearly identifies a concrete consequential change. Do not infer one from a promising topic or future plans; when uncertain, score conservatively.",
+    "Reject routine campus, municipal, or administrative updates when the metadata does not show a substantive new development. Do not penalize a story merely because it concerns one country; judge what happened, not the publisher's location.",
     "Keep visual potential separate from editorial importance. Visual potential should favor concrete physical subjects that could remain legible in a human-free 3D environment.",
     "Every score must be a decimal number from 0 to 1 inclusive, where 0 is the lowest possible score and 1 is the highest. Never use a 0-to-10 or percentage scale.",
     "Use concise lowercase kebab-case values for eventKey, topic, and geography. Use the same eventKey for reports that appear to describe the same underlying event.",
@@ -37,7 +38,7 @@ export function buildCandidateEvaluationPrompt(candidates: DiscoveredStory[]): s
   ].join("\n\n");
 }
 
-function parseAssessment(value: unknown): CandidateAssessment {
+export function parseAssessment(value: unknown): CandidateAssessment {
   const input = value as Record<string, unknown>;
   const scores = input.scores as Record<string, unknown> | undefined;
   return candidateEvaluationSchema.omit({ scores: true }).extend({

@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { WorldExperience } from "@/components/world-experience";
-import { currentEditionPointerSchema, publicationPathForEdition, unpublishedCurrentSchema } from "@/lib/publication-loader";
+import { currentEditionPointerSchema, publicationPathForEdition, unpublishedCurrentSchema, type PastWorld } from "@/lib/publication-loader";
 import { parsePublicationManifest, type PublicationManifest } from "@/lib/publication-schema";
 
 export function PublicationExperience({ fallback }: { fallback: PublicationManifest }) {
   const [publication, setPublication] = useState<PublicationManifest | null>(null);
+  const [pastWorlds, setPastWorlds] = useState<PastWorld[]>([]);
+  const [currentEditionId, setCurrentEditionId] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -15,21 +17,26 @@ export function PublicationExperience({ fallback }: { fallback: PublicationManif
         const requested = new URLSearchParams(window.location.search).get("edition");
         let path: string;
         let expectedHash: string | undefined;
+        const current = await fetch("/generated/current.json", { cache: "no-store", signal: controller.signal });
+        if (!current.ok && current.status !== 404) throw new Error(`Current edition request failed: ${current.status}`);
+        const currentPayload: unknown = current.ok ? await current.json() : null;
+        const pointer = currentPayload && !unpublishedCurrentSchema.safeParse(currentPayload).success
+          ? currentEditionPointerSchema.parse(currentPayload)
+          : null;
+        if (pointer && !controller.signal.aborted) {
+          setPastWorlds(pointer.pastWorlds ?? []);
+          setCurrentEditionId(pointer.editionId);
+        }
         if (requested) {
-          path = publicationPathForEdition(requested);
+          const archived = pointer?.pastWorlds?.find((world) => world.editionId === requested);
+          const target = archived ?? (pointer?.editionId === requested ? pointer : null);
+          path = target?.publicationUrl ?? publicationPathForEdition(requested);
+          expectedHash = target?.publicationSha256;
         } else {
-          const current = await fetch("/generated/current.json", { cache: "no-store", signal: controller.signal });
-          if (current.status === 404) {
+          if (!pointer) {
             setPublication(fallback);
             return;
           }
-          if (!current.ok) throw new Error(`Current edition request failed: ${current.status}`);
-          const currentPayload: unknown = await current.json();
-          if (unpublishedCurrentSchema.safeParse(currentPayload).success) {
-            setPublication(fallback);
-            return;
-          }
-          const pointer = currentEditionPointerSchema.parse(currentPayload);
           path = pointer.publicationUrl;
           expectedHash = pointer.publicationSha256;
         }
@@ -63,5 +70,5 @@ export function PublicationExperience({ fallback }: { fallback: PublicationManif
       </div>
     </div>
   );
-  return <WorldExperience key={publication.edition.id} publication={publication} />;
+  return <WorldExperience key={publication.edition.id} publication={publication} pastWorlds={pastWorlds} currentEditionId={currentEditionId} />;
 }

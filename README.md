@@ -4,19 +4,15 @@ A living, evolving digital installation. Every day, a new world is generated
 from developments in science, technology, culture, health, climate and
 communities around the world.
 
-**Status:** Early prototype. The repository includes a fictional interactive
-demonstration and one live local factual vertical slice spanning bounded story
-discovery, editorial selection, image and world generation, landmark detection,
-3D hotspot baking, and local publication assembly. AWS now runs manual live
-feed collection, an opt-in editorial shortlist, and a separately gated
-article-analysis stage. It can finalize a ten-story edition and, with a separate
-approval flag, create art direction for review. Additional gated AWS stages can
-request one raw Nano Banana image only after a checksum-bound review artifact
-is present, then process it into a private 8K panorama. Gated cloud world
-generation, landmark detection, interaction baking, and publication are now
-deployed behind explicit review gates and pass fixture tests, but are not yet
-validated end to end with a live AWS edition. The daily schedule remains
-disabled.
+**Status:** Early prototype. A fictional frontend demo and a factual local
+vertical slice are available. The AWS workflow can now run unattended from
+live RSS/Atom discovery through image generation, Marble 1.1, 3D hotspot baking, and
+public publication. An October 19 test generated a nine-story world and was
+promoted to the current edition without regenerating its assets. Editorial
+breadth, visual QA on representative
+devices, and reliable daily publication remain open. The 7:30 AM Pacific
+development schedule now opts into paid generation and public publication.
+Failed runs leave the previous published world in place.
 
 ## Thesis
 
@@ -52,12 +48,15 @@ As the project continues, the worlds become a living archive. You can return to
 today, move backward through earlier editions, and see time not as a list of
 headlines, but as a collection of places.
 
+The explorer's **Explore Past Worlds** menu lists editions that previously held
+the current-world position. Direct technical previews are not added to it.
+
 ## How it works
 
 The reference implementation is a daily state-machine pipeline:
 
 ```text
-reviewed official RSS feeds
+reviewed official RSS and Atom feeds
       ↓
 ten stories + summaries + links
       ↓
@@ -68,13 +67,14 @@ a world foundation model
 an interactive world + historical archive
 ```
 
-The reference implementation uses official RSS feeds for story
+The reference implementation uses official RSS and Atom feeds for story
 discovery. It does not depend on social feeds or unbounded website collection.
-After shortlisting, it may read a linked source ephemerally only when that use
-has been reviewed and permitted. Sources can remain discovery-only when their
-terms, robots directives, or delivery behavior do not permit automated analysis.
+The default feeds are reviewed for the full pipeline: after shortlisting, a
+linked article may be read ephemerally for analysis. Feeds that cannot support
+that step are excluded from the default, not collected as unusable candidates.
+Source policies still require periodic review; inclusion is not legal clearance.
 
-RSS is the starting point, not a limitation of the underlying pattern. Source
+Feeds are the starting point, not a limitation of the underlying pattern. Source
 adapters can be added for archives, datasets, APIs, private knowledge bases, or
 other kinds of information when the operator has permission to access and use
 them.
@@ -98,31 +98,33 @@ Source articles are processed **ephemerally in memory** and then discarded.
 Their bodies and verbatim passages are never copied into project storage or
 republished. Persistent artifacts contain source links and provenance, content
 hashes, and original project-written summaries, claims, and visual details.
-In the current repository code, feed-metadata evaluation, permitted article
-analysis, and art direction use Amazon Nova through AWS-managed Bedrock.
-AWS processes these prompts; this is not self-hosted inference or a guarantee
-of zero AWS retention. Google still receives the original visual prompt, which
-may include story-derived physical details, and World Labs receives the image.
-The deployed development workers still use the earlier Google text path and
-must not be used under the new policy until updated and verified. See the
+The default editorial route uses the paid Gemini API, with Bedrock Nova and
+Vertex Claude as optional adapters. For a Gemini API key tied to a project with
+active billing, [Google's Paid Services terms](https://ai.google.dev/gemini-api/terms)
+say it does not use prompts or responses to improve its products; limited
+abuse-monitoring retention still applies. We keep article text bounded and
+ephemeral in this project and review each source's permitted use. The
+development workers use this configuration; the October 16 technical test ran
+through the image and world stages. See the
 [source-data boundary](docs/DATA_BOUNDARY.md) and
 [deployment preflight](infra/aws/README.md#source-text-privacy-preflight).
 
 ## Technical architecture
 
-The first deployment is designed to run entirely in AWS. Hosting, compute,
-storage, databases, asset delivery, secrets, monitoring, and deployment all live
-in the project's AWS account. AWS Step Functions is the core pipeline: a state
-machine that coordinates each stage of the daily world from collection through
-publication.
+AWS hosts and orchestrates the reference deployment: compute, storage, asset
+delivery, secrets, and monitoring live in the project's AWS account. AWS Step
+Functions coordinates each stage from collection through publication. Model
+calls may go to Gemini, optional Vertex AI, Nano Banana, and World Labs.
 
 The main building blocks are:
 
 - [AWS](https://aws.amazon.com/) for the complete reference cloud deployment,
   with [AWS Step Functions](https://aws.amazon.com/step-functions/) at the center
   of the pipeline.
-- [Amazon Bedrock](https://aws.amazon.com/bedrock/) with Amazon Nova for
-  source-metadata evaluation, permitted article analysis, and art direction.
+- [Gemini API](https://ai.google.dev/gemini-api/docs) for editorial analysis,
+  with [Amazon Bedrock](https://aws.amazon.com/bedrock/) Nova and
+  [Google Cloud Vertex AI](https://cloud.google.com/vertex-ai) Claude as
+  optional alternatives.
 - [Nano Banana](https://ai.google.dev/gemini-api/docs/image-generation) for
   creating a 360-degree equirectangular source image from the selected stories.
 - [World Labs Marble](https://www.worldlabs.ai/blog/marble-world-model) for
@@ -235,8 +237,8 @@ The local vertical-slice utilities can bake detected panorama landmarks into a
 matching SPZ and assemble an ignored local publication manifest. They require a
 development browser with remote debugging enabled; see the local utility
 commands in `frontend/package.json` and the environment placeholders in
-`frontend/.env.example` before using them. Production baking will move into the
-automated publication pipeline.
+`frontend/.env.example` before using them. The AWS workflow also runs private
+browser-backed interaction baking before staging publication.
 
 ### Run the panorama pipeline
 

@@ -84,6 +84,48 @@ test("editorial cloud stage fails before calling a model when candidates are mis
   }
 });
 
+test("editorial cloud stage rejects removed sources before model evaluation", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "world-every-day-editorial-removed-"));
+  try {
+    const artifacts = new LocalArtifactStore(directory);
+    const candidates = candidateSetSchema.parse(JSON.parse(await readFile(
+      new URL("../fixtures/candidate-set.v1.json", import.meta.url), "utf8",
+    )));
+    const editionId = "old-source-edition";
+    await artifacts.putImmutable({
+      key: `editions/${editionId}/sources/candidate-set.json`,
+      contentType: "application/json",
+      bytes: Buffer.from(JSON.stringify(candidates)),
+    });
+    let calls = 0;
+    const handler = createEditorialShortlistHandler({
+      artifacts,
+      evaluator: {
+        model: "fixture-evaluator",
+        provider: "fixture",
+        promptVersion: "editorial-evaluation-v1",
+        async evaluate() { calls += 1; return { assessments: [] }; },
+      },
+      sourceConfiguration: parseSourceConfiguration({
+        schemaVersion: "1.0.0",
+        artifactType: "source-configuration",
+        sources: [{
+          id: "replacement-source",
+          type: "rss",
+          publisher: "Replacement Source",
+          feedUrl: "https://replacement.example.org/feed.xml",
+          kind: "primary",
+          articleAccess: "ephemeral-analysis",
+        }],
+      }),
+    });
+    await assert.rejects(handler({ editionId }), /outside the current allowlist/);
+    assert.equal(calls, 0);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("editorial cloud stage records source policy and excludes discovery-only stories", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "world-every-day-editorial-policy-"));
   try {

@@ -4,8 +4,8 @@ import { artifactSha256, candidateSetSha256 } from "../editorial/select.js";
 import { editorialShortlistSchema } from "../editorial/schema.js";
 import { analyzeArticle } from "../sources/article.js";
 import { parseSourceConfiguration, type SourceConfiguration } from "../sources/config.js";
-import { BedrockArticleAnalyzer } from "../sources/bedrock-article-analysis.js";
 import { AllowlistedHttpFetcher } from "../sources/http.js";
+import { DynamoDbRequestPacer } from "../sources/pacing.js";
 import { canonicalizeSourceUrl } from "../sources/url.js";
 import {
   articleEvidenceSchema,
@@ -15,6 +15,7 @@ import {
 } from "../sources/schema.js";
 import type { ArtifactStore } from "../storage/artifact-store.js";
 import { S3ArtifactStore } from "../storage/s3-artifact-store.js";
+import { articleAnalyzer, cloudTextEnvironment } from "./text-provider.js";
 
 const editionIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/);
 const prepareInputSchema = z.object({ editionId: editionIdSchema });
@@ -77,10 +78,12 @@ export function createArticleAnalysisWorker({
   analyze,
   artifacts,
   configuration,
+  producer,
 }: {
   analyze: (story: DiscoveredStory, source: Source) => Promise<ArticleEvidence>;
   artifacts: ArtifactStore;
   configuration: SourceConfiguration;
+  producer: Pick<ArticleEvidence["extraction"], "provider" | "model">;
 }) {
   return async (rawInput: unknown) => {
     const { editionId, storyId } = workerInputSchema.parse(rawInput);
@@ -91,14 +94,16 @@ export function createArticleAnalysisWorker({
     const existing = await artifacts.read(key);
     if (existing) {
       const evidence = articleEvidenceSchema.parse(JSON.parse(Buffer.from(existing).toString("utf8")));
-      if (evidence.storyId !== storyId || evidence.source.canonicalUrl !== selected.story.canonicalUrl) {
-        throw new Error(`Existing article evidence does not match story ${storyId}`);
+      if (evidence.storyId !== storyId || evidence.source.canonicalUrl !== selected.story.canonicalUrl ||
+          evidence.extraction.provider !== producer.provider || evidence.extraction.model !== producer.model) {
+        throw new Error(`Existing article evidence does not match story ${storyId} or its provider; start a new edition`);
       }
       return { key, status: "reused", storyId };
     }
     const evidence = articleEvidenceSchema.parse(await analyze(selected.story, selected.source));
-    if (evidence.storyId !== storyId || evidence.source.canonicalUrl !== selected.story.canonicalUrl) {
-      throw new Error(`Article analysis did not match story ${storyId}`);
+    if (evidence.storyId !== storyId || evidence.source.canonicalUrl !== selected.story.canonicalUrl ||
+        evidence.extraction.provider !== producer.provider || evidence.extraction.model !== producer.model) {
+      throw new Error(`Article analysis did not match story ${storyId} or its provider`);
     }
     await artifacts.putImmutable({
       key,
@@ -118,14 +123,21 @@ export async function prepare(event: unknown) {
 }
 
 export async function analyze(event: unknown) {
-  const model = requiredEnvironment("ARTICLE_ANALYSIS_MODEL");
+  const analyzer = articleAnalyzer(await cloudTextEnvironment());
   return createArticleAnalysisWorker({
     artifacts: new S3ArtifactStore({ bucket: requiredEnvironment("ARTIFACT_BUCKET") }),
     configuration: parseSourceConfiguration(initialSourceConfiguration),
+    producer: { provider: analyzer.provider, model: analyzer.model },
     async analyze(story, source) {
       return analyzeArticle({
-        analyzer: new BedrockArticleAnalyzer({ model }),
-        fetcher: new AllowlistedHttpFetcher({ allowedHosts: source.allowedArticleHosts }),
+        analyzer,
+        fetcher: new AllowlistedHttpFetcher({
+          allowedHosts: source.allowedArticleHosts,
+          pacer: source.crawlDelayMs ? new DynamoDbRequestPacer({
+            delayMs: source.crawlDelayMs,
+            tableName: requiredEnvironment("EDITION_TABLE"),
+          }) : undefined,
+        }),
         story,
       });
     },

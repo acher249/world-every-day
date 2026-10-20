@@ -1,12 +1,11 @@
 import { z } from "zod";
-import { ART_DIRECTION_GENERATION_PROMPT_VERSION, generateArtDirection, type ArtDirectionProvider } from "../art-direction/generate.js";
-import { BedrockArtDirectionProvider } from "../art-direction/bedrock.js";
+import { generateArtDirection, type ArtDirectionProvider } from "../art-direction/generate.js";
 import { artDirectionSchema } from "../art-direction/schema.js";
 import { selectedEditionSchema } from "../editorial/edition.js";
 import { artifactSha256 } from "../editorial/select.js";
 import type { ArtifactStore } from "../storage/artifact-store.js";
 import { S3ArtifactStore } from "../storage/s3-artifact-store.js";
-import { parseGoogleKey } from "./google-secret.js";
+import { artDirectionProvider, cloudTextEnvironment } from "./text-provider.js";
 
 const inputSchema = z.object({
   editionId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
@@ -61,15 +60,7 @@ export function createArtDirectionHandler({
 }
 
 export async function main(event: unknown) {
-  const model = requiredEnvironment("ART_DIRECTION_MODEL");
-  const provider: ArtDirectionProvider = {
-    model,
-    provider: "aws-bedrock",
-    promptVersion: ART_DIRECTION_GENERATION_PROMPT_VERSION,
-    async propose(stories) {
-      return new BedrockArtDirectionProvider({ model }).propose(stories);
-    },
-  };
+  const provider = artDirectionProvider(await cloudTextEnvironment());
   return createArtDirectionHandler({
     artifacts: new S3ArtifactStore({ bucket: requiredEnvironment("ARTIFACT_BUCKET") }),
     provider,

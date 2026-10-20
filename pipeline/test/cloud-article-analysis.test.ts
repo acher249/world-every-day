@@ -83,6 +83,7 @@ test("article-analysis workers require source policy and reuse immutable evidenc
       const worker = createArticleAnalysisWorker({
         artifacts: approvedArtifacts,
         configuration,
+        producer: { provider: "fixture", model: "fixture-v1" },
         async analyze() {
           analyses += 1;
           return articleEvidenceSchema.parse({
@@ -110,6 +111,15 @@ test("article-analysis workers require source policy and reuse immutable evidenc
       assert.equal(first.status, "created");
       assert.equal(resumed.status, "reused");
       assert.equal(analyses, 1);
+      const differentProvider = createArticleAnalysisWorker({
+        artifacts: approvedArtifacts,
+        configuration,
+        producer: { provider: "google-vertex-claude", model: "claude-haiku-4-5" },
+        async analyze() {
+          throw new Error("A resumed edition must not repeat analysis");
+        },
+      });
+      await assert.rejects(differentProvider(tasks.tasks[0]), /does not match.*provider/);
     } finally {
       await rm(approvedDirectory, { recursive: true, force: true });
     }

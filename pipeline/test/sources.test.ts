@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { collectCandidateSet, FeedSourceAdapter, parseFeedCandidates } from "../src/sources/feed.js";
+import { collectCandidateSet, FeedSourceAdapter, MAX_COLLECTED_CANDIDATES, parseFeedCandidates } from "../src/sources/feed.js";
 import type { ResourceFetcher } from "../src/sources/http.js";
 import { candidateSetSchema } from "../src/sources/schema.js";
 import { canonicalizeSourceUrl } from "../src/sources/url.js";
@@ -48,6 +48,26 @@ test("RSS discovery preserves provenance and normalizes tracking URLs", async ()
   assert.equal(candidates[0].source.kind, "primary");
 });
 
+test("HTTP article links require a source-specific, allowlisted HTTPS upgrade", () => {
+  const xml = `<rss><channel><item><title>New public-health development</title><link>http://www.fda.gov/news-events/press-announcements/example</link><pubDate>Wed, 14 Oct 2026 12:00:00 GMT</pubDate></item></channel></rss>`;
+  const base = {
+    ...configuration,
+    allowedArticleHosts: ["www.fda.gov"],
+  };
+  const discoveredAt = new Date("2026-10-18T14:30:00.000Z");
+
+  assert.equal(parseFeedCandidates({ configuration: base, discoveredAt, xml }).length, 0);
+  assert.equal(
+    parseFeedCandidates({ configuration: { ...base, upgradeHttpArticleLinksToHttps: true }, discoveredAt, xml })[0]?.canonicalUrl,
+    "https://www.fda.gov/news-events/press-announcements/example",
+  );
+  assert.equal(parseFeedCandidates({
+    configuration: { ...base, upgradeHttpArticleLinksToHttps: true },
+    discoveredAt,
+    xml: xml.replaceAll("www.fda.gov", "other.example.test"),
+  }).length, 0);
+});
+
 test("candidate collection applies the editorial window and deterministic deduplication", async () => {
   const xml = await feedXml();
   const adapters = [
@@ -86,6 +106,17 @@ test("Atom discovery resolves alternate links", () => {
   assert.equal(candidates[0].canonicalUrl, "https://news.example.test/wetlands");
 });
 
+test("RSS discovery accepts an institutional publishDate field", () => {
+  const candidates = parseFeedCandidates({
+    configuration,
+    discoveredAt: new Date("2026-10-13T14:30:00.000Z"),
+    xml: `<rss><channel><item><title>New research statistics</title><link>https://news.example.test/report</link><publishDate>Wed, 07 Oct 2026 11:39:31 EDT</publishDate></item></channel></rss>`,
+  });
+
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].publishedAt, "2026-10-07T15:39:31.000Z");
+});
+
 test("RSS discovery ignores links outside reviewed article hosts", () => {
   const candidates = parseFeedCandidates({
     configuration: { ...configuration, allowedArticleHosts: ["news.example.test"] },
@@ -122,6 +153,23 @@ test("a failed feed is isolated and recorded", async () => {
       { adapterId: "unavailable-feed", status: "failed" },
     ],
   );
+});
+
+test("high-volume discovery admits a balanced, bounded candidate set", async () => {
+  const entries = (publisher: string, count: number) => Array.from({ length: count }, (_, index) =>
+    `<item><title>${publisher} ${index}</title><link>https://news.example.test/${publisher}/${index}</link><pubDate>Tue, 13 Oct 2026 12:00:00 GMT</pubDate></item>`).join("");
+  const adapters = [
+    new FeedSourceAdapter({ ...configuration, publisher: "Busy Journal" }, fixtureFetcher(`<rss><channel>${entries("busy", 120)}</channel></rss>`)),
+    new FeedSourceAdapter({ ...configuration, id: "small-feed", publisher: "Small Source" }, fixtureFetcher(`<rss><channel>${entries("small", 3)}</channel></rss>`)),
+  ];
+  const artifact = await collectCandidateSet({
+    adapters,
+    window: { start: new Date("2026-10-13T00:00:00Z"), end: new Date("2026-10-14T00:00:00Z") },
+  });
+  assert.equal(artifact.candidates.length, MAX_COLLECTED_CANDIDATES);
+  assert.equal(artifact.omittedCandidateCount, 23);
+  assert.equal(artifact.candidates.filter(({ publisher }) => publisher === "Small Source").length, 3);
+  assert.deepEqual(artifact.sourceRuns.map(({ candidateCount }) => candidateCount), [120, 3]);
 });
 
 test("source URL normalization rejects insecure URLs", () => {

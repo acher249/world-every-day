@@ -239,12 +239,12 @@ export class WorldEveryDayStack extends Stack {
       },
       depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
       entry: resolve(pipelineRoot, "src/cloud/collect-candidates-handler.ts"),
-      environment: { ARTIFACT_BUCKET: artifacts.bucketName },
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName, EDITION_TABLE: editions.tableName },
       handler: "main",
       memorySize: 512,
       projectRoot: pipelineRoot,
       runtime: lambda.Runtime.NODEJS_24_X,
-      timeout: Duration.seconds(90),
+      timeout: Duration.seconds(420),
     });
     collectCandidatesHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["s3:GetObject", "s3:PutObject"],
@@ -254,6 +254,10 @@ export class WorldEveryDayStack extends Stack {
       actions: ["s3:ListBucket"],
       conditions: { StringLike: { "s3:prefix": "editions/*" } },
       resources: [artifacts.bucketArn],
+    }));
+    collectCandidatesHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      resources: [editions.tableArn],
     }));
     const collectCandidates = new tasks.LambdaInvoke(this, "CollectLiveCandidates", {
       lambdaFunction: collectCandidatesHandler,
@@ -277,6 +281,20 @@ export class WorldEveryDayStack extends Stack {
       interval: Duration.seconds(2),
       maxAttempts: 2,
     });
+    const textProviderEnvironment: Record<string, string> = config.editorialProvider === "google-vertex-claude" && config.vertex ? {
+      EDITORIAL_PROVIDER: "google-vertex-claude",
+      VERTEX_PROJECT_ID: config.vertex.projectId,
+      VERTEX_PROJECT_NUMBER: config.vertex.projectNumber,
+      VERTEX_WIF_POOL_ID: config.vertex.poolId,
+      VERTEX_WIF_PROVIDER_ID: config.vertex.providerId,
+      VERTEX_SERVICE_ACCOUNT_EMAIL: config.vertex.serviceAccountEmail,
+      VERTEX_LOCATION: config.vertex.location,
+      VERTEX_CLAUDE_MODEL: config.vertex.model,
+    } : config.editorialProvider === "google-gemini" ? {
+      EDITORIAL_PROVIDER: "google-gemini",
+      GEMINI_EDITORIAL_MODEL: config.geminiEditorialModel,
+      GOOGLE_SECRET_NAME: googleSecret.secretName,
+    } : { EDITORIAL_PROVIDER: "aws-bedrock" };
     const editorialShortlistHandler = new lambdaNodejs.NodejsFunction(this, "EditorialShortlistHandler", {
       architecture: lambda.Architecture.ARM_64,
       bundling: {
@@ -290,6 +308,7 @@ export class WorldEveryDayStack extends Stack {
       environment: {
         ARTIFACT_BUCKET: artifacts.bucketName,
         EDITORIAL_MODEL: config.editorialModel,
+        ...textProviderEnvironment,
       },
       handler: "main",
       memorySize: 512,
@@ -306,10 +325,11 @@ export class WorldEveryDayStack extends Stack {
       conditions: { StringLike: { "s3:prefix": "editions/*" } },
       resources: [artifacts.bucketArn],
     }));
-    editorialShortlistHandler.addToRolePolicy(new iam.PolicyStatement({
+    if (config.editorialProvider === "aws-bedrock") editorialShortlistHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["bedrock:InvokeModel"],
       resources: [`arn:aws:bedrock:${this.region}::foundation-model/${config.editorialModel}`],
     }));
+    if (config.editorialProvider === "google-gemini") googleSecret.grantRead(editorialShortlistHandler);
     const createShortlist = new tasks.LambdaInvoke(this, "CreateLiveEditorialShortlist", {
       lambdaFunction: editorialShortlistHandler,
       payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
@@ -346,6 +366,8 @@ export class WorldEveryDayStack extends Stack {
       environment: {
         ARTIFACT_BUCKET: artifacts.bucketName,
         ARTICLE_ANALYSIS_MODEL: config.articleAnalysisModel,
+        EDITION_TABLE: editions.tableName,
+        ...textProviderEnvironment,
       },
       handler: "analyze",
       memorySize: 512,
@@ -363,9 +385,14 @@ export class WorldEveryDayStack extends Stack {
       resources: [artifacts.bucketArn],
     }));
     articleAnalysisHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      resources: [editions.tableArn],
+    }));
+    if (config.editorialProvider === "aws-bedrock") articleAnalysisHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["bedrock:InvokeModel"],
       resources: [`arn:aws:bedrock:${this.region}::foundation-model/${config.articleAnalysisModel}`],
     }));
+    if (config.editorialProvider === "google-gemini") googleSecret.grantRead(articleAnalysisHandler);
     const prepareArticleAnalysis = new tasks.LambdaInvoke(this, "PrepareLiveArticleAnalysis", {
       lambdaFunction: prepareArticleAnalysisHandler,
       payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
@@ -424,6 +451,7 @@ export class WorldEveryDayStack extends Stack {
       environment: {
         ARTIFACT_BUCKET: artifacts.bucketName,
         ART_DIRECTION_MODEL: config.editorialModel,
+        ...textProviderEnvironment,
       },
       handler: "main",
       memorySize: 512,
@@ -440,10 +468,11 @@ export class WorldEveryDayStack extends Stack {
       conditions: { StringLike: { "s3:prefix": "editions/*" } },
       resources: [artifacts.bucketArn],
     }));
-    artDirectionHandler.addToRolePolicy(new iam.PolicyStatement({
+    if (config.editorialProvider === "aws-bedrock") artDirectionHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["bedrock:InvokeModel"],
       resources: [`arn:aws:bedrock:${this.region}::foundation-model/${config.editorialModel}`],
     }));
+    if (config.editorialProvider === "google-gemini") googleSecret.grantRead(artDirectionHandler);
     const createArtDirection = new tasks.LambdaInvoke(this, "CreateLiveArtDirection", {
       lambdaFunction: artDirectionHandler,
       payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
@@ -744,6 +773,53 @@ export class WorldEveryDayStack extends Stack {
       resultPath: "$.publication",
       retryOnServiceExceptions: false,
     });
+    const publishTestPreview = new tasks.LambdaInvoke(this, "PublishApprovedTestPreview", {
+      lambdaFunction: publishHandler,
+      payload: stepfunctions.TaskInput.fromObject({
+        "editionId.$": "$.editionId",
+        mode: "preview",
+        confirmPublishPreview: true,
+      }),
+      payloadResponseOnly: true,
+      resultPath: "$.publication",
+      retryOnServiceExceptions: false,
+    });
+    const automatedApprovalHandler = new lambdaNodejs.NodejsFunction(this, "AutomatedApprovalHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/automated-approval-handler.ts"),
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName },
+      handler: "main",
+      memorySize: 256,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(30),
+    });
+    automatedApprovalHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject"],
+      resources: [artifacts.arnForObjects("editions/*")],
+    }));
+    automatedApprovalHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:PutObject"],
+      resources: [artifacts.arnForObjects("editions/*/review/*")],
+    }));
+    automatedApprovalHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"],
+      conditions: { StringLike: { "s3:prefix": "editions/*/review/*" } },
+      resources: [artifacts.bucketArn],
+    }));
+    const automatedApproval = (id: string, stage: "edition" | "image" | "publication") =>
+      new tasks.LambdaInvoke(this, id, {
+        lambdaFunction: automatedApprovalHandler,
+        payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId", stage }),
+        payloadResponseOnly: true,
+        resultPath: "$.automatedApproval",
+        retryOnServiceExceptions: false,
+      });
+    const approveEdition = automatedApproval("ApproveUnattendedEdition", "edition");
+    const approveImage = automatedApproval("ApproveUnattendedImage", "image");
+    const approvePublication = automatedApproval("ApproveUnattendedPublication", "publication");
     const candidatesReady = new stepfunctions.Succeed(this, "LiveCandidatesCollected");
     const shortlistReady = new stepfunctions.Succeed(this, "LiveEditorialShortlistReady");
     const articlesReady = new stepfunctions.Succeed(this, "LiveEditionReadyForReview");
@@ -751,8 +827,19 @@ export class WorldEveryDayStack extends Stack {
     const panoramaReady = new stepfunctions.Succeed(this, "LivePrivatePanoramaReadyForReview");
     const worldReady = new stepfunctions.Succeed(this, "LivePrivateWorldReadyForReview");
     const previewReady = new stepfunctions.Succeed(this, "LivePrivatePreviewReadyForReview");
+    const testPreviewPublished = new stepfunctions.Succeed(this, "LiveTestPreviewPublished");
     const published = new stepfunctions.Succeed(this, "LiveEditionPublished");
+    const conflictingPublicationFlags = new stepfunctions.Fail(this, "ConflictingPublicationFlags");
     const publicationGate = new stepfunctions.Choice(this, "ConfirmPublicPublication")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPublish"),
+          stepfunctions.Condition.booleanEquals("$.confirmPublish", true),
+          stepfunctions.Condition.isPresent("$.confirmPublishPreview"),
+          stepfunctions.Condition.booleanEquals("$.confirmPublishPreview", true),
+        ),
+        conflictingPublicationFlags,
+      )
       .when(
         stepfunctions.Condition.and(
           stepfunctions.Condition.isPresent("$.confirmPublish"),
@@ -760,14 +847,24 @@ export class WorldEveryDayStack extends Stack {
         ),
         publishEdition.next(published),
       )
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.confirmPublishPreview"),
+          stepfunctions.Condition.booleanEquals("$.confirmPublishPreview", true),
+        ),
+        publishTestPreview.next(testPreviewPublished),
+      )
       .otherwise(previewReady);
+    const automatedPublicationGate = new stepfunctions.Choice(this, "UseUnattendedPublicationApproval")
+      .when(stepfunctions.Condition.booleanEquals("$.confirmUnattendedRun", true), approvePublication.next(publicationGate))
+      .otherwise(publicationGate);
     const landmarkGate = new stepfunctions.Choice(this, "ConfirmPaidLandmarkDetection")
       .when(
         stepfunctions.Condition.and(
           stepfunctions.Condition.isPresent("$.confirmPaidLandmarks"),
           stepfunctions.Condition.booleanEquals("$.confirmPaidLandmarks", true),
         ),
-        detectLandmarks.next(bakeInteractions).next(stagePublication).next(publicationGate),
+        detectLandmarks.next(bakeInteractions).next(stagePublication).next(automatedPublicationGate),
       )
       .otherwise(worldReady);
     const worldFailed = new stepfunctions.Fail(this, "LiveWorldGenerationFailed");
@@ -793,22 +890,28 @@ export class WorldEveryDayStack extends Stack {
         startWorld.next(worldStatus),
       )
       .otherwise(panoramaReady);
+    const automatedImageGate = new stepfunctions.Choice(this, "UseUnattendedImageApproval")
+      .when(stepfunctions.Condition.booleanEquals("$.confirmUnattendedRun", true), approveImage.next(worldGate))
+      .otherwise(worldGate);
     const panoramaGate = new stepfunctions.Choice(this, "ConfirmPaidPanorama")
       .when(
         stepfunctions.Condition.and(
           stepfunctions.Condition.isPresent("$.confirmPaidPanorama"),
           stepfunctions.Condition.booleanEquals("$.confirmPaidPanorama", true),
         ),
-        generateRawPanorama.next(processPanorama).next(worldGate),
+        generateRawPanorama.next(processPanorama).next(automatedImageGate),
       )
       .otherwise(artDirectionReady);
+    const automatedEditionGate = new stepfunctions.Choice(this, "UseUnattendedEditionApproval")
+      .when(stepfunctions.Condition.booleanEquals("$.confirmUnattendedRun", true), approveEdition.next(panoramaGate))
+      .otherwise(panoramaGate);
     const artDirectionGate = new stepfunctions.Choice(this, "ConfirmPaidArtDirection")
       .when(
         stepfunctions.Condition.and(
           stepfunctions.Condition.isPresent("$.confirmPaidArtDirection"),
           stepfunctions.Condition.booleanEquals("$.confirmPaidArtDirection", true),
         ),
-        createArtDirection.next(panoramaGate),
+        createArtDirection.next(automatedEditionGate),
       )
       .otherwise(articlesReady);
     const articleAnalysisGate = new stepfunctions.Choice(this, "ConfirmPaidArticleAnalysis")
@@ -993,18 +1096,52 @@ export class WorldEveryDayStack extends Stack {
       retentionPeriod: Duration.days(14),
     });
 
+    const scheduledInputHandler = new lambdaNodejs.NodejsFunction(this, "ScheduledInputHandler", {
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/cloud/scheduled-edition-input.ts"),
+      handler: "main",
+      memorySize: 128,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(10),
+    });
+    const prepareScheduledInput = new tasks.LambdaInvoke(this, "PrepareScheduledInput", {
+      lambdaFunction: scheduledInputHandler,
+      payloadResponseOnly: true,
+      retryOnServiceExceptions: false,
+    });
+    const startScheduledCollection = new tasks.StepFunctionsStartExecution(this, "StartScheduledCollection", {
+      stateMachine: liveCollectionStateMachine,
+      input: stepfunctions.TaskInput.fromJsonPathAt("$"),
+      name: stepfunctions.JsonPath.stringAt("$.editionId"),
+    });
+    const dailyTriggerStateMachine = new stepfunctions.StateMachine(this, "DailyTriggerStateMachine", {
+      definitionBody: stepfunctions.DefinitionBody.fromChainable(
+        prepareScheduledInput.next(startScheduledCollection),
+      ),
+      logs: {
+        destination: workflowLogs,
+        includeExecutionData: false,
+        level: stepfunctions.LogLevel.ALL,
+      },
+      stateMachineType: stepfunctions.StateMachineType.STANDARD,
+      tracingEnabled: true,
+    });
+
     new scheduler.Schedule(this, "DailySchedule", {
-      description: "Starts the daily edition workflow at 7:30 AM Pacific.",
+      description: "Starts live daily story collection at 7:30 AM Pacific; paid stages remain gated.",
       enabled: config.enableSchedule,
       schedule: scheduler.ScheduleExpression.cron({
         hour: "7",
         minute: "30",
         timeZone: TimeZone.AMERICA_LOS_ANGELES,
       }),
-      target: new schedulerTargets.StepFunctionsStartExecution(stateMachine, {
+      target: new schedulerTargets.StepFunctionsStartExecution(dailyTriggerStateMachine, {
         deadLetterQueue: scheduleDeadLetterQueue,
         input: scheduler.ScheduleTargetInput.fromObject({
-          continueAfterReview: false,
+          scheduledTime: scheduler.ContextAttribute.scheduledTime,
         }),
         maxEventAge: Duration.hours(2),
         retryAttempts: 2,
@@ -1015,6 +1152,20 @@ export class WorldEveryDayStack extends Stack {
       alarmDescription: "A World Every Day workflow executions failed.",
       evaluationPeriods: 1,
       metric: stateMachine.metricFailed({ period: Duration.minutes(5) }),
+      threshold: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    const liveWorkflowFailureAlarm = new cloudwatch.Alarm(this, "LiveWorkflowFailureAlarm", {
+      alarmDescription: "A live story-collection execution failed.",
+      evaluationPeriods: 1,
+      metric: liveCollectionStateMachine.metricFailed({ period: Duration.minutes(5) }),
+      threshold: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    const dailyTriggerFailureAlarm = new cloudwatch.Alarm(this, "DailyTriggerFailureAlarm", {
+      alarmDescription: "The daily schedule trigger could not start live collection.",
+      evaluationPeriods: 1,
+      metric: dailyTriggerStateMachine.metricFailed({ period: Duration.minutes(5) }),
       threshold: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
@@ -1037,6 +1188,8 @@ export class WorldEveryDayStack extends Stack {
       ));
       const alarmAction = new cloudwatchActions.SnsAction(alarmTopic);
       workflowFailureAlarm.addAlarmAction(alarmAction);
+      liveWorkflowFailureAlarm.addAlarmAction(alarmAction);
+      dailyTriggerFailureAlarm.addAlarmAction(alarmAction);
       scheduleDeadLetterAlarm.addAlarmAction(alarmAction);
     }
 

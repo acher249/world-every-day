@@ -15,50 +15,6 @@
       ]
     },
     {
-      "id": "un-news",
-      "type": "rss",
-      "publisher": "UN News",
-      "feedUrl": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
-      "kind": "reporting",
-      "articleAccess": "discovery-only",
-      "allowedArticleHosts": [
-        "news.un.org"
-      ]
-    },
-    {
-      "id": "npr-top-stories",
-      "type": "rss",
-      "publisher": "NPR",
-      "feedUrl": "https://feeds.npr.org/1001/rss.xml",
-      "kind": "reporting",
-      "articleAccess": "discovery-only",
-      "allowedArticleHosts": [
-        "www.npr.org"
-      ]
-    },
-    {
-      "id": "npr-arts-life",
-      "type": "rss",
-      "publisher": "NPR",
-      "feedUrl": "https://feeds.npr.org/1008/rss.xml",
-      "kind": "reporting",
-      "articleAccess": "discovery-only",
-      "allowedArticleHosts": [
-        "www.npr.org"
-      ]
-    },
-    {
-      "id": "smithsonian-latest",
-      "type": "rss",
-      "publisher": "Smithsonian Magazine",
-      "feedUrl": "https://www.smithsonianmag.com/rss/latest_articles/",
-      "kind": "reporting",
-      "articleAccess": "discovery-only",
-      "allowedArticleHosts": [
-        "www.smithsonianmag.com"
-      ]
-    },
-    {
       "id": "nsf-news",
       "type": "rss",
       "publisher": "U.S. National Science Foundation",
@@ -68,6 +24,15 @@
       "allowedArticleHosts": [
         "www.nsf.gov"
       ]
+    },
+    {
+      "id": "nsf-statistics",
+      "type": "rss",
+      "publisher": "NSF National Center for Science and Engineering Statistics",
+      "feedUrl": "https://ncses.nsf.gov/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["ncses.nsf.gov"]
     },
     {
       "id": "nci-news",
@@ -81,6 +46,18 @@
       ]
     },
     {
+      "id": "fda-press-releases",
+      "type": "rss",
+      "publisher": "U.S. Food and Drug Administration",
+      "feedUrl": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "www.fda.gov"
+      ],
+      "upgradeHttpArticleLinksToHttps": true
+    },
+    {
       "id": "noaa-ocean-service-news",
       "type": "rss",
       "publisher": "NOAA National Ocean Service",
@@ -89,6 +66,17 @@
       "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
         "oceanservice.noaa.gov"
+      ]
+    },
+    {
+      "id": "noaa-news",
+      "type": "rss",
+      "publisher": "NOAA",
+      "feedUrl": "https://www.noaa.gov/rss.xml",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "www.noaa.gov"
       ]
     },
     {
@@ -103,28 +91,6 @@
       ]
     },
     {
-      "id": "positive-news",
-      "type": "rss",
-      "publisher": "Positive News",
-      "feedUrl": "https://www.positive.news/feed/",
-      "kind": "reporting",
-      "articleAccess": "ephemeral-analysis",
-      "allowedArticleHosts": [
-        "www.positive.news"
-      ]
-    },
-    {
-      "id": "reasons-to-be-cheerful",
-      "type": "rss",
-      "publisher": "Reasons to be Cheerful",
-      "feedUrl": "https://reasonstobecheerful.world/feed/",
-      "kind": "reporting",
-      "articleAccess": "ephemeral-analysis",
-      "allowedArticleHosts": [
-        "reasonstobecheerful.world"
-      ]
-    },
-    {
       "id": "global-voices",
       "type": "rss",
       "publisher": "Global Voices",
@@ -133,17 +99,6 @@
       "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
         "globalvoices.org"
-      ]
-    },
-    {
-      "id": "next-city",
-      "type": "rss",
-      "publisher": "Next City",
-      "feedUrl": "https://nextcity.org/feeds/daily",
-      "kind": "reporting",
-      "articleAccess": "ephemeral-analysis",
-      "allowedArticleHosts": [
-        "nextcity.org"
       ]
     },
     {
@@ -170,6 +125,36 @@
       ]
     },
     {
+      "id": "fao-newsroom",
+      "type": "rss",
+      "publisher": "Food and Agriculture Organization of the United Nations",
+      "feedUrl": "https://www.fao.org/feeds/fao-newsroom-rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "www.fao.org"
+      ]
+    },
+    {
+      "id": "european-commission-highlights",
+      "type": "rss",
+      "publisher": "European Commission",
+      "feedUrl": "https://commission.europa.eu/node/29665/rss_en",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["commission.europa.eu"]
+    },
+    {
+      "id": "cdc-emerging-infectious-diseases",
+      "type": "rss",
+      "publisher": "CDC Emerging Infectious Diseases",
+      "feedUrl": "https://wwwnc.cdc.gov/eid/rss/ahead-of-print.xml",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["wwwnc.cdc.gov"],
+      "crawlDelayMs": 20000
+    },
+    {
       "id": "harvard-gazette",
       "type": "rss",
       "publisher": "Harvard Gazette",
@@ -192,10 +177,10 @@
       ]
     },
     {
-      "id": "mit-research-news",
+      "id": "mit-latest-news",
       "type": "rss",
       "publisher": "MIT News",
-      "feedUrl": "https://news.mit.edu/rss/research",
+      "feedUrl": "https://news.mit.edu/rss/feed",
       "kind": "reporting",
       "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
@@ -214,15 +199,157 @@
       ]
     },
     {
-      "id": "wikimedia-diff",
+      "id": "horizon-magazine",
       "type": "rss",
-      "publisher": "Wikimedia Diff",
-      "feedUrl": "https://diff.wikimedia.org/feed/",
+      "publisher": "Horizon Magazine",
+      "feedUrl": "https://projects.research-and-innovation.ec.europa.eu/en/horizon-magazine/articles.xml",
       "kind": "reporting",
-      "articleAccess": "discovery-only",
+      "articleAccess": "ephemeral-analysis",
       "allowedArticleHosts": [
-        "diff.wikimedia.org"
+        "projects.research-and-innovation.ec.europa.eu"
       ]
+    },
+    {
+      "id": "cornell-chronicle-news",
+      "type": "rss",
+      "publisher": "Cornell Chronicle",
+      "feedUrl": "https://news.cornell.edu/taxonomy/term/81/feed",
+      "kind": "reporting",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": [
+        "news.cornell.edu"
+      ]
+    },
+    {
+      "id": "plos-one",
+      "type": "rss",
+      "publisher": "PLOS ONE",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/plosone/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-global-public-health",
+      "type": "rss",
+      "publisher": "PLOS Global Public Health",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/globalpublichealth/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-medicine",
+      "type": "rss",
+      "publisher": "PLOS Medicine",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/plosmedicine/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-biology",
+      "type": "rss",
+      "publisher": "PLOS Biology",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/plosbiology/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-computational-biology",
+      "type": "rss",
+      "publisher": "PLOS Computational Biology",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/ploscompbiol/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-climate",
+      "type": "rss",
+      "publisher": "PLOS Climate",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/climate/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-digital-health",
+      "type": "rss",
+      "publisher": "PLOS Digital Health",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/digitalhealth/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-neglected-tropical-diseases",
+      "type": "rss",
+      "publisher": "PLOS Neglected Tropical Diseases",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/plosntds/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-sustainability-and-transformation",
+      "type": "rss",
+      "publisher": "PLOS Sustainability and Transformation",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/sustainabilitytransformation/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "plos-water",
+      "type": "rss",
+      "publisher": "PLOS Water",
+      "publisherGroup": "PLOS",
+      "feedUrl": "https://journals.plos.org/water/feed/rss",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["journals.plos.org"],
+      "crawlDelayMs": 30000
+    },
+    {
+      "id": "govuk-news",
+      "type": "atom",
+      "publisher": "GOV.UK",
+      "publisherGroup": "UK Government",
+      "feedUrl": "https://www.gov.uk/search/news-and-communications.atom",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["www.gov.uk"],
+      "publishedAtLookup": "govuk-content-api"
+    },
+    {
+      "id": "ec-environment-news",
+      "type": "rss",
+      "publisher": "European Commission Environment",
+      "publisherGroup": "European Commission",
+      "feedUrl": "https://environment.ec.europa.eu/node/92/rss_en",
+      "kind": "primary",
+      "articleAccess": "ephemeral-analysis",
+      "allowedArticleHosts": ["environment.ec.europa.eu"]
     }
   ]
 }

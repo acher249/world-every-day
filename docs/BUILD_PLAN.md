@@ -1,7 +1,7 @@
 # A World Every Day — Phased Build Plan
 
 Status: working plan  
-Last updated: 2026-10-15
+Last updated: 2026-10-19
 
 ## 1. Outcome
 
@@ -26,9 +26,14 @@ The system is successful when a maintainer can:
 
 ## 2. Current implementation status
 
-As of 2026-10-15, the repository has a working local pipeline and a
-schedule-disabled AWS editorial path. It does not yet have a deployed daily
-generation and publication pipeline.
+As of 2026-10-18, the repository has a working local pipeline and an opt-in
+unattended AWS path from RSS discovery through public publication. The first
+end-to-end public test published one story. An October 19 catch-up execution
+also published a one-story world after two bounded model-format corrections.
+The 7:30 AM Pacific development schedule now opts into paid analysis,
+generation, and public publication.
+A prior four-story technical edition reached a
+direct explorer preview.
 
 | Area | Status | What exists | What remains |
 | --- | --- | --- | --- |
@@ -36,11 +41,11 @@ generation and publication pipeline.
 | Frontend | Working prototype | Separate static Next.js marketing site, full-viewport Next.js explorer, Motion interfaces, Spark.js integration, validated publication artifact, responsive fictional ten-story experience, poster fallback, local generated-world loading, fly navigation, and baked 3D hotspots projected through the live camera | Marketing visual QA, navigation tuning, touch translation controls, automated browser coverage, archive routes |
 | Panorama generation | Live baseline | Selected-edition-to-art-direction adapter, deterministic compositional roles and prompt construction, live-validated art direction, Nano Banana adapter, factual 4K generation, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifest, tests, and dry-run mode | Multi-edition visual evaluation, automated image QA, and pole repair only if downstream results justify it |
 | Edition and editorial data | Live baseline | Versioned evaluation, shortlist, article-evidence, selected-edition, review, and publication schemas; deterministic selection; optional model adapters; fixtures; one factual ten-story edition and local publication assembly | Corroboration, corrections, and production publication assembly |
-| Story discovery | Live baseline | Local 20-source RSS-only allowlist, per-source discovery-only or ephemeral-analysis policy, bounded retrieval, reviewed-host filtering, canonical URL deduplication, source-run provenance, and failure isolation. Earlier live passes used the 16-source RSS/Atom configuration. | Validate and deploy the revised source mix, then measure its ten-story yield; add conditional caching, stronger event clustering, and source health reporting |
+| Story discovery | Live baseline | Deployed 32-source RSS/Atom allowlist, including GOV.UK news and European Commission environment news. Per-source access policy, bounded retrieval, reviewed-host filtering, URL deduplication, host-wide pacing for PLOS, balanced admission of at most 100 candidates, provenance, and failure isolation are in place. | Verify article evidence and editorial quality; add conditional caching, stronger event clustering, and source health reporting |
 | World generation | Live baseline | Provider-neutral interface, stable idempotency, persisted operation lifecycle, durable local artifact copy, failure/resume tests, mock CLI, Marble 1.1 adapter, and approved fictional and factual SPZ generations | Sanitized real response fixture and S3 artifact store |
-| Interaction mapping | Live local and private AWS stage validated | Provider-neutral landmark and interaction schemas, live-validated multimodal detector, checksum-bound source and analysis images, browser-backed Spark.js spherical-raycast baking, factual publication assembly, runtime projection of fixed world positions, poster fallbacks, keyboard-accessible story index, and slide-out detail panels. The Lambda browser baker loaded a real private SPZ and wrote 12 anchors in a stage-level AWS test. | Validate anchors in an integrated private edition and add occlusion and collision behavior |
-| AWS deployment | Gated live stages deployed, not end-to-end validated | CDK development stack, private artifacts, public-asset and website buckets; CloudFront and Route 53 custom domains; DynamoDB state; secret references; disabled Pacific-time schedule; fixture workflow; manual RSS/Atom workflow with opt-in editorial, image, world-generation, landmark, browser-baking, and publication stages; alarms; optional budget; static sites. A poll-only world Lambda smoke test confirmed package, secret, and S3 access without a paid request. | Review a candidate edition and image, validate paid generation and private preview, then explicitly approve and test public publication |
-| Daily automation | Locally wired, disabled | Manual Step Functions chain with explicit paid-stage and publication gates, a resumable no-network runner, a human review checkpoint, and a fixture cloud workflow that stops at review by default | Validate the full live chain and a one-time EventBridge delivery before enabling any daily schedule |
+| Interaction mapping | Integrated AWS technical test passed | Provider-neutral landmark and interaction schemas, live-validated multimodal detector, checksum-bound source and analysis images, browser-backed Spark.js spherical-raycast baking, and one AWS edition with four story anchors plus one echo | Visual hotspot QA on representative devices; occlusion and collision behavior |
+| AWS deployment | Unattended end-to-end technical path validated | CDK development stack, private artifacts and public assets, CloudFront and Route 53 domains, DynamoDB state, Secrets Manager references, live collection schedule, fixture workflow, and opt-in live RSS-to-current-publication workflow | Publication-quality edition, stronger editorial yield, and production visual QA |
+| Daily automation | Full unattended run enabled in development | 7:30 AM Pacific EventBridge trigger with dynamic edition input, bounded RSS/Atom collection, paid-stage flags, checksum-bound automated decision artifacts, and a direct test-preview branch | Measure daily yield and cost; improve editorial quality and visual QA |
 
 The active phase is **Phase 2: one manual vertical slice**. Phase 0 remains
 partially open because the editorial and operating policies still need to be
@@ -54,9 +59,9 @@ source-policy checksum. The October 15 manual AWS run used a 36-hour test window
 and successfully finalized ten cited stories, but several are announcements or
 commentary and some visual details are peripheral. It is a technical test, not
 a publishable daily edition.
-Human editorial review and quality improvements remain required before image
-generation. The standalone World Labs probe verified read access only; it did
-not verify generation permission, credits, or model output.
+Human editorial review and quality improvements remain required before a
+publication-quality edition. The subsequent AWS technical test verified Marble
+1.1 generation, not merely read access.
 The revised candidate-evaluation prompt favors a concrete newly reported change
 over briefings, recaps, awards roundups, and general explainers. On a fresh
 24-hour AWS run, it shortlisted six of 52 candidates; all six passed permitted
@@ -64,15 +69,65 @@ article analysis and finalization. This is a quality improvement, not a claim
 that the six-story test edition is ready to publish or that the ten-story target
 is reliably met. A broader approved source mix may be needed.
 
-The current repository code routes candidate metadata, permitted full-article
-text, and art direction to an Amazon-operated Nova model through Bedrock. It
-removes Google-key access from those text workers and narrows their IAM model
-permission. It has not been deployed or paid-tested. AWS still processes these
-prompts; the Google image stage receives a project-authored visual prompt that
-can include compact story-derived physical details. See the
+The current repository code defaults to paid Gemini API for candidate metadata,
+permitted article text, and art direction. Bedrock Nova and Vertex Claude are
+optional alternatives. The Gemini route reuses the existing server-side Google
+secret; Vertex uses keyless AWS-to-Google workload identity federation. This
+configuration was deployed and paid-tested through a direct preview on October 16.
+The 17-feed, 24-hour test found 46 candidates, analyzed four approved linked
+articles, and generated one Nano Banana panorama and Marble 1.1 world from
+those four stories. It is not a daily publication candidate; two stories are
+routine NASA image or observation posts, and the ten-story target was not met.
+The test is available only by direct edition URL and did not replace today's
+current-world pointer. The Google image stage
+receives a project-authored visual prompt that can include compact story-derived
+physical details. See the
 [data boundary](DATA_BOUNDARY.md).
 Wikimedia Diff was added as a discovery-only feed; other proposed feeds remain
 candidates pending access, robots, and HTTPS-link checks.
+The expanded allowlist adds Horizon Magazine, ESA Earth observation, and three
+Cornell Chronicle topic feeds. An earlier read-only rerun over
+the same 24-hour window found 48 candidates and no feed failures, but only one
+additional in-window item, from discovery-only ESA. Those feeds are now
+deployed but did not alone establish a ten-story daily yield.
+PLOS ONE and PLOS Global Public Health are now deployed in the allowlist. An
+earlier read-only trial raised the same-window pool to 80; the later AWS run
+found 69 as rolling feeds had changed. Requests to their host are
+paced 30 seconds apart in the AWS path using atomic DynamoDB reservations;
+the local path uses process-wide pacing. The collector admits at most 100
+candidates with publisher-balanced round robin, recording any omitted count.
+The October 18 paid metadata evaluation shortlisted nine stories, four from
+PLOS, with no feed failures or omitted candidates. This is not an approved
+edition: linked articles were not fetched or reviewed, and some shortlisted
+items appear routine or too specialized. Paid stages remain gated. See the
+[source review](editorial-policy/SOURCES.md#higher-volume-feeds).
+
+A read-only October 18 snapshot of the 24 feeds was also divided into ten
+consecutive 7:30 a.m. Pacific windows. It cannot establish a historical
+shortlist average because rolling RSS feeds may have dropped older entries.
+The newest complete window was separately confirmed in AWS: 19 discovered
+links, no feed failures, but only three from sources approved for article
+analysis. The preceding window showed seven approved-source links before
+editorial filtering. The current source mix therefore cannot yet support a
+seven-story minimum every day, especially on weekends. Collect daily snapshots
+prospectively before judging typical yield or automating publication.
+
+The preceding deployed allowlist had 30 RSS feeds, including ten PLOS journals,
+CDC infectious-disease research, NSF statistics, and European Commission
+highlights. A read-only October 18 run succeeded for all
+30 feeds, but its weekend window still yielded the same three candidates as
+the 20-feed mix. The added PLOS feeds share a 30-second host-wide crawl delay
+and one publisher-diversity group; local CDK allows seven minutes for collection.
+The paid daily workflow is enabled by explicit operator choice despite the
+unproven seven-story yield. The October 19 live window produced six candidates
+from 30 feeds, with one failed feed and one story shortlisted and published.
+Monitor prospective shortlists, cost, visual quality, and failures.
+The October 19 source-expansion test deployed 32 sources and completed the
+unattended preview path: 35 candidates, nine selected stories, a Marble world,
+and public assets with baked interactions. The reviewed preview was promoted to
+the current edition without another generation. One test window does not establish a
+reliable daily minimum; the FDA and PLOS ONE feeds failed independently in
+that run.
 
 ## 3. Product constraints
 
@@ -89,7 +144,8 @@ candidates pending access, robots, and HTTPS-link checks.
 - No API key, secret, signed asset URL, or private source payload may reach the
   repository or browser bundle.
 - Paid generation is always bounded by explicit per-run limits.
-- Manual review remains part of the MVP publishing workflow.
+- Manual review remains available; unattended publication requires explicit
+  operator opt-in and does not imply editorial or visual approval.
 - Mobile performance and accessibility are release requirements.
 
 ## 4. Technical baseline

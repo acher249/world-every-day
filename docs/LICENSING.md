@@ -63,14 +63,15 @@ adapters. The adapter code can be MIT-licensed even when the remote service is
 proprietary. The service itself, its models, API, and terms are not covered by
 this repository's MIT license.
 
-### Google Gemini image generation (Nano Banana)
+### Google Gemini API and image generation (Nano Banana)
 
-Nano Banana is a proprietary Google service, not an open-source model. A user
-enabling the adapter must provide their own Gemini API credentials, billing when
-applicable, and agreement to Google's current
-[Gemini API terms](https://ai.google.dev/gemini-api/terms). Prompts and
-outputs may be handled differently between unpaid and paid services; users must
-review the current data-use terms before sending source material.
+Gemini and Nano Banana are proprietary Google services, not open-source models.
+The editorial adapter requires a project API key associated with active billing
+to fall under Google's [Paid Services terms](https://ai.google.dev/gemini-api/terms).
+Google says it does not use Paid Services prompts or responses to improve its
+products, while limited abuse-monitoring retention can still apply. Users must
+verify their project's billing status and current terms before sending source
+material.
 
 The project should remain usable with a mock image provider and should allow
 alternative image-generation adapters.
@@ -105,16 +106,21 @@ model. Contributors may add other cloud implementations as long as provider-
 specific code stays behind documented interfaces and does not weaken the
 project's license or secret-handling rules.
 
-In the current repository code, candidate metadata, permitted article text,
-and art-direction inputs use Amazon Nova through Bedrock rather than Google or
-a third-party Bedrock model. This is managed AWS inference, not self-hosting;
-AWS processes those prompts. The subsequent Google image request receives an
+The AWS pipeline defaults to paid Gemini API for candidate metadata, permitted
+article text, and art direction; Amazon Nova through Bedrock and Claude through
+Google Cloud Vertex AI remain optional. These are managed services: Google or
+AWS processes the prompts. For a Gemini API key tied to an actively billed
+project, Google's Paid Services terms say prompts and responses are not used to
+improve its products, but allow limited abuse-monitoring retention. This is not
+zero cloud access or a license to process any publisher's article.
+The subsequent Google image request receives an
 original visual prompt that may contain story-derived details, not source pages
 or evidence excerpts. Operators must verify each source's permission, model
 terms, account retention and invocation-logging settings before live use. See
 the [data boundary](DATA_BOUNDARY.md) and
 [AWS source-text privacy preflight](../infra/aws/README.md#source-text-privacy-preflight).
-The development stack still runs the earlier Google text workers until deployed.
+The development stack uses the selected Gemini editorial adapter by default;
+the October 16 technical test validated that route through generation.
 
 ### News and social sources
 
@@ -135,9 +141,10 @@ republish source articles.
 | --- | --- | --- |
 | Local frontend with fixture data | None | Always available |
 | Spark.js rendering of a public splat | None | Asset URL permits browser access |
-| Gemini/Nano Banana generation | User-supplied Gemini API key | Image generation is enabled |
+| Gemini editorial analysis, Nano Banana, and landmark detection | User-supplied Gemini API key for a billing-enabled project | Those adapters are enabled |
 | World Labs Marble generation | User-supplied World Labs API key | Automated world generation is enabled |
 | AWS deployment | User-controlled AWS credentials | Deploying or operating the AWS reference stack |
+| Vertex Claude editorial adapter | Keyless AWS-to-Google workload identity federation | Selecting Vertex for the three editorial text stages |
 | Optional commercial sources | Provider-specific key | That source adapter is enabled |
 
 All adapters must fail with an actionable configuration message when credentials

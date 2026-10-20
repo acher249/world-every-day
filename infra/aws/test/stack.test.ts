@@ -8,6 +8,7 @@ function template(options: {
   alarm?: boolean;
   budget?: boolean;
   enableSchedule?: boolean;
+  editorialProvider?: "aws-bedrock" | "google-gemini" | "google-vertex-claude";
   environmentName?: "development" | "production";
   siteDomain?: boolean;
 } = {}): Template {
@@ -18,6 +19,17 @@ function template(options: {
       articleAnalysisModel: "amazon.nova-lite-v1:0",
       budgetAlertEmail: options.budget ? "alerts@example.com" : undefined,
       editorialModel: "amazon.nova-lite-v1:0",
+      editorialProvider: options.editorialProvider ?? "aws-bedrock",
+      geminiEditorialModel: "gemini-3.8-flash",
+      vertex: options.editorialProvider === "google-vertex-claude" ? {
+        projectId: "sample-project",
+        projectNumber: "123456789",
+        poolId: "editorial_pool",
+        providerId: "aws_provider",
+        serviceAccountEmail: "editorial@sample-project.iam.gserviceaccount.com",
+        location: "us-east5",
+        model: "claude-haiku-4-5",
+      } : undefined,
       landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: options.enableSchedule ?? false,
       environmentName: options.environmentName ?? "development",
@@ -79,8 +91,8 @@ test("foundation creates on-demand state, observability, and disabled automation
       PointInTimeRecoveryEnabled: false,
     },
   });
-  rendered.resourceCountIs("AWS::StepFunctions::StateMachine", 2);
-  rendered.resourceCountIs("AWS::Lambda::Function", 15);
+  rendered.resourceCountIs("AWS::StepFunctions::StateMachine", 3);
+  rendered.resourceCountIs("AWS::Lambda::Function", 17);
   rendered.hasResourceProperties("AWS::Lambda::Function", {
     Architectures: ["arm64"],
     ReservedConcurrentExecutions: Match.absent(),
@@ -91,13 +103,11 @@ test("foundation creates on-demand state, observability, and disabled automation
     Architectures: ["arm64"],
     ReservedConcurrentExecutions: Match.absent(),
     Runtime: "nodejs24.x",
-    Timeout: 90,
+    Timeout: 300,
   });
   rendered.hasResourceProperties("AWS::Lambda::Function", {
-    Architectures: ["arm64"],
-    ReservedConcurrentExecutions: Match.absent(),
     Runtime: "nodejs24.x",
-    Timeout: 300,
+    Timeout: 420,
   });
   rendered.hasResourceProperties("AWS::Lambda::Function", {
     Architectures: ["x86_64"],
@@ -111,7 +121,7 @@ test("foundation creates on-demand state, observability, and disabled automation
     ScheduleExpressionTimezone: "America/Los_Angeles",
     State: "DISABLED",
     Target: Match.objectLike({
-      Input: "{\"continueAfterReview\":false}",
+      Input: "{\"scheduledTime\":\"<aws.scheduler.scheduled-time>\"}",
       RetryPolicy: {
         MaximumEventAgeInSeconds: 7_200,
         MaximumRetryAttempts: 2,
@@ -119,7 +129,7 @@ test("foundation creates on-demand state, observability, and disabled automation
     }),
   });
   rendered.resourceCountIs("AWS::SQS::Queue", 1);
-  rendered.resourceCountIs("AWS::CloudWatch::Alarm", 2);
+  rendered.resourceCountIs("AWS::CloudWatch::Alarm", 4);
   rendered.resourceCountIs("AWS::Budgets::Budget", 0);
 
   const body = JSON.stringify(rendered.toJSON());
@@ -153,6 +163,13 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /ConfirmPaidArtDirection/);
   assert.match(body, /CreateLiveArtDirection/);
   assert.match(body, /ConfirmPaidPanorama/);
+  assert.match(body, /UseUnattendedEditionApproval/);
+  assert.match(body, /ApproveUnattendedEdition/);
+  assert.match(body, /UseUnattendedImageApproval/);
+  assert.match(body, /ApproveUnattendedImage/);
+  assert.match(body, /UseUnattendedPublicationApproval/);
+  assert.match(body, /ApproveUnattendedPublication/);
+  assert.match(body, /confirmUnattendedRun/);
   assert.match(body, /CreateApprovedRawPanoramaSource/);
   assert.match(body, /ProcessPrivatePanorama/);
   assert.match(body, /ConfirmPaidWorldGeneration/);
@@ -165,6 +182,9 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /StagePrivatePublication/);
   assert.match(body, /ConfirmPublicPublication/);
   assert.match(body, /PublishApprovedEdition/);
+  assert.match(body, /PublishApprovedTestPreview/);
+  assert.match(body, /LiveTestPreviewPublished/);
+  assert.match(body, /confirmPublishPreview/);
   assert.match(body, /WorldLabsAuthProbe/);
   assert.match(body, /LiveEditionReadyForReview/);
   assert.match(body, /LiveArtDirectionReadyForReview/);
@@ -196,9 +216,49 @@ test("production state enables deletion protection and point-in-time recovery", 
   });
 });
 
+test("Vertex text workers have explicit WIF settings and no Bedrock model grants", () => {
+  const rendered = template({ editorialProvider: "google-vertex-claude" });
+  for (const prefix of ["EditorialShortlistHandler", "ArticleAnalysisHandler", "ArtDirectionHandler"]) {
+    const worker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
+      .find(([id]) => id.startsWith(prefix))?.[1] as {
+        Properties?: { Environment?: { Variables?: Record<string, string> } };
+      } | undefined;
+    assert.equal(worker?.Properties?.Environment?.Variables?.EDITORIAL_PROVIDER, "google-vertex-claude");
+    assert.equal(worker?.Properties?.Environment?.Variables?.VERTEX_PROJECT_ID, "sample-project");
+    assert.equal(worker?.Properties?.Environment?.Variables?.VERTEX_CLAUDE_MODEL, "claude-haiku-4-5");
+    assert.equal(worker?.Properties?.Environment?.Variables?.GOOGLE_SECRET_NAME, undefined);
+  }
+  assert.doesNotMatch(JSON.stringify(rendered.toJSON()), /bedrock:InvokeModel|foundation-model\/amazon\.nova-lite/);
+});
+
+test("Gemini text workers use only the existing Google secret, with no Bedrock grant", () => {
+  const rendered = template({ editorialProvider: "google-gemini" });
+  const resources = rendered.findResources("AWS::Lambda::Function");
+  for (const prefix of ["EditorialShortlistHandler", "ArticleAnalysisHandler", "ArtDirectionHandler"]) {
+    const worker = Object.entries(resources).find(([id]) => id.startsWith(prefix))?.[1] as {
+      Properties?: { Environment?: { Variables?: Record<string, string> } };
+    } | undefined;
+    assert.equal(worker?.Properties?.Environment?.Variables?.EDITORIAL_PROVIDER, "google-gemini");
+    assert.equal(worker?.Properties?.Environment?.Variables?.GEMINI_EDITORIAL_MODEL, "gemini-3.8-flash");
+    assert.ok(worker?.Properties?.Environment?.Variables?.GOOGLE_SECRET_NAME);
+  }
+  const body = JSON.stringify(rendered.toJSON());
+  assert.doesNotMatch(body, /bedrock:InvokeModel|foundation-model\/amazon\.nova-lite/);
+  assert.doesNotMatch(body, /GOOGLE_AI_API_KEY/);
+});
+
 test("schedule, notifications, and budget require explicit configuration", () => {
   const rendered = template({ alarm: true, budget: true, enableSchedule: true });
-  rendered.hasResourceProperties("AWS::Scheduler::Schedule", { State: "ENABLED" });
+  const schedules = rendered.findResources("AWS::Scheduler::Schedule");
+  const daily = Object.entries(schedules).find(([id]) => id.startsWith("DailySchedule"))?.[1];
+  assert.ok(daily);
+  assert.equal(daily.Properties.State, "ENABLED");
+  assert.equal(daily.Properties.ScheduleExpression, "cron(30 7 * * ? *)");
+  assert.equal(daily.Properties.ScheduleExpressionTimezone, "America/Los_Angeles");
+  assert.equal(
+    JSON.parse(daily.Properties.Target.Input).scheduledTime,
+    "<aws.scheduler.scheduled-time>",
+  );
   rendered.hasResourceProperties("AWS::Budgets::Budget", {
     Budget: {
       BudgetLimit: { Amount: 25, Unit: "USD" },

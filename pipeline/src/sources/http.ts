@@ -1,5 +1,6 @@
 import { isIP } from "node:net";
 import { hostnameAllowed } from "./url.js";
+import type { RequestPacer } from "./pacing.js";
 
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
 const PRIVATE_IPV4 = [
@@ -73,29 +74,34 @@ export class AllowlistedHttpFetcher implements ResourceFetcher {
   readonly #fetch: typeof fetch;
   readonly #maxBytes: number;
   readonly #timeoutMs: number;
+  readonly #pacer?: RequestPacer;
 
   constructor({
     allowedHosts,
     fetchImpl = globalThis.fetch,
     maxBytes = DEFAULT_MAX_BYTES,
     timeoutMs = 15_000,
+    pacer,
   }: {
     allowedHosts: readonly string[];
     fetchImpl?: typeof fetch;
     maxBytes?: number;
     timeoutMs?: number;
+    pacer?: RequestPacer;
   }) {
     if (allowedHosts.length === 0) throw new Error("At least one source host is required");
     this.#allowedHosts = allowedHosts;
     this.#fetch = fetchImpl;
     this.#maxBytes = maxBytes;
     this.#timeoutMs = timeoutMs;
+    this.#pacer = pacer;
   }
 
   async fetch(value: string): Promise<FetchedResource> {
     let url = assertPublicAllowedUrl(value, this.#allowedHosts);
 
     for (let redirect = 0; redirect <= 3; redirect += 1) {
+      await this.#pacer?.beforeRequest(url);
       const response = await this.#fetch(url, {
         headers: {
           Accept: "application/atom+xml, application/rss+xml, application/xml, text/xml, text/html;q=0.9",

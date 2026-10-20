@@ -15,7 +15,7 @@ const configuration = parseSourceConfiguration({
     id: "example-news",
     type: "rss",
     publisher: "Example News",
-    feedUrl: "https://news.example.com/feed.xml",
+    feedUrl: "https://news.example.com/feed/",
     kind: "primary",
     articleAccess: "ephemeral-analysis",
     allowedArticleHosts: ["news.example.com"],
@@ -48,7 +48,7 @@ test("cloud collection stores candidate metadata once and resumes without refetc
               <pubDate>Mon, 12 Oct 2026 12:00:00 GMT</pubDate></item>
             </channel></rss>`),
             contentType: "application/rss+xml",
-            url: "https://news.example.com/feed.xml",
+            url: "https://news.example.com/feed/",
           };
         },
       }),
@@ -64,7 +64,17 @@ test("cloud collection stores candidate metadata once and resumes without refetc
     assert.ok(stored);
     const artifact = candidateSetSchema.parse(JSON.parse(Buffer.from(stored).toString("utf8")));
     assert.equal(artifact.candidates[0].canonicalUrl, "https://news.example.com/story");
+    assert.equal(artifact.sourceRuns[0]?.feedUrl, "https://news.example.com/feed");
     assert.equal(artifact.window.start, input.windowStart);
+
+    const revised = createCollectCandidatesHandler({
+      artifacts,
+      configuration: parseSourceConfiguration({
+        ...configuration,
+        sources: [{ ...configuration.sources[0], id: "replacement-news" }],
+      }),
+    });
+    await assert.rejects(revised(input), /different source allowlist/);
 
     await assert.rejects(
       handler({ ...input, windowStart: "2026-10-13T15:30:00.000Z" }),

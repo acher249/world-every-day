@@ -1,13 +1,14 @@
 "use client";
 
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   SparkWorld,
   type ViewerState,
   type WorldAnchor,
 } from "@/components/spark-world";
 import { cycleId } from "@/lib/spatial-navigation";
+import { pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
 import { resolveProjectSiteUrl } from "@/lib/site-links";
 import { canRenderWorldInteractions } from "@/lib/world-interactions";
 import type {
@@ -84,6 +85,15 @@ function AboutIcon() {
       <circle cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
       <path d="M10 9v4" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
       <circle cx="10" cy="6.75" r=".75" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+      <circle cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M10 5.5V10l3 2" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -271,7 +281,11 @@ function viewerLabel(state: ViewerState) {
   return "Preview world";
 }
 
-export function WorldExperience({ publication }: { publication: PublicationManifest }) {
+export function WorldExperience({ publication, pastWorlds = [], currentEditionId = null }: {
+  publication: PublicationManifest;
+  pastWorlds?: PastWorld[];
+  currentEditionId?: string | null;
+}) {
   const projectSiteUrl = resolveProjectSiteUrl(process.env.NEXT_PUBLIC_PROJECT_SITE_URL);
   const localSplatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
   const localSplatSha256 = process.env.NEXT_PUBLIC_WORLD_SPLAT_SHA256;
@@ -287,6 +301,8 @@ export function WorldExperience({ publication }: { publication: PublicationManif
   const [activeId, setActiveId] = useState<string | null>(null);
   const [indexOpen, setIndexOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const archiveRef = useRef<HTMLDivElement>(null);
   const [viewerState, setViewerState] = useState<ViewerState>(splatUrl ? "loading" : "poster");
   const activeStory = useMemo(
     () => stories.find((story) => story.id === activeId) ?? null,
@@ -331,6 +347,14 @@ export function WorldExperience({ publication }: { publication: PublicationManif
     : -1;
 
   useEffect(() => {
+    function closeOutside(event: PointerEvent) {
+      if (event.target instanceof Node && !archiveRef.current?.contains(event.target)) setArchiveOpen(false);
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target;
       if (
@@ -340,6 +364,7 @@ export function WorldExperience({ publication }: { publication: PublicationManif
         (target instanceof HTMLElement && target.isContentEditable)
       ) return;
       if (event.key === "Escape") {
+        setArchiveOpen(false);
         setActiveId(null);
         setIndexOpen(false);
         setControlsOpen(false);
@@ -407,6 +432,53 @@ export function WorldExperience({ publication }: { publication: PublicationManif
             <AboutIcon />
             <span>About the project</span>
           </a>
+          <div className="archive-menu" ref={archiveRef}>
+            <button
+              className="hud-button archive-button"
+              type="button"
+              aria-label="Explore past worlds"
+              aria-expanded={archiveOpen}
+              aria-controls="past-worlds-list"
+              onClick={() => setArchiveOpen((open) => !open)}
+            >
+              <ArchiveIcon />
+              <span>Explore Past Worlds</span>
+              <span className="archive-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <AnimatePresence>
+              {archiveOpen && (
+                <motion.div
+                  id="past-worlds-list"
+                  className="archive-list"
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ duration: 0.2, ease }}
+                >
+                  <span className="archive-list-heading">Past worlds</span>
+                  {pastWorlds.length === 0 ? (
+                    <p className="archive-empty">No past worlds yet</p>
+                  ) : pastWorlds.map((world) => (
+                    <a
+                      key={world.editionId}
+                      className="archive-world-link"
+                      href={`/?edition=${encodeURIComponent(world.editionId)}`}
+                      aria-current={publication.edition.id === world.editionId ? "page" : undefined}
+                    >
+                      <span>{pastWorldLabel(world.editionId)}</span>
+                      <ArrowUpRight />
+                    </a>
+                  ))}
+                  {currentEditionId && publication.edition.id !== currentEditionId && (
+                    <a className="archive-world-link archive-today-link" href="/">
+                      <span>Back to today</span>
+                      <ArrowUpRight />
+                    </a>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </motion.div>
         <motion.div
           className="viewer-title"
@@ -417,7 +489,9 @@ export function WorldExperience({ publication }: { publication: PublicationManif
           <span className="brand-orbit" aria-hidden="true"><i /></span>
           <div className="viewer-title-copy">
             <h1 id="edition-title">A World Every Day</h1>
-            <span className="viewer-edition-date">{edition.displayDate}</span>
+            <span className="viewer-edition-date">
+              {edition.displayDate}{edition.eyebrow.includes("Technical test") ? " · Technical test" : ""}
+            </span>
           </div>
         </motion.div>
         <motion.div

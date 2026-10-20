@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { selectedEditionSchema } from "../editorial/edition.js";
 import { assertPathDoesNotExist } from "../files.js";
 import { ART_DIRECTION_GENERATION_PROMPT_VERSION, assignCompositionRoles, generateArtDirection } from "./generate.js";
-import { BedrockArtDirectionProvider } from "./bedrock.js";
+import { artDirectionProvider } from "../cloud/text-provider.js";
 
 type Options = {
   confirmPaidAnalysis: boolean;
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
 
   await assertPathDoesNotExist(output, "Art-direction output");
 
-  const provider = new BedrockArtDirectionProvider({ model: process.env.ART_DIRECTION_MODEL });
+  const provider = artDirectionProvider();
   const artifact = await generateArtDirection({ edition, provider });
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(artifact, null, 2)}\n`, { flag: "wx" });

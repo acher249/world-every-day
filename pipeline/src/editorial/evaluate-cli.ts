@@ -6,7 +6,8 @@ import { dirname, resolve } from "node:path";
 import { assertPathDoesNotExist } from "../files.js";
 import { candidateSetSchema } from "../sources/schema.js";
 import { EDITORIAL_EVALUATION_PROMPT_VERSION, evaluateCandidateSet } from "./evaluate.js";
-import { BedrockCandidateEvaluator, EVALUATION_BATCH_SIZE, MAX_EVALUATION_CANDIDATES } from "./bedrock-evaluator.js";
+import { candidateEvaluator } from "../cloud/text-provider.js";
+import { EVALUATION_BATCH_SIZE, MAX_EVALUATION_CANDIDATES } from "./bedrock-evaluator.js";
 
 type Options = {
   candidateSet?: string;
@@ -66,7 +67,7 @@ async function main(): Promise<void> {
 
   await assertPathDoesNotExist(output, "Candidate-evaluation output");
 
-  const evaluator = new BedrockCandidateEvaluator({ model: process.env.EDITORIAL_MODEL });
+  const evaluator = candidateEvaluator();
   const artifact = await evaluateCandidateSet({
     candidateSet,
     editionId: options.editionId,

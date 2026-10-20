@@ -5,12 +5,16 @@ import { candidateSetSchema, discoveredStorySchema, type CandidateSet, type Disc
 import type { ResourceFetcher } from "./http.js";
 import { canonicalizeSourceUrl, hostnameAllowed } from "./url.js";
 
+export const MAX_COLLECTED_CANDIDATES = 100;
+
 type FeedConfiguration = {
   id: string;
   feedUrl: string;
   kind: "primary" | "reporting";
   publisher: string;
+  publisherGroup?: string;
   allowedArticleHosts?: readonly string[];
+  upgradeHttpArticleLinksToHttps?: true;
 };
 
 type FeedEntry = Record<string, unknown>;
@@ -86,6 +90,19 @@ function entryId(url: string): string {
   return createHash("sha256").update(url).digest("hex");
 }
 
+function articleUrl(link: string, configuration: FeedConfiguration): string {
+  const url = new URL(link);
+  if (url.protocol === "http:" && configuration.upgradeHttpArticleLinksToHttps === true) {
+    if (!configuration.allowedArticleHosts?.length || !hostnameAllowed(url, configuration.allowedArticleHosts) ||
+        url.username || url.password || url.port) {
+      throw new Error("Cannot upgrade an untrusted feed article URL");
+    }
+    url.protocol = "https:";
+    return canonicalizeSourceUrl(url.toString());
+  }
+  return canonicalizeSourceUrl(link);
+}
+
 export function parseFeedCandidates({
   configuration,
   discoveredAt,
@@ -109,11 +126,11 @@ export function parseFeedCandidates({
     if (!entry) return [];
     const link = feedLink(entry);
     const title = plainText(entry.title);
-    const publishedAt = parseDate(entry.pubDate ?? entry.published ?? entry.updated ?? entry["dc:date"]);
+    const publishedAt = parseDate(entry.pubDate ?? entry.publishDate ?? entry.published ?? entry.updated ?? entry["dc:date"]);
     if (!link || !title || !publishedAt) return [];
     let canonicalUrl: string;
     try {
-      canonicalUrl = canonicalizeSourceUrl(link);
+      canonicalUrl = articleUrl(link, configuration);
       if (configuration.allowedArticleHosts &&
           !hostnameAllowed(new URL(canonicalUrl), configuration.allowedArticleHosts)) return [];
     } catch {
@@ -132,6 +149,7 @@ export function parseFeedCandidates({
         feedUrl: canonicalizeSourceUrl(configuration.feedUrl),
         entryId: text(entry.guid ?? entry.id),
         kind: configuration.kind,
+        publisherGroup: configuration.publisherGroup,
       },
     })];
   });
@@ -190,6 +208,27 @@ export async function collectCandidateSet({
     }
   }
 
+  const discovered = [...byUrl.values()].sort((a, b) =>
+    b.publishedAt.localeCompare(a.publishedAt) || a.id.localeCompare(b.id));
+  // Keep evaluation bounded without letting one high-volume publisher crowd out
+  // the rest. Source-run counts still report the untrimmed discovery result.
+  const byPublisher = new Map<string, DiscoveredStory[]>();
+  for (const story of discovered) {
+    const publisherGroup = story.source.publisherGroup ?? story.publisher;
+    const group = byPublisher.get(publisherGroup) ?? [];
+    group.push(story);
+    byPublisher.set(publisherGroup, group);
+  }
+  const admitted: DiscoveredStory[] = [];
+  while (admitted.length < MAX_COLLECTED_CANDIDATES && byPublisher.size > 0) {
+    for (const [publisher, group] of byPublisher) {
+      const next = group.shift();
+      if (next) admitted.push(next);
+      if (group.length === 0) byPublisher.delete(publisher);
+      if (admitted.length === MAX_COLLECTED_CANDIDATES) break;
+    }
+  }
+
   return candidateSetSchema.parse({
     schemaVersion: "1.0.0",
     artifactType: "candidate-set",
@@ -217,7 +256,8 @@ export async function collectCandidateSet({
         lastModified: result.value.lastModified,
       };
     }),
-    candidates: [...byUrl.values()].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
+    omittedCandidateCount: discovered.length > admitted.length ? discovered.length - admitted.length : undefined,
+    candidates: admitted.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || a.id.localeCompare(b.id)),
   });
 }
 

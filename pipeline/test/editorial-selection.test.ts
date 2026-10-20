@@ -126,6 +126,36 @@ test("selection publishes fewer stories rather than violating diversity caps", (
   assert.ok(shortlist.excluded.some(({ reason }) => ["topic-cap", "publisher-cap", "geography-cap"].includes(reason)));
 });
 
+test("publisher diversity cap applies across journals in one publisher group", () => {
+  const original = inputs();
+  const candidates = candidateSetSchema.parse({
+    ...original.candidates,
+    candidates: original.candidates.candidates.map((candidate) =>
+      [id("one"), id("two")].includes(candidate.id)
+        ? { ...candidate, source: { ...candidate.source, publisherGroup: "PLOS" } }
+        : candidate),
+  });
+  const evaluations = candidateEvaluationSetSchema.parse({
+    ...original.evaluations,
+    candidateSetSha256: candidateSetSha256(candidates),
+  });
+  const shortlist = createEditorialShortlist({
+    candidateSet: candidates,
+    evaluations,
+    configuration: editorialSelectionConfigurationSchema.parse({
+      targetStories: 6,
+      minimumCredibility: 0.7,
+      maxPerTopic: 6,
+      maxPerPublisher: 1,
+      maxPerGeography: 6,
+      weights: { credibility: 0.3, constructiveSignificance: 0.3, publicRelevance: 0.2, novelty: 0.1, recency: 0.1 },
+    }),
+  });
+
+  assert.ok(shortlist.selected.some(({ storyId }) => storyId === id("one")));
+  assert.ok(shortlist.excluded.some(({ storyId, reason }) => storyId === id("two") && reason === "publisher-cap"));
+});
+
 test("selection excludes discovery-only sources before article analysis", () => {
   const original = inputs();
   const candidates = candidateSetSchema.parse({

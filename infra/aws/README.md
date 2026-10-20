@@ -1,9 +1,11 @@
 # AWS infrastructure
 
 This package defines the first AWS foundation for A World Every Day. The
-reference development stack is deployed for website and editorial testing, but
-its daily schedule is disabled and still targets the fixture workflow. A fresh
-checkout does not deploy anything until an operator runs CDK.
+reference development stack is deployed for website and editorial testing. Its
+7:30 AM Pacific development schedule now opts into the full live workflow,
+including paid generation and public publication. Individual stages retain
+explicit gates; fresh deployments keep the schedule disabled by default.
+A fresh checkout does not deploy anything until an operator runs CDK.
 
 The current stack synthesizes:
 
@@ -19,7 +21,7 @@ The current stack synthesizes:
   returning world data or starting generation;
 - a Step Functions Standard fixture workflow and one bounded Lambda with
   CloudWatch logging;
-- a separate manual-only live feed-collection workflow that writes an
+- a separate live feed-collection workflow that writes an
   immutable candidate set and can optionally create a model-assisted editorial
   shortlist, analyze approved articles, finalize an edition, and propose art
   direction behind separate explicit gates;
@@ -28,27 +30,31 @@ The current stack synthesizes:
 - a private 8K panorama-processing stage that runs only after the approved raw
   image exists;
 - separately gated Marble 1.1 world generation, landmark detection, private
-  Spark.js interaction baking, and staged/public publication (deployed but not
-  yet validated end to end in AWS);
+  Spark.js interaction baking, staged publication, and direct test previews;
+- an opt-in unattended path that records checksum-bound automated decisions at
+  the edition, image, and publication gates without claiming human review;
 - a 7:30 AM `America/Los_Angeles` EventBridge Scheduler schedule, disabled by
-  default, with two delivery retries and a retained dead-letter queue; and
+  default in fresh deployments, with two delivery retries and a retained
+  dead-letter queue; and
 - workflow and scheduler-failure alarms with optional email delivery; plus
 - an optional monthly AWS Budget notification.
 
 The fixture workflow validates state transitions, immutable marker artifacts,
 locking, failure handling, and the review boundary. It makes no provider calls
 and stops at editorial review by default. It is not the live daily pipeline.
-The manual collection workflow is the first real cloud path. It has collected
-live feed metadata, analyzed approved articles, and finalized a ten-story test
-edition and a ten-subject art-direction proposal. This was a technical test,
-not a publication candidate: editorial quality needs review. The separate
-World Labs probe authenticated read access. The raw-image stage has not been
-invoked; image processing is wired to follow it, and its Lambda startup was
-smoke-tested, but no edition has run through either stage in AWS. World
-generation, interaction baking, and publication are now deployed in the manual
-workflow and pass fixture tests, but have not been tested with a live AWS
-edition. A poll-only world Lambda smoke test confirmed package, secret, and S3
-access without a paid provider call. This workflow is not scheduled.
+The gated live workflow completed one four-story AWS technical edition on
+October 16. It collected feed metadata, analyzed permitted articles, generated
+art direction and a Nano Banana panorama, produced a Marble 1.1 SPZ, detected
+landmarks, baked Spark.js anchors, staged a publication, and served it at a
+direct test URL. This is not a publication-quality daily edition, and it did
+not advance `generated/current.json`. The separate World Labs probe also
+authenticated read access. The recurring schedule now runs the full live path.
+An October 18 one-time 6:15 PM Pacific run opted into paid stages and
+unattended public publication. The first execution reached the edition gate but
+failed on a missing S3 permission. After that was corrected, a same-edition
+resume reused the upstream artifacts and published one story. Its editorial
+and visual quality were not human-reviewed. A failed run leaves the current
+published pointer unchanged and needs inspection before retrying.
 
 The reasoning and unresolved browser-baking boundary are recorded in
 [`docs/architecture/0001-aws-foundation.md`](../../docs/architecture/0001-aws-foundation.md).
@@ -92,8 +98,11 @@ would remove the live custom-domain resources.
 | --- | --- | --- | --- |
 | `WORLD_EVERY_DAY_ENVIRONMENT` | `environmentName` | `development` | `development` or `production` |
 | `WORLD_EVERY_DAY_ENABLE_SCHEDULE` | `enableSchedule` | `false` | Enables the daily trigger only when explicitly set to `true` |
+| `WORLD_EVERY_DAY_EDITORIAL_PROVIDER` | `editorialProvider` | `google-gemini` | Select paid Gemini, optional `aws-bedrock`, or optional `google-vertex-claude`; no automatic fallback |
+| `WORLD_EVERY_DAY_GEMINI_EDITORIAL_MODEL` | `geminiEditorialModel` | `gemini-3.8-flash` | Gemini model for all three editorial text stages |
 | `WORLD_EVERY_DAY_EDITORIAL_MODEL` | `editorialModel` | `amazon.nova-lite-v1:0` | Pinned Amazon-operated Bedrock model for candidate metadata evaluation |
 | `WORLD_EVERY_DAY_ARTICLE_ANALYSIS_MODEL` | `articleAnalysisModel` | `amazon.nova-lite-v1:0` | Amazon-operated Bedrock model for approved full article text; other IDs are rejected |
+| `WORLD_EVERY_DAY_VERTEX_*` | `vertex*` | unset | Required with Vertex: Google project ID/number, WIF pool/provider, service-account email, region, and Claude model ID; see `.env.example` |
 | `WORLD_EVERY_DAY_LANDMARK_VISION_MODEL` | `landmarkVisionModel` | `gemini-3.8-flash` | Google model for generated-image landmark detection; it does not receive source pages |
 | `WORLD_EVERY_DAY_NANO_BANANA_MODEL` | `nanoBananaModel` | `gemini-nano-banana-2.1` | Model identifier for optional paid raw-image generation |
 | `WORLD_EVERY_DAY_WORLD_LABS_MODEL` | `worldLabsModel` | `marble-1.1` | Model identifier for optional paid World Labs generation |
@@ -130,6 +139,9 @@ CDK provisions the hosting resources but does not upload a build. Build
 directories to the bucket names emitted as `MarketingSiteBucketName` and
 `ExplorerSiteBucketName`. Invalidate the matching distribution using the emitted
 `MarketingSiteDistributionId` or `ExplorerSiteDistributionId` after an upload.
+When syncing `frontend/out/`, exclude `generated/*`: local ignored SPZs and
+manifests can be copied into the static export, while edition assets belong in
+the separate public-asset bucket and are published by the reviewed workflow.
 This explicit boundary prevents an infrastructure synthesis from silently
 publishing website content.
 Before the first edition is published, seed the public-asset bucket with the
@@ -185,16 +197,16 @@ command history.
 
 ## Fixture workflow
 
-The disabled schedule supplies `{ "continueAfterReview": false }`, advances a
-fictional edition to `SELECTED`, releases its lock, and stops. After deployment,
+The fixture workflow advances a fictional edition to `SELECTED`, releases its
+lock, and stops. After deployment,
 an operator can deliberately resume the same edition with
 `continueAfterReview: true`; that path writes only clearly marked fixture
 artifacts. It still does not call Nano Banana, World Labs, or live sources.
 
-## Manual live collection
+## Live collection
 
-The `LiveCollectionStateMachineArn` stack output identifies a separate,
-unscheduled state machine. It accepts an edition ID and an explicit collection
+The `LiveCollectionStateMachineArn` stack output identifies the live state
+machine. It accepts an edition ID and an explicit collection
 window, reads the reviewed feed allowlist bundled with the pipeline, and
 writes candidate metadata to
 `editions/<editionId>/sources/candidate-set.json` in the private artifact bucket.
@@ -213,18 +225,30 @@ Example input for a deliberately started execution:
 
 The first development-account run on October 14, 2026 found 56 candidates with
 no failed feeds. A repeat execution returned the same artifact without creating
-a new S3 object version. The daily schedule remains disabled and does not target
-this partial workflow.
+a new S3 object version. The daily schedule now reaches this workflow through a
+small input-preparation state machine. It supplies a Pacific-date edition ID and
+the previous 24-hour window. The deployed development input now sets the paid,
+unattended, and publication gates to `true`.
+An October 18 one-time EventBridge delivery test started at 1:45 PM Pacific and
+completed live collection with 16 candidates and no feed failures. It made no
+paid model calls and did not update the public current-world pointer.
 
 Only when `confirmPaidAnalysis` is explicitly `true` does the same manual
 workflow evaluate candidate metadata and create immutable
 `candidate-evaluations.json` and `shortlist.json` artifacts. The current code
-uses Amazon Nova through Bedrock in batches of at most ten candidates (at most
-ten requests for 100 candidates); a completed artifact is reused on resume.
-The **deployed development worker still uses Google** and must not be invoked
-under the new source-text policy. An earlier manually approved Google shortlist
-run evaluated 56 candidates and shortlisted 15. The daily schedule remains
-disabled and does not call a model.
+uses the selected Gemini, Bedrock Nova, or Vertex Claude adapter in batches of at most
+ten candidates (at most 20 requests for 100 candidates with one malformed-response
+retry per batch); a completed artifact is reused on resume.
+The deployed development worker uses the 32-source RSS/Atom allowlist, including
+GOV.UK news and European Commission environment news.
+An October 18 rerun of the October 15–16 window found 69 candidates and
+shortlisted nine from feed metadata, four from PLOS, with no failed feeds.
+It stopped before linked-article fetching, generation, or publication. A prior
+17-source test found 46 candidates and shortlisted four; neither shortlist is
+an approved daily edition.
+An earlier manually approved Google shortlist
+run evaluated 56 candidates and shortlisted 15. That earlier daily collection
+configuration did not call a model.
 
 That first immutable test shortlist contains eight discovery-only sources and
 must not be treated as an article-analysis queue. New shortlist artifacts apply
@@ -245,25 +269,36 @@ intentionally fails this preflight.
 
 ### Source-text privacy preflight
 
-The current repository code routes candidate metadata evaluation, permitted
-article analysis, and art direction through Amazon Nova on AWS-managed Bedrock.
-Those three workers have no Google secret access, and IAM permits only the pinned
-Amazon model. This is **not** self-hosted inference: AWS receives the prompts.
-The generated visual prompt still goes to Google, and the image goes to World
-Labs. See the [full data boundary](../../docs/DATA_BOUNDARY.md).
+The repository code defaults to paid Gemini API for candidate evaluation,
+permitted article analysis, and art direction. It reuses the existing Google
+secret, which is read only by the selected Lambda workers at runtime. Google
+processes these prompts; for a Gemini API key tied to a project with active
+billing, its [Paid Services terms](https://ai.google.dev/gemini-api/terms) say
+prompts and responses are not used to improve its products, while limited
+abuse-monitoring retention remains possible. Bedrock Nova and Vertex Claude
+are optional managed alternatives. See the [data boundary](../../docs/DATA_BOUNDARY.md).
 
-**The deployed development workers have not been updated.** Earlier AWS
-editorial executions used Google, and the existing text workers must not be
-invoked under the new policy. Immutable artifacts from those executions should
-not be mistaken for Bedrock-processed artifacts. Deploy the code and start a
-fresh edition after review. No paid Bedrock call has validated the new workers.
+The development workers were updated and paid-tested through a direct preview
+on October 16. Four approved articles were analyzed ephemerally; one image,
+world, and direct technical-test edition were generated. The current-world
+pointer was not changed. Do not reuse earlier immutable artifacts as evidence
+of the revised source policy.
 
-Before deploying or invoking the new worker:
+Before changing the provider, source policy, or deployment:
 
-1. Confirm that each selected source permits the intended analysis and that
-   Amazon Nova is available in the deployment account and Region. Review the
-   current AWS model terms.
-2. With a named role-based profile, inspect the account's Bedrock retention
+1. Confirm each selected source permits the intended use. For Gemini, verify
+   the key's project is marked **Paid** in [Google AI Studio billing](https://ai.google.dev/gemini-api/docs/billing),
+   review the [Paid Services terms](https://ai.google.dev/gemini-api/terms),
+   and avoid opt-in data-sharing features. Put the key in the existing
+   `world-every-day/<environmentName>/google-ai` secret, not CDK context or a
+   Lambda environment variable. Confirm the reviewed 32-source allowlist is in the
+   deployed bundle before any live collection.
+2. If selecting Vertex Claude, enable the Vertex AI API and model, configure
+   [AWS-to-Google workload identity federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-other-clouds)
+   for only these Lambda roles, and set `WORLD_EVERY_DAY_VERTEX_*` in the
+   ignored `infra/aws/.env.local`. Review [Google's managed-model policy](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/zero-data-retention)
+   and [Anthropic's Vertex terms](https://www-cdn.anthropic.com/471bd07290603ee509a5ea0d5ccf131ea5897232/anthropic-vertex-commercial-terms-march-2024.pdf).
+3. If selecting Bedrock, confirm Nova access. With a named role-based profile, inspect the account's retention
    setting and model-invocation logging in that Region (these commands only
    read configuration):
 
@@ -272,7 +307,7 @@ Before deploying or invoking the new worker:
    aws --profile <role-profile> --region <region> bedrock get-model-invocation-logging-configuration
    ```
 
-3. Interpret the returned retention setting using the current AWS documentation,
+4. For Bedrock, interpret the returned retention setting using the current AWS documentation,
    including any inherited/default mode and model-specific requirements.
    Confirm that it meets your policy and that text invocation logging will not
    retain source prompts or outputs. Bedrock
@@ -281,10 +316,9 @@ Before deploying or invoking the new worker:
    retention or logs. If the configuration cannot be verified, keep the stage
    off. An organization requiring **no hosted processing** needs a separately
    reviewed self-hosted adapter; Bedrock does not meet that requirement.
-4. Deploy the updated text workers only with explicit approval, then verify
-   their model IDs, IAM scope, absence of Google secret access, and a separately
-   approved live test before enabling any schedule. Confirm the older Google
-   text workers cannot be invoked and do not reuse their immutable artifacts.
+5. Deploy updated text workers only with explicit approval, verify the chosen
+   provider and IAM scope, and separately approve live tests before enabling
+   any schedule. The provider never falls back silently.
 
 AWS says third-party Bedrock model providers cannot access the service-managed
 deployment accounts or customer prompts and completions. Amazon Nova is an
@@ -292,7 +326,8 @@ Amazon-operated model; AWS itself still processes the request. See AWS's
 [data-protection documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/data-protection.html),
 [data-retention documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/data-retention.html)
 and [model-invocation logging documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html)
-for the current service behavior. The daily schedule remains disabled.
+for the current service behavior. The development schedule uses Gemini by
+default, not this optional Bedrock route.
 
 After all article workers complete, a deterministic finalization step verifies
 the source-policy checksum and
@@ -306,11 +341,13 @@ for operator review and does not trigger image or world generation.
 ## Reviewed raw image
 
 The optional `confirmPaidPanorama: true` branch is reachable only after
-`confirmPaidArtDirection: true`. It requires an operator-created, immutable
+`confirmPaidArtDirection: true`. By default it requires an operator-created, immutable
 `editions/<editionId>/review/approval.json` in the private artifact bucket.
 The `edition-review` schema binds the approval to the exact selected-edition
-and art-direction checksums. Do not create this artifact until the stories,
-citations, and visual proposal have been reviewed. The branch makes at most one
+and art-direction checksums. In the explicitly opted-in unattended mode, the
+workflow creates the same checksum-bound artifact and labels the decision
+`automated-unattended-run`; it does not claim a human reviewed the result.
+The branch makes at most one
 Nano Banana request and stores the original source image privately. The next
 stage processes that source into an 8K delivery panorama and stores the result
 privately. Neither stage invokes World Labs or publishes anything.
@@ -322,7 +359,7 @@ operator who has resolved the provider outcome should decide how to recover.
 
 ## Private world and publication stages
 
-The deployed manual workflow next requires an exact
+The default workflow next requires an exact
 `editions/<editionId>/review/image-approval.json` artifact and
 `confirmPaidWorld: true` before submitting one Marble 1.1 world. It records a
 submission-attempt marker before calling World Labs, stores the provider
@@ -333,13 +370,32 @@ the private artifact bucket.
 `confirmPaidLandmarks: true` allows one multimodal landmark request against a
 private, downsampled copy of the approved panorama. After that, the cloud
 browser baker raycasts the private SPZ and stages a publication manifest, still
-without a public asset. The operator must review the complete staged edition
-and write a checksum-bound
+without a public asset. In the default reviewed mode, the operator reviews the
+complete staged edition and writes a checksum-bound
 `editions/<editionId>/review/publication-approval.json` artifact. Only a
 separate run with `confirmPublish: true` can copy the approved poster, SPZ, and
 manifest to the public asset bucket and advance `generated/current.json`.
-These gates are code-level safeguards, not evidence that the full path has run
-successfully in AWS. Keep the schedule disabled until it has.
+For a technical edition whose ID ends in `-test`, use
+`confirmPublishPreview: true` instead. It copies the approved assets and
+manifest to a direct `?edition=<editionId>` explorer URL but does **not**
+advance `generated/current.json`. The test edition is publicly accessible to
+anyone with its URL; do not use this path for private content. The two publish
+flags are mutually exclusive, and both still require the checksum-bound
+publication review artifact. A review with `approved-for-test-preview` can
+authorize the direct link but cannot authorize an update to the current world;
+current-world publication requires an `approved-for-publication` decision.
+If an unattended `-test` edition already has an `approved-for-publication`
+review, it can be promoted without regenerating its image or world. Promotion
+preserves the immutable preview at `publication.json`, writes a separate
+`publication-public.json`, and advances `generated/current.json` to that public
+manifest. A preview-only approval cannot authorize promotion.
+To run the whole chain without intervention, set `confirmUnattendedRun: true`
+alongside the paid-stage flags and `confirmPublish: true` in one execution input.
+The state machine then writes checksum-bound automated decisions before image
+generation, world generation, and public publication. This is an explicit
+operator choice with real provider costs and public output, not a substitute
+for editorial or visual QA. The deployed 7:30 AM development schedule now sets
+these flags; fresh stacks remain disabled until explicitly enabled.
 
 An October 2026 private SPZ fixture test validated the Lambda-hosted Spark.js
 browser baker. It loaded a real 30 MB SPZ and wrote 12 raycast anchors (nine
@@ -361,23 +417,26 @@ available credits, or a successful panorama-to-world run. Those require a
 separate, explicitly approved generation test.
 The development-account read-only probe returned HTTP 200 on October 15, 2026.
 
-## Live-pipeline cutover
+## Daily collection and publication boundary
 
-Do not enable or retime the daily schedule while it targets the fixture
-workflow. A successful fixture execution proves the AWS wiring, not daily world
-generation or publication. Before enabling live automation:
+The development schedule runs at 7:30 AM `America/Los_Angeles`. EventBridge
+passes its scheduled timestamp to an input-preparation state machine, which
+starts the live workflow with a stable Pacific-date edition ID and a 24-hour
+window. A separate one-time schedule verified delivery before recurrence was
+enabled. Fresh deployments keep the schedule disabled unless explicitly enabled
+with `-c enableSchedule=true`; use that context on later development-stack
+deployments too, or CDK will disable it again.
 
-1. Deploy and validate the real story-discovery, generation, interaction-baking,
-   and publication stages. Keep provider credentials in Secrets Manager and
-   record bounded per-edition usage and costs.
-2. Complete one manually started, reviewed live edition. Verify its citations,
-   generated assets, hotspot alignment, public URLs, and atomic current-edition
-   pointer. Confirm that a failed run leaves the previous public world intact.
-3. Test EventBridge delivery with a separate one-time schedule targeting that
-   validated workflow. Inspect the execution and publication result; do not
-   repurpose the daily recurrence as a test trigger.
-4. Only then enable the daily 7:30 AM `America/Los_Angeles` schedule. Monitor its
-   first run and retain a rollback path.
+The development daily run now continues from RSS/Atom collection through the paid
+stages and public publication, subject to stage checks and provider success.
+Each successful publication atomically moves the former current edition into
+the public pointer's `pastWorlds` list. The explorer uses that list for its
+archive menu; technical previews that were never current stay out of it.
+The October 19 catch-up run used a separate edition ID because the earlier
+collection artifact was immutable under the previous source allowlist. It
+published a one-story world after bounded article and art-direction retries.
+Monitor editorial quality, citations, generated assets, hotspot alignment, public URLs,
+and pointer updates; failed runs must leave the previous public world intact.
 
 Remove test editions and assets only by verified edition ID and object key,
 after confirming they are not the current publication. Retain the provenance

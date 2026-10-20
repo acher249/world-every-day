@@ -1,9 +1,12 @@
 import { z } from "zod";
 import initialSourceConfiguration from "../../config/source-configuration.initial.v1.json" with { type: "json" };
-import { parseSourceConfiguration, type SourceConfiguration } from "../sources/config.js";
-import { collectCandidateSet, FeedSourceAdapter } from "../sources/feed.js";
+import { createSourceAdapter } from "../sources/adapter.js";
+import { assertConfiguredCandidates, parseSourceConfiguration, type SourceConfiguration } from "../sources/config.js";
+import { collectCandidateSet } from "../sources/feed.js";
 import { AllowlistedHttpFetcher, type ResourceFetcher } from "../sources/http.js";
+import { DynamoDbRequestPacer } from "../sources/pacing.js";
 import { candidateSetSchema } from "../sources/schema.js";
+import { canonicalizeSourceUrl } from "../sources/url.js";
 import type { ArtifactStore } from "../storage/artifact-store.js";
 import { S3ArtifactStore } from "../storage/s3-artifact-store.js";
 
@@ -27,6 +30,10 @@ export function createCollectCandidatesHandler({
   configuration,
   fetcherForSource = (source) => new AllowlistedHttpFetcher({
     allowedHosts: [new URL(source.feedUrl).hostname],
+    pacer: source.crawlDelayMs ? new DynamoDbRequestPacer({
+      delayMs: source.crawlDelayMs,
+      tableName: process.env.EDITION_TABLE ?? "",
+    }) : undefined,
   }),
   now = () => new Date(),
 }: Dependencies) {
@@ -45,6 +52,12 @@ export function createCollectCandidatesHandler({
     const existing = await artifacts.read(key);
     if (existing) {
       const artifact = candidateSetSchema.parse(JSON.parse(Buffer.from(existing).toString("utf8")));
+      const sourceRuns = new Map(artifact.sourceRuns.map((run) => [run.adapterId, run.feedUrl]));
+      if (sourceRuns.size !== configuration.sources.length ||
+          configuration.sources.some((source) => sourceRuns.get(source.id) !== canonicalizeSourceUrl(source.feedUrl))) {
+        throw new Error("Candidate set was collected with a different source allowlist; start a new edition");
+      }
+      assertConfiguredCandidates(artifact.candidates, configuration);
       if (artifact.window.start !== window.start.toISOString() ||
           artifact.window.end !== window.end.toISOString()) {
         throw new Error(`Candidate set already exists for a different window: ${key}`);
@@ -54,12 +67,12 @@ export function createCollectCandidatesHandler({
         editionId: input.editionId,
         failedSourceCount: artifact.sourceRuns.filter(({ status }) => status === "failed").length,
         key,
+        omittedCandidateCount: artifact.omittedCandidateCount ?? 0,
       };
     }
 
-    const adapters = configuration.sources.map((source) => new FeedSourceAdapter(
-      source,
-      fetcherForSource(source),
+    const adapters = configuration.sources.map((source) => createSourceAdapter(
+      source, fetcherForSource(source),
     ));
     const artifact = await collectCandidateSet({ adapters, createdAt: now(), window });
     if (artifact.candidates.length === 0) {
@@ -76,6 +89,7 @@ export function createCollectCandidatesHandler({
       editionId: input.editionId,
       failedSourceCount: artifact.sourceRuns.filter(({ status }) => status === "failed").length,
       key,
+      omittedCandidateCount: artifact.omittedCandidateCount ?? 0,
     };
   };
 }

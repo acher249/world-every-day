@@ -108,7 +108,7 @@ export function createEditorialShortlist({
     } else if (eventKeys.has(evaluation.eventKey)) reason = "duplicate-event";
     else if ((topicCounts.get(evaluation.classification.topic) ?? 0) >= validatedConfiguration.maxPerTopic) {
       reason = "topic-cap";
-    } else if ((publisherCounts.get(candidate.publisher) ?? 0) >= validatedConfiguration.maxPerPublisher) {
+    } else if ((publisherCounts.get(candidate.source.publisherGroup ?? candidate.publisher) ?? 0) >= validatedConfiguration.maxPerPublisher) {
       reason = "publisher-cap";
     } else if ((geographyCounts.get(evaluation.classification.geography) ?? 0) >= validatedConfiguration.maxPerGeography) {
       reason = "geography-cap";
@@ -120,7 +120,8 @@ export function createEditorialShortlist({
     }
     eventKeys.add(evaluation.eventKey);
     topicCounts.set(evaluation.classification.topic, (topicCounts.get(evaluation.classification.topic) ?? 0) + 1);
-    publisherCounts.set(candidate.publisher, (publisherCounts.get(candidate.publisher) ?? 0) + 1);
+    const publisherGroup = candidate.source.publisherGroup ?? candidate.publisher;
+    publisherCounts.set(publisherGroup, (publisherCounts.get(publisherGroup) ?? 0) + 1);
     geographyCounts.set(evaluation.classification.geography, (geographyCounts.get(evaluation.classification.geography) ?? 0) + 1);
     selected.push({
       storyId: evaluation.storyId,

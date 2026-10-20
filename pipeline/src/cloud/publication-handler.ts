@@ -16,13 +16,37 @@ import { generatedWorldManifestSchema } from "../world/schema.js";
 
 const inputSchema = z.object({
   editionId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
-  mode: z.enum(["stage", "publish"]),
+  mode: z.enum(["stage", "publish", "preview"]),
   confirmPublish: z.literal(true).optional(),
+  confirmPublishPreview: z.literal(true).optional(),
 });
 
 export type CurrentPointerStore = {
   advance(pointer: z.infer<typeof currentEditionPointerSchema>): Promise<void>;
 };
+
+export function nextCurrentPointer(
+  previous: z.infer<typeof currentEditionPointerSchema> | null,
+  next: z.infer<typeof currentEditionPointerSchema>,
+): z.infer<typeof currentEditionPointerSchema> {
+  if (!previous) return currentEditionPointerSchema.parse(next);
+  if (previous.editionId === next.editionId) {
+    if (previous.publicationSha256 !== next.publicationSha256) {
+      throw new Error("Current edition already points to different publication bytes");
+    }
+    return previous;
+  }
+  const previousDate = previous.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  const nextDate = next.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  if (previousDate && nextDate && nextDate < previousDate) {
+    throw new Error("Refusing to move the current edition backward in time");
+  }
+  const { pastWorlds: olderWorlds = [], ...previousWorld } = previous;
+  return currentEditionPointerSchema.parse({
+    ...next,
+    pastWorlds: [previousWorld, ...olderWorlds],
+  });
+}
 
 async function readJson(artifacts: ArtifactStore, key: string): Promise<unknown> {
   const bytes = await artifacts.read(key);
@@ -47,7 +71,7 @@ export function createCloudPublicationHandler({
   now?: () => Date;
 }) {
   return async (rawInput: unknown) => {
-    const { editionId, mode, confirmPublish } = inputSchema.parse(rawInput);
+    const { editionId, mode, confirmPublish, confirmPublishPreview } = inputSchema.parse(rawInput);
     const root = `editions/${editionId}`;
     const stagedKey = `${root}/publication/publication-manifest.json`;
     const publicRoot = `generated/editions/${editionId}`;
@@ -104,12 +128,20 @@ export function createCloudPublicationHandler({
       return { editionId, key: stagedKey, status: "created" as const };
     }
 
-    if (confirmPublish !== true) throw new Error("Public publication requires confirmPublish: true");
+    if (mode === "publish" && confirmPublish !== true) {
+      throw new Error("Public publication requires confirmPublish: true");
+    }
+    if (mode === "preview" && (confirmPublishPreview !== true || !editionId.endsWith("-test"))) {
+      throw new Error("Public test preview requires confirmPublishPreview: true and a -test edition ID");
+    }
     const staged = publicationManifestSchema.parse(await readJson(artifacts, stagedKey));
     const review = publicationReviewSchema.parse(await readJson(artifacts, `${root}/review/publication-approval.json`));
     if (staged.edition.id !== editionId || staged.edition.status !== "staged" ||
         review.editionId !== editionId || review.inputs.publicationSha256 !== artifactSha256(staged)) {
       throw new Error("Publication approval does not match the staged edition");
+    }
+    if (mode === "publish" && review.decision !== "approved-for-publication") {
+      throw new Error("Current-edition publication requires an explicit publication approval");
     }
     const panorama = editionPanoramaManifestSchema.parse(await readJson(artifacts, `${root}/panorama/manifest.json`));
     const world = generatedWorldManifestSchema.parse(await readJson(artifacts, `${root}/world/generated-world.json`));
@@ -130,23 +162,36 @@ export function createCloudPublicationHandler({
       edition: {
         ...staged.edition,
         status: "published",
-        eyebrow: `${staged.stories.length} ${staged.stories.length === 1 ? "story" : "stories"} · Published edition`,
+        eyebrow: mode === "preview"
+          ? `${staged.stories.length} ${staged.stories.length === 1 ? "story" : "stories"} · Technical test`
+          : `${staged.stories.length} ${staged.stories.length === 1 ? "story" : "stories"} · Published edition`,
       },
     });
     const publicationBytes = Buffer.from(`${JSON.stringify(published, null, 2)}\n`);
+    // A test preview already owns publication.json immutably. Keep its direct
+    // link intact when the same reviewed edition is promoted to today's world.
+    const publicationKey = mode === "publish" && editionId.endsWith("-test")
+      ? `${publicRoot}/publication-public.json`
+      : `${publicRoot}/publication.json`;
     await publicAssets.putImmutable({
-      key: `${publicRoot}/publication.json`,
+      key: publicationKey,
       bytes: publicationBytes,
       contentType: "application/json",
     });
-    await current.advance(currentEditionPointerSchema.parse({
-      schemaVersion: "1.0.0",
+    if (mode === "publish") {
+      await current.advance(currentEditionPointerSchema.parse({
+        schemaVersion: "1.0.0",
+        editionId,
+        publicationUrl: `/${publicationKey}`,
+        publicationSha256: sha256(publicationBytes),
+        publishedAt: now().toISOString(),
+      }));
+    }
+    return {
       editionId,
-      publicationUrl: `/${publicRoot}/publication.json`,
-      publicationSha256: sha256(publicationBytes),
-      publishedAt: now().toISOString(),
-    }));
-    return { editionId, key: `${publicRoot}/publication.json`, status: "published" as const };
+      key: publicationKey,
+      status: mode === "preview" ? "preview-published" as const : "published" as const,
+    };
   };
 }
 
@@ -163,33 +208,25 @@ export async function main(event: unknown) {
       async advance(pointer) {
         const key = "generated/current.json";
         let previousEtag: string | undefined;
+        let previous: z.infer<typeof currentEditionPointerSchema> | null = null;
         try {
           const response = await s3.send(new GetObjectCommand({ Bucket: publicBucket, Key: key }));
           if (!response.Body || !response.ETag) throw new Error("Current-edition pointer is incomplete");
           const currentPayload: unknown = JSON.parse(await response.Body.transformToString());
           const unpublished = unpublishedCurrentSchema.safeParse(currentPayload).success;
           if (!unpublished) {
-            const previous = currentEditionPointerSchema.parse(currentPayload);
-            if (previous.editionId === pointer.editionId) {
-              if (previous.publicationSha256 !== pointer.publicationSha256) {
-                throw new Error("Current edition already points to different publication bytes");
-              }
-              return;
-            }
-            const previousDate = previous.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0];
-            const nextDate = pointer.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0];
-            if (previousDate && nextDate && nextDate < previousDate) {
-              throw new Error("Refusing to move the current edition backward in time");
-            }
+            previous = currentEditionPointerSchema.parse(currentPayload);
           }
           previousEtag = response.ETag;
         } catch (error) {
           if (!(error instanceof Error) || error.name !== "NoSuchKey") throw error;
         }
+        const updated = nextCurrentPointer(previous, pointer);
+        if (updated === previous) return;
         await s3.send(new PutObjectCommand({
           Bucket: publicBucket,
           Key: key,
-          Body: Buffer.from(`${JSON.stringify(pointer, null, 2)}\n`),
+          Body: Buffer.from(`${JSON.stringify(updated, null, 2)}\n`),
           CacheControl: "no-store, max-age=0",
           ContentType: "application/json",
           ...(previousEtag ? { IfMatch: previousEtag } : { IfNoneMatch: "*" }),

@@ -105,6 +105,8 @@ test("candidate evaluation prompt separates constructive significance from visua
   assert.match(prompt, /what happened in this story, not the general importance/i);
   assert.match(prompt, /scheduled briefing.*not by itself a substantive new development/i);
   assert.match(prompt, /when uncertain, score conservatively/i);
+  assert.match(prompt, /routine campus, municipal, or administrative updates/i);
+  assert.match(prompt, /do not penalize a story merely because it concerns one country/i);
   assert.match(prompt, /separate from editorial importance/i);
   assert.match(prompt, /decimal number from 0 to 1 inclusive/i);
   assert.match(prompt, /exactly one assessment/i);

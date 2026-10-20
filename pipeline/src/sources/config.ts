@@ -1,4 +1,6 @@
 import { z } from "zod";
+import type { DiscoveredStory } from "./schema.js";
+import { canonicalizeSourceUrl } from "./url.js";
 
 const httpsUrlSchema = z
   .url()
@@ -26,10 +28,14 @@ export const sourceConfigurationSchema = z.object({
     id: z.string().min(1).max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     type: z.enum(["rss", "atom"]),
     publisher: z.string().min(1).max(160),
+    publisherGroup: z.string().min(1).max(160).optional(),
     feedUrl: httpsUrlSchema,
     kind: z.enum(["primary", "reporting"]),
     articleAccess: z.enum(["discovery-only", "ephemeral-analysis"]).default("discovery-only"),
     allowedArticleHosts: z.array(hostnameSchema).max(20).default([]),
+    upgradeHttpArticleLinksToHttps: z.literal(true).optional(),
+    publishedAtLookup: z.literal("govuk-content-api").optional(),
+    crawlDelayMs: z.number().int().min(0).max(60_000).default(0),
   })).min(1).max(100),
 }).superRefine((configuration, context) => {
   const ids = new Set<string>();
@@ -42,6 +48,15 @@ export const sourceConfigurationSchema = z.object({
       });
     }
     ids.add(source.id);
+    if (source.publishedAtLookup === "govuk-content-api" &&
+        (source.type !== "atom" || new URL(source.feedUrl).hostname !== "www.gov.uk" ||
+         !source.allowedArticleHosts.includes("www.gov.uk"))) {
+      context.addIssue({
+        code: "custom",
+        message: "GOV.UK publication-date lookup requires its official Atom feed and article host",
+        path: ["sources", index, "publishedAtLookup"],
+      });
+    }
   });
 });
 
@@ -49,5 +64,21 @@ export type SourceConfiguration = z.infer<typeof sourceConfigurationSchema>;
 
 export function parseSourceConfiguration(input: unknown): SourceConfiguration {
   return sourceConfigurationSchema.parse(input);
+}
+
+export function assertConfiguredCandidates(
+  candidates: DiscoveredStory[],
+  configuration: SourceConfiguration,
+): void {
+  const sources = new Map(configuration.sources.map((source) => [source.id, source]));
+  for (const candidate of candidates) {
+    const source = sources.get(candidate.source.adapterId);
+    if (!source || source.publisher !== candidate.publisher ||
+        source.kind !== candidate.source.kind ||
+        source.publisherGroup !== candidate.source.publisherGroup ||
+        canonicalizeSourceUrl(source.feedUrl) !== candidate.source.feedUrl) {
+      throw new Error("Candidate set contains a source outside the current allowlist; start a new edition");
+    }
+  }
 }
 

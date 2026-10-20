@@ -22,6 +22,7 @@ export const discoveredStorySchema = z.object({
     feedUrl: httpsUrlSchema,
     entryId: z.string().min(1).max(500).optional(),
     kind: z.enum(["primary", "reporting"]),
+    publisherGroup: z.string().min(1).max(160).optional(),
   }),
 });
 
@@ -43,6 +44,7 @@ export const candidateSetSchema = z.object({
     lastModified: z.string().max(200).optional(),
     error: z.string().max(300).optional(),
   })),
+  omittedCandidateCount: z.number().int().nonnegative().optional(),
   candidates: z.array(discoveredStorySchema),
 });
 

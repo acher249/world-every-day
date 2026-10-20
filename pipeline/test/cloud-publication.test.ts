@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { createCloudPublicationHandler } from "../src/cloud/publication-handler.js";
+import { createCloudPublicationHandler, nextCurrentPointer } from "../src/cloud/publication-handler.js";
 import { artDirectionSchema } from "../src/art-direction/schema.js";
 import { selectedEditionSchema } from "../src/editorial/edition.js";
 import { artifactSha256 } from "../src/editorial/select.js";
@@ -13,6 +13,25 @@ test("an unpublished marker cannot be mistaken for a published edition", () => {
   const marker = { schemaVersion: "1.0.0", status: "unpublished" };
   assert.deepEqual(unpublishedCurrentSchema.parse(marker), marker);
   assert.equal(currentEditionPointerSchema.safeParse(marker).success, false);
+});
+
+test("publication moves only the former current world into the past-world list", () => {
+  const pointer = (editionId: string) => currentEditionPointerSchema.parse({
+    schemaVersion: "1.0.0",
+    editionId,
+    publicationUrl: `/generated/editions/${editionId}/publication${editionId.endsWith("-test") ? "-public" : ""}.json`,
+    publishedAt: "2026-10-19T20:00:00.000Z",
+    publicationSha256: "a".repeat(64),
+  });
+  const today = pointer("source-expansion-2026-10-19-test");
+  assert.deepEqual(nextCurrentPointer(null, today).pastWorlds, undefined);
+  const tomorrow = nextCurrentPointer(today, pointer("daily-2026-10-20"));
+  assert.deepEqual(tomorrow.pastWorlds?.map((world) => world.editionId), [today.editionId]);
+  assert.equal(tomorrow.pastWorlds?.[0]?.publicationUrl, today.publicationUrl);
+  assert.equal(nextCurrentPointer(tomorrow, pointer("daily-2026-10-20")), tomorrow);
+  const nextDay = nextCurrentPointer(tomorrow, pointer("daily-2026-10-21"));
+  assert.deepEqual(nextDay.pastWorlds?.map((world) => world.editionId), ["daily-2026-10-20", today.editionId]);
+  assert.throws(() => nextCurrentPointer(tomorrow, pointer("daily-2026-10-18")), /backward/);
 });
 
 function memoryStore() {
@@ -30,9 +49,10 @@ function memoryStore() {
 }
 
 test("publication stays private until an exact staged manifest is approved", async () => {
-  const edition = selectedEditionSchema.parse(JSON.parse(await readFile(
+  const fixture = JSON.parse(await readFile(
     new URL("../fixtures/selected-edition.example.v1.json", import.meta.url), "utf8",
-  )) as unknown);
+  )) as { editionId: string };
+  const edition = selectedEditionSchema.parse({ ...fixture, editionId: `${fixture.editionId}-test` });
   const demoDirection = JSON.parse(await readFile(
     new URL("../fixtures/demo-art-direction.v1.json", import.meta.url), "utf8",
   )) as { subjects: Array<Record<string, unknown>>; [key: string]: unknown };
@@ -108,11 +128,30 @@ test("publication stays private until an exact staged manifest is approved", asy
   put(`${root}/review/publication-approval.json`, {
     schemaVersion: "1.0.0", artifactType: "publication-review", editionId,
     approvedAt: "2026-10-15T18:00:00.000Z", approvedBy: "test-operator",
+    decision: "approved-for-test-preview", inputs: { publicationSha256: artifactSha256(staged) },
+  });
+  await assert.rejects(handler({ editionId, mode: "preview" }), /confirmPublishPreview/);
+  assert.equal((await handler({ editionId, mode: "preview", confirmPublishPreview: true })).status, "preview-published");
+  assert.equal(publicRecords.size, 3);
+  assert.equal(publishedPointers.length, 0);
+  const previewManifest = JSON.parse(Buffer.from(publicRecords.get(`generated/editions/${editionId}/publication.json`)!).toString("utf8")) as { edition: { eyebrow: string } };
+  assert.match(previewManifest.edition.eyebrow, /Technical test/);
+  await assert.rejects(handler({ editionId, mode: "publish", confirmPublish: true }), /explicit publication approval/);
+  put(`${root}/review/publication-approval.json`, {
+    schemaVersion: "1.0.0", artifactType: "publication-review", editionId,
+    approvedAt: "2026-10-15T18:00:00.000Z", approvedBy: "test-operator",
     decision: "approved-for-publication", inputs: { publicationSha256: artifactSha256(staged) },
   });
   assert.equal((await handler({ editionId, mode: "publish", confirmPublish: true })).status, "published");
-  assert.equal(publicRecords.size, 3);
+  assert.equal(publicRecords.size, 4);
   assert.equal(publishedPointers.length, 1);
-  const publicManifest = JSON.parse(Buffer.from(publicRecords.get(`generated/editions/${editionId}/publication.json`)!).toString("utf8")) as { edition: { status: string } };
+  assert.equal(
+    currentEditionPointerSchema.parse(publishedPointers[0]).publicationUrl,
+    `/generated/editions/${editionId}/publication-public.json`,
+  );
+  const publicManifest = JSON.parse(Buffer.from(publicRecords.get(`generated/editions/${editionId}/publication-public.json`)!).toString("utf8")) as { edition: { status: string; eyebrow: string } };
   assert.equal(publicManifest.edition.status, "published");
+  assert.match(publicManifest.edition.eyebrow, /Published edition/);
+  assert.match(previewManifest.edition.eyebrow, /Technical test/);
+  assert.equal((await handler({ editionId, mode: "publish", confirmPublish: true })).status, "published");
 });
