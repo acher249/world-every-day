@@ -1,12 +1,14 @@
-# Initial source policy
+# Source policy
 
-The reference implementation uses an explicit allowlist of RSS and Atom feeds.
-Discovery through a feed does not imply permission to analyze or republish its
-articles. The default list includes only sources reviewed for ephemeral article
-analysis; discovery-only sources are excluded because their candidates cannot
-complete the full pipeline. Permitted article content is processed in memory and
-discarded. The pipeline retains citations, checksums, and original project
-summaries rather than source pages, article copies, or verbatim evidence.
+The reference implementation uses a reviewed allowlist of RSS and Atom feeds.
+We make a good-faith effort to check each source's access and reuse terms,
+robots directives, and request limits before enabling it. A feed or public
+article URL is not blanket permission to use its content. The default list
+contains sources reviewed for bounded, ephemeral article analysis; source text
+is processed in memory and discarded. The pipeline keeps links, checksums, and
+original project summaries, not article copies or verbatim passages.
+Source policies can change, so operators should recheck them periodically.
+
 The current repository code evaluates feed metadata, analyzes permitted article
 text, and plans art direction with the selected managed Gemini, Bedrock Nova,
 or Vertex Claude adapter, not a self-hosted model. Google image generation
@@ -102,8 +104,8 @@ allowlist is not a legal clearance certificate.
 
 ## Reference boundary
 
-The reference implementation discovers stories only through reviewed official
-RSS feeds. It does not depend on social feeds or unbounded website
+The reference implementation discovers stories only through reviewed RSS and
+Atom feeds. It does not depend on social feeds or unbounded website
 collection. A feed entry supplies discovery metadata and a link; it does not by
 itself grant permission to analyze or republish the linked page.
 
@@ -127,7 +129,6 @@ allowlist.
 | [USGS News](https://www.usgs.gov/news/news-releases/national-news-releases) | Primary institution | Earth science, water, hazards, ecosystems |
 | [ESA](https://www.esa.int/Services/RSS_Feeds) | Primary institution | Space science and Earth observation |
 | [European Commission Research and Innovation](https://research-and-innovation.ec.europa.eu/news/stay-connected_en) | Primary institution | European research and innovation |
-| [Horizon Magazine](https://projects.research-and-innovation.ec.europa.eu/ga/node/7459) | Institutional reporting | EU-funded research and its applications |
 | [WHO regional news](https://www.emro.who.int/rss-feeds.html) | Primary institution | Public health and international cooperation |
 | [UNESCO World Heritage](https://whc.unesco.org/en/news/) | Primary institution | Culture, conservation, and communities |
 | [Smithsonian Insider](https://insider.si.edu/rssfeeds/) | Institutional reporting | Science, nature, arts, and history |
@@ -135,7 +136,6 @@ allowlist.
 | [eLife](https://elifesciences.org/alerts) | Open research | Life science and medicine |
 | [USDA Rural Development](https://www.rd.usda.gov/newsroom/rss) | Primary institution | Rural communities and infrastructure |
 | [European Environment Agency](https://www.eea.europa.eu/en/newsroom/rss-feeds) | Primary institution | Climate, environment, and ecosystems |
-| [FAO Newsroom](https://www.fao.org/newsroom/en) | Primary institution | Food systems and agriculture |
 | [IRENA](https://www.irena.org/rssfeed) | Primary institution | Renewable energy |
 | [USDA Agricultural Research Service](https://www.ars.usda.gov/news-events/rss-feeds/) | Primary institution | Farming and food research |
 
@@ -184,11 +184,11 @@ ten-story test edition spanning health, education, housing, space, civic
 governance, language, and ecological art. Permitted articles were read
 ephemerally and only project-authored evidence artifacts were retained.
 
-The run also tightened the source boundary. NPR remains discovery-only and
-The Conversation's Atom feed has since been removed from the RSS-only reference
-configuration. Smithsonian
-returned HTTP 403 for an article request and UN News feed links did not expose a
-readable article body, so both remain discovery-only rather than being bypassed.
+The run also tightened the source boundary. NPR was discovery-only in that
+test and is not enabled now. The Conversation's Atom feed was removed when an
+earlier RSS-only configuration was adopted. Smithsonian returned HTTP 403 for
+an article request and UN News feed links did not expose a readable article
+body, so neither is enabled now.
 An early Global Voices extraction selected a promotional card instead of the
 main entry; the artifacts were rejected, the extractor was corrected and
 regression-tested, and the two pages were reprocessed successfully.

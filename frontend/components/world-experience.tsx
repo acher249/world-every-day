@@ -11,6 +11,7 @@ import { MobileJoystick } from "@/components/mobile-joystick";
 import { cycleId } from "@/lib/spatial-navigation";
 import { pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
 import { resolveProjectSiteUrl } from "@/lib/site-links";
+import { WorldAudio, type WorldSound } from "@/lib/world-audio";
 import { canRenderWorldInteractions } from "@/lib/world-interactions";
 import type { StickValue } from "@/lib/touch-navigation";
 import type {
@@ -83,6 +84,21 @@ function StoryArrow({ direction }: { direction: "left" | "right" }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function SoundIcon({ enabled }: { enabled: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+      <path d="M3 8h3l4-3v10l-4-3H3z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      {enabled ? (
+        <>
+          <path d="M13 7a4 4 0 0 1 0 6M15 4.5a7 7 0 0 1 0 11" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </>
+      ) : (
+        <path d="m13 8 4 4m0-4-4 4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      )}
     </svg>
   );
 }
@@ -337,22 +353,29 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   const [archiveOpen, setArchiveOpen] = useState(false);
   const archiveRef = useRef<HTMLDivElement>(null);
   const [viewerState, setViewerState] = useState<ViewerState>(splatUrl ? "loading" : "poster");
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundAvailable, setSoundAvailable] = useState(true);
+  const audioRef = useRef<WorldAudio | null>(null);
+  const autoSoundAttemptedRef = useRef(false);
   const mobileMovementRef = useRef<StickValue>({ x: 0, y: 0 });
   const activeStory = useMemo(
     () => stories.find((story) => story.id === activeId) ?? null,
     [activeId, stories],
   );
   const storyIds = useMemo(() => stories.map(({ id }) => id), [stories]);
+  const playSound = useCallback((sound: WorldSound) => audioRef.current?.play(sound), []);
+  const setMovementSound = useCallback((intensity: number) => audioRef.current?.setMovement(intensity), []);
   const closeStory = useCallback(() => {
     setActiveId(null);
     if (!window.matchMedia(mobileLayoutQuery).matches) setFocusedId(null);
   }, []);
   const focusNextStory = useCallback((direction: -1 | 1, openPanel: boolean) => {
     const nextId = cycleId(storyIds, focusedId, direction);
+    if (nextId) playSound("travel");
     setFocusedId(nextId);
     setActiveId(openPanel ? nextId : null);
     setIndexOpen(false);
-  }, [focusedId, storyIds]);
+  }, [focusedId, playSound, storyIds]);
   const anchors = useMemo<WorldAnchor[]>(
     () => interactionsMatchRenderedWorld ? [
       ...stories.map((story, index): WorldAnchor => ({
@@ -392,6 +415,41 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     : -1;
 
   useEffect(() => {
+    setSoundAvailable(typeof window.AudioContext !== "undefined");
+    function enableAfterDesktopInteraction(event: PointerEvent | KeyboardEvent) {
+      if (
+        autoSoundAttemptedRef.current ||
+        window.matchMedia(mobileLayoutQuery).matches ||
+        !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+      ) return;
+      if (event.target instanceof Element && event.target.closest(".sound-toggle")) return;
+      if (event instanceof KeyboardEvent && ["Alt", "Control", "Meta", "Shift"].includes(event.key)) return;
+      autoSoundAttemptedRef.current = true;
+      const audio = audioRef.current ?? new WorldAudio();
+      audioRef.current = audio;
+      void audio.enable().then((enabled) => {
+        if (document.hidden) audio.disable();
+        setSoundEnabled(enabled && !document.hidden);
+      });
+    }
+    function pauseWhenHidden() {
+      if (!document.hidden) return;
+      audioRef.current?.disable();
+      setSoundEnabled(false);
+    }
+    window.addEventListener("pointerdown", enableAfterDesktopInteraction);
+    window.addEventListener("keydown", enableAfterDesktopInteraction);
+    document.addEventListener("visibilitychange", pauseWhenHidden);
+    return () => {
+      window.removeEventListener("pointerdown", enableAfterDesktopInteraction);
+      window.removeEventListener("keydown", enableAfterDesktopInteraction);
+      document.removeEventListener("visibilitychange", pauseWhenHidden);
+      audioRef.current?.dispose();
+      audioRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     function closeOutside(event: PointerEvent) {
       if (event.target instanceof Node && !archiveRef.current?.contains(event.target)) setArchiveOpen(false);
     }
@@ -427,10 +485,23 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   }, [closeStory, controlsOpen, focusNextStory]);
 
   function selectStory(story: PublicationStory, openPanel: boolean) {
+    playSound(openPanel ? "story" : "travel");
     setActiveId(openPanel ? story.id : null);
     setFocusedId(story.id);
     setIndexOpen(false);
     setControlsOpen(false);
+  }
+
+  async function toggleSound() {
+    autoSoundAttemptedRef.current = true;
+    const audio = audioRef.current ?? new WorldAudio();
+    audioRef.current = audio;
+    if (soundEnabled) {
+      audio.disable();
+      setSoundEnabled(false);
+    } else {
+      setSoundEnabled(await audio.enable());
+    }
   }
 
   return (
@@ -444,6 +515,8 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           splatSha256={renderedSplatSha256}
           splatUrl={splatUrl}
           anchors={anchors}
+          onAnchorHover={() => playSound("hover")}
+          onMovementChange={setMovementSound}
           onAnchorSelect={(id) => {
             const story = stories.find((candidate) => candidate.id === id);
             if (story) selectStory(story, true);
@@ -453,6 +526,22 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         />
         <div className="world-wash" aria-hidden="true" />
       </div>
+
+      <motion.button
+        className="sound-toggle hud-button"
+        type="button"
+        aria-label={soundAvailable ? (soundEnabled ? "Mute world sound" : "Enable world sound") : "World sound unavailable"}
+        aria-pressed={soundEnabled}
+        title={soundEnabled ? "Mute world sound" : "Enable ambient sound and effects"}
+        disabled={!soundAvailable}
+        onClick={() => void toggleSound()}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.2, ease }}
+      >
+        <SoundIcon enabled={soundEnabled} />
+        <span>Sound {soundEnabled ? "on" : "off"}</span>
+      </motion.button>
 
       <header className="viewer-header">
         <motion.div
@@ -464,6 +553,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           <button
             className="hud-button story-menu-button"
             onClick={() => {
+              playSound("tap");
               closeStory();
               setControlsOpen(false);
               setIndexOpen((open) => !open);
@@ -485,7 +575,10 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
               aria-label="Explore past worlds"
               aria-expanded={archiveOpen}
               aria-controls="past-worlds-list"
-              onClick={() => setArchiveOpen((open) => !open)}
+              onClick={() => {
+                playSound("tap");
+                setArchiveOpen((open) => !open);
+              }}
             >
               <ArchiveIcon />
               <span>Explore Past Worlds</span>
@@ -564,6 +657,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           <button
             className="hud-button controls-button"
             onClick={() => {
+              playSound("tap");
               closeStory();
               setIndexOpen(false);
               setControlsOpen(true);

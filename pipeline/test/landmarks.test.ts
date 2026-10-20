@@ -25,6 +25,7 @@ test("the vision prompt preserves every requested story id", async () => {
   assert.match(prompt, /contextMarkers/);
   assert.match(prompt, /distinct from every primary landmark/i);
   assert.match(prompt, /six to eight context markers/i);
+  assert.match(prompt, /short, literal label/i);
 });
 
 test("landmark detection creates a provenance-bearing 2:1 artifact", async () => {

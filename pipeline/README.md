@@ -1,9 +1,9 @@
 # Pipeline
 
 The pipeline package contains the server-side stages for producing daily-world
-artifacts. A resumable fixture-backed runner now connects the complete artifact
-chain locally, while live provider stages remain separately and deliberately
-enabled.
+artifacts. A fixture-backed local runner exercises the complete chain without
+paid services. Live local stages require explicit flags; the AWS development
+schedule is separately configured for unattended generation and publication.
 
 ## Panorama stage
 
@@ -90,12 +90,11 @@ analysis produces a clear headline, original summary, source-grounded claims,
 and granular visual details. Missing visual details remain non-fatal.
 
 Gemini, Bedrock, and Vertex AI are managed services, not local inference.
-Before live use, verify the source's permission, provider access, logging, and
-retention in the [privacy preflight](../infra/aws/README.md#source-text-privacy-preflight).
-The development workers use the selected Gemini editorial adapter. A gated
-October 16 AWS technical test ran from live feeds through a four-story direct
-explorer preview. It did not advance the current-edition pointer or enable the
-daily schedule.
+Before live use, review source permissions and provider handling in the
+[privacy preflight](../infra/aws/README.md#source-text-privacy-preflight).
+The development workers currently use Gemini. The enabled AWS workflow has
+published test editions; this does not establish consistent editorial quality
+or daily story yield.
 
 Validate a versioned source configuration and collection window without making
 network requests:
@@ -134,13 +133,10 @@ artifacts remain ignored by Git.
 
 ## Cost visibility
 
-The pipeline does not currently reserve spend or enforce an automatic budget.
-Paid adapters remain opt-in and require explicit live-run flags. As the daily
-workflow is completed, each provider stage should record its model, request
-count, usage when reported, attempts, elapsed time, and actual or estimated cost
-in the edition artifacts. See the project-wide [cost guide](../docs/COSTS.md)
-for the expected call shape and the cost data that should remain visible to
-operators and contributors.
+The pipeline has no automatic spending cutoff. Local live runs require explicit
+flags; the enabled AWS development schedule can make paid calls unattended.
+Provider usage is recorded when available, but charges have not been reconciled
+against invoices. See the [cost guide](../docs/COSTS.md).
 
 ## Editorial workflow
 
@@ -186,7 +182,7 @@ Validate that stage without fetching pages or calling a model:
 npm run articles:extract -- \
   --candidate-set ./artifacts/sources/candidate-set.json \
   --shortlist ./artifacts/editorial/shortlist.json \
-  --source-config ./config/sources.json \
+  --source-config ./config/source-configuration.initial.v1.json \
   --output-dir ./artifacts/sources/article-evidence \
   --dry-run
 ```

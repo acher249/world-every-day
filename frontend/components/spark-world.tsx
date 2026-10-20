@@ -41,11 +41,17 @@ export type WorldAnchor = WorldAnchorBase & ({
   storyTitle: string;
 });
 
+function echoDescription(anchor: Extract<WorldAnchor, { kind: "echo" }>): string {
+  return `This is the ${anchor.label.toLowerCase()}, inspired by the article “${anchor.storyTitle}.”`;
+}
+
 type SparkWorldProps = {
   focusedAnchorId?: string | null;
   alt: string;
   anchors?: WorldAnchor[];
+  onAnchorHover?: () => void;
   onAnchorSelect?: (id: string) => void;
+  onMovementChange?: (intensity: number) => void;
   onViewerStateChange?: (state: ViewerState) => void;
   posterSrc: string;
   splatSha256?: string;
@@ -58,7 +64,9 @@ export function SparkWorld({
   focusedAnchorId = null,
   alt,
   anchors = [],
+  onAnchorHover,
   onAnchorSelect,
+  onMovementChange,
   onViewerStateChange,
   posterSrc,
   splatSha256,
@@ -408,6 +416,7 @@ export function SparkWorld({
         const movement = new Vector3();
         const velocity = new Vector3();
         const targetVelocity = new Vector3();
+        const movementStart = new Vector3();
         const forward = new Vector3();
         const right = new Vector3();
         const up = new Vector3(0, 1, 0);
@@ -425,6 +434,7 @@ export function SparkWorld({
         const floatPhase = Math.random() * Math.PI * 2;
         let cameraFloatTime = 0;
         let previousFrameTime = performance.now();
+        let lastMovementSoundUpdate = 0;
 
         renderer.setAnimationLoop(() => {
           if (renderer && scene && camera && splat) {
@@ -486,6 +496,10 @@ export function SparkWorld({
             if (stick && (stick.x !== 0 || stick.y !== 0)) cancelCameraFocus();
 
             if (focusTransition) {
+              if (frameTime - lastMovementSoundUpdate >= 100) {
+                onMovementChange?.(0);
+                lastMovementSoundUpdate = frameTime;
+              }
               focusTransition.elapsed = Math.min(
                 focusTransition.elapsed + deltaSeconds,
                 focusTransition.duration,
@@ -513,6 +527,7 @@ export function SparkWorld({
                 yaw = cameraEuler.y;
               }
             } else {
+              movementStart.copy(camera.position);
               movement.set(0, 0, 0);
               forward.set(0, 0, -1).applyQuaternion(camera.quaternion);
               right.set(1, 0, 0).applyQuaternion(camera.quaternion);
@@ -542,6 +557,14 @@ export function SparkWorld({
               }
               camera.position.addScaledVector(velocity, deltaSeconds);
               clampToNavigationBounds(camera.position, navigationRadius, navigationFloor);
+              if (frameTime - lastMovementSoundUpdate >= 100) {
+                const distance = camera.position.distanceTo(movementStart);
+                const intensity = deltaSeconds > 0
+                  ? Math.min(1, distance / (flightSpeed * deltaSeconds * 2))
+                  : 0;
+                onMovementChange?.(intensity);
+                lastMovementSoundUpdate = frameTime;
+              }
             }
 
             if (reducedMotionQuery.matches) {
@@ -647,6 +670,7 @@ export function SparkWorld({
 
     return () => {
       cancelled = true;
+      onMovementChange?.(0);
       if (enableBake) {
         delete (window as typeof window & {
           __WORLD_EVERY_DAY_BAKE_INFO__?: unknown;
@@ -665,7 +689,7 @@ export function SparkWorld({
       spark?.dispose();
       renderer?.dispose();
     };
-  }, [enableBake, mobileMovementRef, splatSha256, splatUrl]);
+  }, [enableBake, mobileMovementRef, onMovementChange, splatSha256, splatUrl]);
 
   const showPoster = viewerState === "poster" || viewerState === "error";
 
@@ -701,6 +725,9 @@ export function SparkWorld({
           style={{
             transform: `translate3d(${anchor.fallbackScreenPosition.x * 100}vw, ${anchor.fallbackScreenPosition.y * 100}vh, 0) translate(-50%, -50%)`,
           }}
+          onPointerEnter={(event) => {
+            if (event.pointerType !== "touch") onAnchorHover?.();
+          }}
           onClick={() => onAnchorSelect?.(anchor.id)}
           aria-label={`Explore story ${anchor.number}: ${anchor.label}`}
           aria-pressed={anchor.active}
@@ -730,9 +757,12 @@ export function SparkWorld({
           style={{
             transform: `translate3d(${anchor.fallbackScreenPosition.x * 100}vw, ${anchor.fallbackScreenPosition.y * 100}vh, 0) translate(-50%, -50%)`,
           }}
+          onPointerEnter={(event) => {
+            if (event.pointerType !== "touch") onAnchorHover?.();
+          }}
           tabIndex={0}
           role="note"
-          aria-label={`Story Echo for story ${anchor.storyNumber}: ${anchor.label}. ${anchor.explanation}`}
+          aria-label={`Story echo for story ${anchor.storyNumber}. ${echoDescription(anchor)}`}
         >
           <span className="story-echo-visual" aria-hidden="true">
             <span className="story-echo-pulse" />
@@ -741,9 +771,7 @@ export function SparkWorld({
           </span>
           <span className="hotspot-label story-echo-label">
             <small>Story Echo · Story {anchor.storyNumber}</small>
-            <strong>{anchor.label}</strong>
-            <span>{anchor.explanation}</span>
-            <em>{anchor.storyTitle}</em>
+            <span>{echoDescription(anchor)}</span>
           </span>
         </div>
       ))}

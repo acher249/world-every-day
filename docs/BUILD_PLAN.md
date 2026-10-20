@@ -26,108 +26,40 @@ The system is successful when a maintainer can:
 
 ## 2. Current implementation status
 
-As of 2026-10-18, the repository has a working local pipeline and an opt-in
-unattended AWS path from RSS discovery through public publication. The first
-end-to-end public test published one story. An October 19 catch-up execution
-also published a one-story world after two bounded model-format corrections.
-The 7:30 AM Pacific development schedule now opts into paid analysis,
-generation, and public publication.
-A prior four-story technical edition reached a
-direct explorer preview.
+As of October 19, 2026, the repository has a working local pipeline and an
+opt-in unattended AWS path from RSS/Atom discovery through public publication.
+The development schedule runs at 7:30 AM Pacific with paid generation and
+publication enabled. An October 19 test selected nine stories, generated a
+world with baked interactions, and promoted it to the current edition. This is
+a working technical path, not proof of reliable daily yield or finished
+editorial and visual quality.
 
 | Area | Status | What exists | What remains |
 | --- | --- | --- | --- |
 | Open-source foundation | Substantially complete | MIT license, contribution and agent guides, dependency-license checks, CI, secret-safe environment examples, automated repository secret scanning | Linting, security policy, code of conduct |
-| Frontend | Working prototype | Separate static Next.js marketing site, full-viewport Next.js explorer, Motion interfaces, Spark.js integration, validated publication artifact, responsive fictional ten-story experience, poster fallback, local generated-world loading, fly navigation, and baked 3D hotspots projected through the live camera | Marketing visual QA, navigation tuning, touch translation controls, automated browser coverage, archive routes |
+| Frontend | Working prototype | Separate static marketing site, full-viewport Spark.js explorer, responsive desktop and mobile navigation, baked 3D hotspots, story panels, past-world menu, poster fallback, and browser-generated ambient audio and effects | Representative-device visual and accessibility QA, browser coverage, and performance tuning |
 | Panorama generation | Live baseline | Selected-edition-to-art-direction adapter, deterministic compositional roles and prompt construction, live-validated art direction, Nano Banana adapter, factual 4K generation, centered 2:1 crop, seam feathering, 8192 × 4096 enlargement, manifest, tests, and dry-run mode | Multi-edition visual evaluation, automated image QA, and pole repair only if downstream results justify it |
-| Edition and editorial data | Live baseline | Versioned evaluation, shortlist, article-evidence, selected-edition, review, and publication schemas; deterministic selection; optional model adapters; fixtures; one factual ten-story edition and local publication assembly | Corroboration, corrections, and production publication assembly |
+| Edition and editorial data | Live baseline | Versioned evaluation, shortlist, article-evidence, selected-edition, review, and publication schemas; deterministic selection; optional model adapters; fixtures; one factual ten-story edition and publication assembly | Corroboration, corrections, and production-quality editorial review |
 | Story discovery | Live baseline | Deployed 32-source RSS/Atom allowlist, including GOV.UK news and European Commission environment news. Per-source access policy, bounded retrieval, reviewed-host filtering, URL deduplication, host-wide pacing for PLOS, balanced admission of at most 100 candidates, provenance, and failure isolation are in place. | Verify article evidence and editorial quality; add conditional caching, stronger event clustering, and source health reporting |
-| World generation | Live baseline | Provider-neutral interface, stable idempotency, persisted operation lifecycle, durable local artifact copy, failure/resume tests, mock CLI, Marble 1.1 adapter, and approved fictional and factual SPZ generations | Sanitized real response fixture and S3 artifact store |
-| Interaction mapping | Integrated AWS technical test passed | Provider-neutral landmark and interaction schemas, live-validated multimodal detector, checksum-bound source and analysis images, browser-backed Spark.js spherical-raycast baking, and one AWS edition with four story anchors plus one echo | Visual hotspot QA on representative devices; occlusion and collision behavior |
+| World generation | Live baseline | Provider-neutral interface, stable idempotency, persisted operation lifecycle, project-owned asset copies, failure/resume tests, mock CLI, and Marble 1.1 adapter | Sanitized real response fixture and repeated output QA |
+| Interaction mapping | Integrated AWS path working | Provider-neutral schemas, multimodal landmark detection, checksum-bound image and world assets, Spark.js raycast baking, and an October 19 edition with nine story anchors and three echoes | Representative-device hotspot QA; occlusion and collision behavior |
 | AWS deployment | Unattended end-to-end technical path validated | CDK development stack, private artifacts and public assets, CloudFront and Route 53 domains, DynamoDB state, Secrets Manager references, live collection schedule, fixture workflow, and opt-in live RSS-to-current-publication workflow | Publication-quality edition, stronger editorial yield, and production visual QA |
 | Daily automation | Full unattended run enabled in development | 7:30 AM Pacific EventBridge trigger with dynamic edition input, bounded RSS/Atom collection, paid-stage flags, checksum-bound automated decision artifacts, and a direct test-preview branch | Measure daily yield and cost; improve editorial quality and visual QA |
 
-The active phase is **Phase 2: one manual vertical slice**. Phase 0 remains
-partially open because the editorial and operating policies still need to be
-written. Phase 1 is substantially complete. Later phases are designs, not
-implemented features.
+Current work spans public-experience polish, daily automation, and editorial
+operations. The manual vertical slice and the unattended technical path are
+working; source mix, corrections, visual QA, and predictable ten-story output
+still need work. The source and review policies are not yet complete.
 
-The first cloud shortlist is a pipeline test, not a publication candidate:
-eight of its fifteen stories came from discovery-only feeds. Later shortlists
-exclude those sources from the article-analysis queue and record the
-source-policy checksum. The October 15 manual AWS run used a 36-hour test window
-and successfully finalized ten cited stories, but several are announcements or
-commentary and some visual details are peripheral. It is a technical test, not
-a publishable daily edition.
-Human editorial review and quality improvements remain required before a
-publication-quality edition. The subsequent AWS technical test verified Marble
-1.1 generation, not merely read access.
-The revised candidate-evaluation prompt favors a concrete newly reported change
-over briefings, recaps, awards roundups, and general explainers. On a fresh
-24-hour AWS run, it shortlisted six of 52 candidates; all six passed permitted
-article analysis and finalization. This is a quality improvement, not a claim
-that the six-story test edition is ready to publish or that the ten-story target
-is reliably met. A broader approved source mix may be needed.
+The reference allowlist currently contains 32 RSS/Atom feeds, all reviewed for
+bounded, ephemeral article analysis. The October 19 test found 35 candidates
+and selected nine stories; two feeds failed independently. One successful
+window does not establish a daily minimum. Earlier source decisions and test
+results are recorded in the [source policy](editorial-policy/SOURCES.md).
 
-The current repository code defaults to paid Gemini API for candidate metadata,
-permitted article text, and art direction. Bedrock Nova and Vertex Claude are
-optional alternatives. The Gemini route reuses the existing server-side Google
-secret; Vertex uses keyless AWS-to-Google workload identity federation. This
-configuration was deployed and paid-tested through a direct preview on October 16.
-The 17-feed, 24-hour test found 46 candidates, analyzed four approved linked
-articles, and generated one Nano Banana panorama and Marble 1.1 world from
-those four stories. It is not a daily publication candidate; two stories are
-routine NASA image or observation posts, and the ten-story target was not met.
-The test is available only by direct edition URL and did not replace today's
-current-world pointer. The Google image stage
-receives a project-authored visual prompt that can include compact story-derived
-physical details. See the
-[data boundary](DATA_BOUNDARY.md).
-Wikimedia Diff was added as a discovery-only feed; other proposed feeds remain
-candidates pending access, robots, and HTTPS-link checks.
-The expanded allowlist adds Horizon Magazine, ESA Earth observation, and three
-Cornell Chronicle topic feeds. An earlier read-only rerun over
-the same 24-hour window found 48 candidates and no feed failures, but only one
-additional in-window item, from discovery-only ESA. Those feeds are now
-deployed but did not alone establish a ten-story daily yield.
-PLOS ONE and PLOS Global Public Health are now deployed in the allowlist. An
-earlier read-only trial raised the same-window pool to 80; the later AWS run
-found 69 as rolling feeds had changed. Requests to their host are
-paced 30 seconds apart in the AWS path using atomic DynamoDB reservations;
-the local path uses process-wide pacing. The collector admits at most 100
-candidates with publisher-balanced round robin, recording any omitted count.
-The October 18 paid metadata evaluation shortlisted nine stories, four from
-PLOS, with no feed failures or omitted candidates. This is not an approved
-edition: linked articles were not fetched or reviewed, and some shortlisted
-items appear routine or too specialized. Paid stages remain gated. See the
-[source review](editorial-policy/SOURCES.md#higher-volume-feeds).
-
-A read-only October 18 snapshot of the 24 feeds was also divided into ten
-consecutive 7:30 a.m. Pacific windows. It cannot establish a historical
-shortlist average because rolling RSS feeds may have dropped older entries.
-The newest complete window was separately confirmed in AWS: 19 discovered
-links, no feed failures, but only three from sources approved for article
-analysis. The preceding window showed seven approved-source links before
-editorial filtering. The current source mix therefore cannot yet support a
-seven-story minimum every day, especially on weekends. Collect daily snapshots
-prospectively before judging typical yield or automating publication.
-
-The preceding deployed allowlist had 30 RSS feeds, including ten PLOS journals,
-CDC infectious-disease research, NSF statistics, and European Commission
-highlights. A read-only October 18 run succeeded for all
-30 feeds, but its weekend window still yielded the same three candidates as
-the 20-feed mix. The added PLOS feeds share a 30-second host-wide crawl delay
-and one publisher-diversity group; local CDK allows seven minutes for collection.
-The paid daily workflow is enabled by explicit operator choice despite the
-unproven seven-story yield. The October 19 live window produced six candidates
-from 30 feeds, with one failed feed and one story shortlisted and published.
-Monitor prospective shortlists, cost, visual quality, and failures.
-The October 19 source-expansion test deployed 32 sources and completed the
-unattended preview path: 35 candidates, nine selected stories, a Marble world,
-and public assets with baked interactions. The reviewed preview was promoted to
-the current edition without another generation. One test window does not establish a
-reliable daily minimum; the FDA and PLOS ONE feeds failed independently in
-that run.
+Gemini is the default editorial adapter; Bedrock Nova and Vertex Claude remain
+optional. Source article text is handled ephemerally by this project and sent
+only for reviewed analysis. See the [data boundary](DATA_BOUNDARY.md).
 
 ## 3. Product constraints
 
@@ -158,8 +90,8 @@ short architecture decision record when implemented.
 - Motion for React for interface transitions
 - Spark.js for browser rendering of Gaussian splats
 - Zod plus generated JSON Schema for versioned artifacts
-- Vitest for unit and contract tests
-- Playwright for end-to-end and mobile interaction tests
+- Node's test runner for current unit and contract tests
+- Playwright for planned end-to-end and mobile interaction tests
 - AWS CDK in TypeScript for infrastructure
 - EventBridge Scheduler using `America/Los_Angeles`
 - Step Functions Standard for orchestration
@@ -322,9 +254,8 @@ Estimated effort: 3–5 days
 
 Substantially complete. The repository installs, type-checks, tests, builds, and
 audits dependency licenses without provider credentials. The remaining
-foundation work should be completed as it becomes necessary for the vertical
-slice: add linting, a security policy, a code of conduct, secret scanning, and
-broader frontend tests.
+foundation work includes linting, a security policy, a code of conduct, and
+broader frontend tests. CI and repository secret scanning are in place.
 
 ## Phase 2 — Build one manual vertical slice
 
@@ -398,13 +329,11 @@ development and iterate on composition before automating anything.
 
 ### Current status
 
-In progress. The validated publication schema, fictional ten-story artifact,
-panorama utility, provider-neutral landmark, interaction, and world-operation
-layers, optional Marble 1.1 adapter, approved Marble 1.1 SPZs, locally automated
-3D anchors, browser-backed interaction baker, full resumable edition runner,
-human approval gate, and Spark.js frontend establish the slice. The remaining
-critical path is a sanitized real response fixture, durable cloud asset storage,
-deployed orchestration, and atomic public publication.
+Technical slice complete. The resumable local runner, Marble 1.1 adapter,
+Spark.js viewer, landmark detection, and browser-backed 3D interaction baking
+have been exercised with mock and live editions. The AWS path now copies assets
+into project storage and publishes atomically. A sanitized real provider
+response fixture and repeated artistic QA remain.
 
 ## Phase 3 — Create the editorial engine
 
@@ -447,21 +376,20 @@ constructive stories, and stories that appear positive but lack evidence.
 
 ### Current status
 
-Started. Versioned evaluation and shortlist artifacts separate editorial
+Live baseline. Versioned evaluation and shortlist artifacts separate editorial
 importance from visual potential. Fixture-tested local selection applies a
 credibility floor, deterministic event deduplication, and topic, publisher, and
 geographic caps while preserving an exclusion reason for every rejected
 candidate. An optional bounded model adapter can evaluate discovery metadata;
 shortlisted-article analysis creates evidence-backed headlines, summaries,
 claims, and visual details; deterministic finalization produces up to ten cited
-stories. Live evaluation, corroboration, the larger evaluation set, human
-review, and override storage remain to be implemented.
+stories. Live evaluation is deployed; corroboration, the larger evaluation set,
+and a usable human review and override workflow remain.
 
 A read-only workflow inspector now derives progress from validated artifacts,
 detects stale checksum relationships, and identifies the next editorial or art
 direction stage without introducing a second mutable local state file. It is the
-initial state boundary for a resumable local runner and later Step Functions
-orchestration.
+artifact boundary shared by the local runner and AWS orchestration.
 
 ## Phase 4 — Add bounded story discovery
 
@@ -497,15 +425,11 @@ Estimated effort: 5–10 days
 
 ### Current status
 
-Live baseline complete. The repository has a fixture-tested source contract,
-RSS and Atom discovery, an explicit 16-source allowlist, per-source article
-access modes, bounded HTTP fetching, canonical URL cleanup, exact-URL
-deduplication, per-feed success and failure records, and a shortlisted-article
-reader. A live 24-hour run collected 54 candidates with no failed feeds and
-produced a factual ten-story edition. Article text was processed in memory into
-compact, evidence-checked editorial analysis and was not retained. Conditional
-caching, stronger event clustering, ongoing policy review, source health
-reporting, and daily orchestration remain.
+Live baseline complete. The 32-source RSS/Atom allowlist, bounded fetching,
+per-source access modes, publisher-balanced admission, host pacing, and failure
+isolation are deployed. Shortlisted article text is processed ephemerally into
+original evidence-backed analysis. Conditional caching, stronger event
+clustering, ongoing policy review, and source-health reporting remain.
 
 ## Phase 5 — Develop the image art-direction system
 
@@ -561,9 +485,9 @@ from visual-prominence scores and converts a selected edition into the existing
 structured panorama input. It sends project-written summaries and compact
 visual details rather than source excerpts, validates complete story coverage,
 and records source-grounded details separately from artistic interpretation.
-The Google adapter completed one factual ten-story generation whose panorama
-was successfully converted into a Marble 1.1 world. Multi-edition evaluation
-and image-quality iteration remain.
+The Google adapter has generated factual test panoramas and Marble 1.1 worlds,
+including the current nine-story test edition. Multi-edition evaluation and
+image-quality iteration remain.
 
 ## Phase 6 — Harden world generation and interaction anchors
 
@@ -604,7 +528,7 @@ Estimated effort: 7–12 days
 
 ### Work
 
-- Design the today view as a gallery with the world occupying most of the screen.
+- Keep the explorer's world full-viewport, with story information in overlays.
 - Add restrained loading choreography and transitions.
 - Add story cards, methodology, sources, and edition context.
 - Add previous/next navigation and a visual archive.
@@ -628,18 +552,18 @@ Estimated effort: 6–10 days
 ### Workflow
 
 ```text
-Schedule
+Schedule or manual start
   → acquire edition lock
   → collect candidates
   → normalize and cluster
   → score and propose selection
-  → pause for editorial approval
+  → record a human or explicitly opted-in automated editorial decision
   → create art direction
-  → generate image candidates
-  → pause for image approval
+  → generate one image
+  → record a human or automated image decision
   → generate world
   → validate and stage preview
-  → pause for QA approval
+  → record a human or automated publication decision
   → publish atomically
   → notify
 ```
@@ -652,7 +576,7 @@ Schedule
 - Add edition locks and deterministic execution names.
 - Use Step Functions wait states for external operations; do not hold a Lambda
   invocation open while waiting for world generation.
-- Implement approval callbacks with expiring, authenticated actions.
+- Keep manual review available alongside the explicitly opted-in unattended path.
 - Add stage-level retries, terminal failures, and a dead-letter path.
 - Add cost tags, AWS Budgets, alarms, and per-edition generation counters.
 - Publish by atomically updating a small current-edition pointer only after all
@@ -722,7 +646,7 @@ These are independent experiments, not promises in the critical path:
 - multiple editorial lenses or worlds per day
 - reader-created configurations
 - additional image and world model adapters
-- spatial audio and ambient sound
+- richer spatial audio and narrated editions
 - public contribution and story-nomination workflow
 - comparison of the generated archive across weeks and years
 
@@ -802,67 +726,29 @@ provider access, asset quality, and the desired review experience.
 
 ## 11. Immediate milestone and next steps
 
-The next milestone is **one excellent, navigable, interactive world created from
-one hand-authored ten-story edition**. It is the smallest proof that connects
-the work already in the repository.
+The next milestone is **three consecutive daily editions with a credible story
+mix, correctly placed interactions, and a reliable public experience**. The
+technical chain works; the remaining question is whether it produces good
+editions consistently.
 
-Execute it in this order:
+1. Monitor the enabled 7:30 AM Pacific run, feed failures, story yield, paid
+   retries, and publication status each day.
+2. Review several generated worlds on desktop and mobile: composition,
+   recognizability, hotspot placement, navigation, audio, and fallback behavior.
+3. Improve source coverage and editorial selection only where those observations
+   show a real gap. Keep the source review and ephemeral-data boundary intact.
+4. Add correction and withdrawal procedures, source-health reporting, and
+   reconciled per-edition costs before calling the reference deployment
+   production-ready.
+5. Finish browser, accessibility, security, licensing, and clean-clone release
+   checks. Keep manual review available even when automation is enabled.
 
-1. Add versioned schemas and a fictional ten-story edition fixture. **Complete.**
-2. Make the frontend read that fixture through a typed publication manifest,
-   replacing its component-local demo data. **Complete.**
-3. Produce the corresponding structured art-direction artifact and panorama
-   prompt without making a paid call. **Complete.**
-4. Run the first explicitly approved, cost-capped Nano Banana generation. Review
-   the seam, poles, horizon, landmark separation, and representative viewports;
-   record the result and any transformation in its manifest. **Complete for the
-   fictional ten-story fixture. The equatorial views and seam passed review;
-   the nadir has a visible pole singularity to evaluate in the first Marble
-   experiment.**
-5. Run a read-only World Labs capability probe. **Complete:** the test key is
-   accepted by the legacy World API and rejected by the separate Marble 2 beta
-   API. A sanitized real success fixture is still required.
-6. Implement and contract-test the Marble adapter, operation repository, stable
-   idempotency key, wait/poll strategy, and fixture-backed mock. **Complete and
-   live-validated with Marble 1.1.**
-7. Submit the approved panorama once, persist the operation immediately, and
-   copy the completed world asset into project-owned storage. **Complete for
-   the local artifact store.**
-8. Render that asset in Spark.js and calibrate one canonical view. **Complete.**
-9. Bake ten world-space anchors from normalized panorama targets, while
-   retaining the story index as the always-available interaction path.
-   **Complete with local utilities; production orchestration remains.**
-10. Test desktop, touch, keyboard, reduced motion, fallback behavior, retries,
-    and a clean-clone mock run. Record quality, elapsed time, provider cost, and
-    lessons before starting AWS automation. **The resumable full mock run and
-    retry contracts are complete; browser coverage and clean-clone release
-    verification remain.**
+## 12. Release gate
 
-The milestone is complete only when a fresh local checkout can replay the whole
-flow with mocks, and an approved live run can produce an immutable publication
-manifest that the frontend renders without hand-editing application code.
-
-That evidence should determine the implementation details of the automated
-pipeline—not the other way around.
-
-## 12. Critical path after the milestone
-
-Once the manual slice passes its artistic and technical decision gate:
-
-1. Finish the product, source, correction, and review policies from Phase 0.
-2. Build the editorial engine against an evaluation set.
-3. Add bounded, allowlisted story discovery.
-4. Iterate on art direction and world fidelity with several test editions.
-5. Build the archive and public gallery routes.
-6. Implement the AWS artifact store and state repository.
-7. Move the proven local stages into the Step Functions workflow.
-8. Add editorial approvals, atomic publication, monitoring, and cost reporting.
-9. Run three staged editions and complete release, accessibility, security, and
-   license reviews.
-
-This ordering keeps the unproven artistic translation and provider integration
-on the critical path. News ingestion and cloud automation should not grow around
-an experience that has not yet worked once from end to end.
+A working scheduled pipeline is not, by itself, a finished daily publication.
+The release gate is repeated quality and reliability: visitors can navigate and
+understand each world, sources remain traceable, failures leave the prior world
+intact, and operators can correct or withdraw a problematic edition.
 
 ## 13. Verified external assumptions
 

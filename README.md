@@ -251,13 +251,13 @@ For opt-in live provider runs, copy `pipeline/.env.example` to `pipeline/.env`
 and populate the server-only keys documented there. The populated file is
 ignored by Git and must never be committed.
 
-### Validate the AWS foundation
+### Validate the AWS infrastructure
 
-The AWS CDK foundation in `infra/aws/` defines private artifact storage,
-static-site hosting for both web applications, optional Route 53 custom-domain
-records, public-asset delivery, edition state, secret references, monitoring,
-and a schedule-disabled fixture workflow. It does not deploy resources, upload
-site builds, call paid providers, or run the live daily pipeline by itself.
+The AWS CDK application in `infra/aws/` defines hosting, private artifacts,
+publication state, monitoring, and the live daily pipeline. Its schedule is
+disabled in a fresh deployment; the reference development stack has explicitly
+enabled paid generation and public publication. Local synthesis does not deploy
+resources or call providers.
 
 ```bash
 cd pipeline
@@ -282,20 +282,20 @@ before opening an issue or pull request.
 
 Original code in this repository is released under the [MIT License](LICENSE).
 Direct runtime dependencies must use approved permissive open-source licenses;
-the dependency graphs are enforced by `npm run license:check` in `frontend/`,
-`pipeline/`, and `infra/aws/`. See
+the dependency graphs are checked by `npm run license:check` in `frontend/`,
+`marketing/`, `pipeline/`, and `infra/aws/`. See
 [Third-Party Notices](THIRD_PARTY_NOTICES.md) and the full
 [licensing and service-boundary policy](docs/LICENSING.md).
 
-The reference deployment is being designed for AWS, but cloud-specific code will
-remain behind replaceable interfaces so contributors can add other providers.
+The reference deployment runs on AWS, while cloud-specific code remains behind
+replaceable interfaces so contributors can add other providers.
 AWS, Google Gemini/Nano Banana, and World Labs Marble are proprietary hosted
 services and are not covered by the repository's MIT license. Users enable those
 adapters with their own accounts, credentials, billing, and acceptance of the
 providers' current terms. The local fixture-driven frontend requires none of
 those credentials.
 
-Paid services are optional and all live calls require deliberate operator
-action. See [Costs and usage](docs/COSTS.md) for the expected requests per daily
-edition, where spend can occur, and the usage data the project intends to make
-visible.
+Paid services are optional for local development. Deploying an enabled daily
+schedule authorizes unattended paid calls; review its settings and costs before
+turning it on. See the [cost guide](docs/COSTS.md) for a daily estimate and the
+main ways spending can grow.

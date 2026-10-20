@@ -128,12 +128,13 @@ Source adapters must respect each source's license, terms, robots directives,
 rate limits, and permitted retention. A public URL is not permission to copy or
 redistribute an article.
 
-The reference implementation should prefer no-key RSS/Atom feeds and primary
-institutional sources. Optional commercial news or social APIs may require the
-user's own credentials and terms acceptance. Article text and verbatim evidence
-are processed ephemerally in memory and discarded. The project stores citations,
-content hashes, and original summaries; it does not relicense, retain, or
-republish source articles.
+The reference implementation uses reviewed RSS/Atom feeds and makes a
+good-faith effort to follow each source's access and reuse rules. Inclusion in
+the allowlist is not a blanket license for its content. Optional commercial
+news or social APIs may require the user's own agreement. The project processes
+article text ephemerally, then keeps citations, content hashes, and original
+summaries rather than article copies or verbatim passages. See the
+[source policy](editorial-policy/SOURCES.md).
 
 ## Credentials required by the reference workflow
 
