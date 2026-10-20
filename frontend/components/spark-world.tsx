@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import type {
   SparkRenderer as SparkRendererInstance,
@@ -15,6 +15,7 @@ import {
   smootherstep,
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
+import type { StickValue } from "@/lib/touch-navigation";
 
 export type ViewerState = "poster" | "loading" | "ready" | "error";
 
@@ -50,6 +51,7 @@ type SparkWorldProps = {
   splatSha256?: string;
   splatUrl?: string;
   enableBake?: boolean;
+  mobileMovementRef?: RefObject<StickValue>;
 };
 
 export function SparkWorld({
@@ -62,6 +64,7 @@ export function SparkWorld({
   splatSha256,
   splatUrl,
   enableBake = false,
+  mobileMovementRef,
 }: SparkWorldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const anchorElementsRef = useRef(new Map<string, HTMLElement>());
@@ -296,7 +299,7 @@ export function SparkWorld({
 
         let yaw = 0;
         let pitch = 0;
-        let dragging = false;
+        let lookPointerId: number | null = null;
         let lastPointerX = 0;
         let lastPointerY = 0;
         const pressedKeys = new Set<string>();
@@ -342,16 +345,16 @@ export function SparkWorld({
         };
         const onKeyUp = (event: KeyboardEvent) => pressedKeys.delete(event.code);
         const onPointerDown = (event: PointerEvent) => {
-          if (event.button !== 0) return;
+          if (event.button !== 0 || lookPointerId !== null) return;
           cancelCameraFocus();
           canvas.focus();
-          dragging = true;
+          lookPointerId = event.pointerId;
           lastPointerX = event.clientX;
           lastPointerY = event.clientY;
           canvas.setPointerCapture(event.pointerId);
         };
         const onPointerMove = (event: PointerEvent) => {
-          if (!dragging) return;
+          if (lookPointerId !== event.pointerId) return;
           yaw -= (event.clientX - lastPointerX) * 0.0025;
           pitch -= (event.clientY - lastPointerY) * 0.0025;
           pitch = Math.max(-Math.PI / 2 + 0.02, Math.min(Math.PI / 2 - 0.02, pitch));
@@ -360,8 +363,12 @@ export function SparkWorld({
           updateCameraRotation();
         };
         const onPointerUp = (event: PointerEvent) => {
-          dragging = false;
+          if (lookPointerId !== event.pointerId) return;
+          lookPointerId = null;
           if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        };
+        const onLostPointerCapture = (event: PointerEvent) => {
+          if (lookPointerId === event.pointerId) lookPointerId = null;
         };
         const onWheel = (event: WheelEvent) => {
           if (!camera) return;
@@ -380,6 +387,7 @@ export function SparkWorld({
         canvas.addEventListener("pointermove", onPointerMove);
         canvas.addEventListener("pointerup", onPointerUp);
         canvas.addEventListener("pointercancel", onPointerUp);
+        canvas.addEventListener("lostpointercapture", onLostPointerCapture);
         canvas.addEventListener("wheel", onWheel, { passive: false });
         removeInputListeners.push(
           () => window.removeEventListener("keydown", onKeyDown),
@@ -389,6 +397,7 @@ export function SparkWorld({
           () => canvas.removeEventListener("pointermove", onPointerMove),
           () => canvas.removeEventListener("pointerup", onPointerUp),
           () => canvas.removeEventListener("pointercancel", onPointerUp),
+          () => canvas.removeEventListener("lostpointercapture", onLostPointerCapture),
           () => canvas.removeEventListener("wheel", onWheel),
         );
 
@@ -466,6 +475,9 @@ export function SparkWorld({
               }
             }
 
+            const stick = mobileMovementRef?.current;
+            if (stick && (stick.x !== 0 || stick.y !== 0)) cancelCameraFocus();
+
             if (focusTransition) {
               focusTransition.elapsed = Math.min(
                 focusTransition.elapsed + deltaSeconds,
@@ -503,9 +515,15 @@ export function SparkWorld({
               if (pressedKeys.has("KeyA")) movement.sub(right);
               if (pressedKeys.has("KeyE")) movement.add(up);
               if (pressedKeys.has("KeyQ")) movement.sub(up);
+              if (stick) {
+                movement.addScaledVector(forward, stick.y);
+                movement.addScaledVector(right, stick.x);
+              }
               if (movement.lengthSq() > 0) {
                 const boost = pressedKeys.has("ShiftLeft") || pressedKeys.has("ShiftRight") ? 3 : 1;
-                targetVelocity.copy(movement).normalize().multiplyScalar(flightSpeed * boost);
+                targetVelocity.copy(movement);
+                if (targetVelocity.lengthSq() > 1) targetVelocity.normalize();
+                targetVelocity.multiplyScalar(flightSpeed * boost);
               } else {
                 targetVelocity.set(0, 0, 0);
               }
@@ -640,7 +658,7 @@ export function SparkWorld({
       spark?.dispose();
       renderer?.dispose();
     };
-  }, [enableBake, splatSha256, splatUrl]);
+  }, [enableBake, mobileMovementRef, splatSha256, splatUrl]);
 
   const showPoster = viewerState === "poster" || viewerState === "error";
 

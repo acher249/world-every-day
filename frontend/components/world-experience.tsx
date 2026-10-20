@@ -7,10 +7,12 @@ import {
   type ViewerState,
   type WorldAnchor,
 } from "@/components/spark-world";
+import { MobileJoystick } from "@/components/mobile-joystick";
 import { cycleId } from "@/lib/spatial-navigation";
 import { pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
 import { resolveProjectSiteUrl } from "@/lib/site-links";
 import { canRenderWorldInteractions } from "@/lib/world-interactions";
+import type { StickValue } from "@/lib/touch-navigation";
 import type {
   PublicationManifest,
   PublicationStory,
@@ -44,6 +46,12 @@ const controls = [
   { action: "Move forward or back", keys: ["Scroll"] },
   { action: "Cycle stories", keys: ["←", "→"] },
   { action: "Close a panel", keys: ["Esc"] },
+] as const;
+const mobileControls = [
+  { action: "Move", keys: ["Left stick"] },
+  { action: "Look around", keys: ["Drag the world"] },
+  { action: "Open a story", keys: ["Tap a landmark"] },
+  { action: "Close a panel", keys: ["Tap outside"] },
 ] as const;
 
 function ArrowUpRight() {
@@ -249,18 +257,25 @@ function ControlsModal({ onClose }: { onClose: () => void }) {
             <CloseIcon />
           </button>
         </motion.header>
-        <motion.div className="controls-list" variants={staggeredText}>
+        <motion.div className="controls-list desktop-controls" variants={staggeredText}>
           {controls.map((control) => (
             <motion.div className="control-row" key={control.action} variants={textReveal}>
               <span>{control.action}</span>
               <span className="control-keys">
                 {control.keys.map((key) => (
-                  key === "Mouse drag" ? (
-                    <span className="responsive-control-key" key={key}>
-                      <kbd className="desktop-control-key">Mouse drag</kbd>
-                      <kbd className="mobile-control-key">Drag</kbd>
-                    </span>
-                  ) : <kbd key={key}>{key}</kbd>
+                  <kbd key={key}>{key}</kbd>
+                ))}
+              </span>
+            </motion.div>
+          ))}
+        </motion.div>
+        <motion.div className="controls-list mobile-controls" variants={staggeredText}>
+          {mobileControls.map((control) => (
+            <motion.div className="control-row" key={control.action} variants={textReveal}>
+              <span>{control.action}</span>
+              <span className="control-keys">
+                {control.keys.map((key) => (
+                  <kbd key={key}>{key}</kbd>
                 ))}
               </span>
             </motion.div>
@@ -304,6 +319,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   const [archiveOpen, setArchiveOpen] = useState(false);
   const archiveRef = useRef<HTMLDivElement>(null);
   const [viewerState, setViewerState] = useState<ViewerState>(splatUrl ? "loading" : "poster");
+  const mobileMovementRef = useRef<StickValue>({ x: 0, y: 0 });
   const activeStory = useMemo(
     () => stories.find((story) => story.id === activeId) ?? null,
     [activeId, stories],
@@ -394,6 +410,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       <div className="world-canvas">
         <SparkWorld
           focusedAnchorId={activeId}
+          mobileMovementRef={mobileMovementRef}
           posterSrc={publication.world.poster.src}
           splatSha256={renderedSplatSha256}
           splatUrl={splatUrl}
@@ -547,7 +564,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           transition={{ duration: 0.45, delay: 0.26, ease }}
         >
           <span className="desktop-interaction-hint">Drag to look · WASD to fly · Shift to boost</span>
-          <span className="mobile-interaction-hint">Drag to look · Tap landmarks to explore</span>
+          <span className="mobile-interaction-hint">Left stick to move · Drag to look · Tap landmarks</span>
         </motion.p>
       </div>
 
@@ -579,6 +596,20 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           <kbd>→</kbd>
         </span>
       </motion.div>
+
+      {viewerState === "ready" && <MobileJoystick movementRef={mobileMovementRef} />}
+
+      {(indexOpen || activeStory) && (
+        <button
+          type="button"
+          className="panel-dismiss-zone"
+          aria-label="Close the open panel"
+          onClick={() => {
+            setIndexOpen(false);
+            setActiveId(null);
+          }}
+        />
+      )}
 
       <AnimatePresence>
         {indexOpen ? (
