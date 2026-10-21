@@ -5,7 +5,7 @@ import { stickValueAt, type StickValue } from "@/lib/touch-navigation";
 
 const neutral: StickValue = { x: 0, y: 0 };
 
-export function MobileJoystick({ movementRef }: { movementRef: RefObject<StickValue> }) {
+export function MobileJoystick({ movementRef, onMove }: { movementRef: RefObject<StickValue>; onMove?: () => void }) {
   const activePointer = useRef<number | null>(null);
   const [position, setPosition] = useState<StickValue>(neutral);
 
@@ -28,6 +28,7 @@ export function MobileJoystick({ movementRef }: { movementRef: RefObject<StickVa
   function update(event: PointerEvent<HTMLDivElement>) {
     const value = stickValueAt(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
     movementRef.current = value;
+    if (value.x !== 0 || value.y !== 0) onMove?.();
     setPosition(value);
   }
 

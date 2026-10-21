@@ -357,6 +357,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [previewTitleId, setPreviewTitleId] = useState<string | null>(null);
   const focusedIdRef = useRef<string | null>(null);
   const [focusCycleRevision, setFocusCycleRevision] = useState(0);
   const [focusResetRevision, setFocusResetRevision] = useState(0);
@@ -375,9 +376,12 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     [activeId, stories],
   );
   const storyIds = useMemo(() => stories.map(({ id }) => id), [stories]);
+  const previewStory = stories.find((story) => story.id === previewTitleId);
+  const dismissPreviewTitle = useCallback(() => setPreviewTitleId(null), []);
   const playSound = useCallback((sound: WorldSound) => audioRef.current?.play(sound), []);
   const setMovementSound = useCallback((intensity: number) => audioRef.current?.setMovement(intensity), []);
   const closeStory = useCallback(() => {
+    setPreviewTitleId(null);
     setActiveId(null);
     focusedIdRef.current = null;
     setFocusedId(null);
@@ -389,6 +393,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     focusedIdRef.current = nextId;
     setFocusedId(nextId);
     setActiveId(openPanel ? nextId : null);
+    setPreviewTitleId(openPanel ? null : nextId);
     setIndexOpen(false);
   }, [playSound, storyIds]);
   const anchors = useMemo<WorldAnchor[]>(
@@ -510,6 +515,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     setFocusCycleRevision((revision) => revision + 1);
     playSound(openPanel ? "story" : "travel");
     setActiveId(openPanel ? story.id : null);
+    setPreviewTitleId(openPanel ? null : story.id);
     focusedIdRef.current = story.id;
     setFocusedId(story.id);
     setIndexOpen(false);
@@ -715,6 +721,22 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         </motion.div>
       </header>
 
+      <AnimatePresence mode="wait">
+        {previewStory && !activeId && !indexOpen && !controlsOpen && !archiveOpen && (
+          <motion.p
+            key={previewStory.id}
+            className="mobile-story-title"
+            role="status"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            {previewStory.title}
+          </motion.p>
+        )}
+      </AnimatePresence>
+
       <div className="viewer-footer">
         <motion.div
           className="edition-stamp"
@@ -780,7 +802,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         </motion.div>
       )}
 
-      {viewerState === "ready" && <MobileJoystick movementRef={mobileMovementRef} />}
+      {viewerState === "ready" && <MobileJoystick movementRef={mobileMovementRef} onMove={dismissPreviewTitle} />}
 
       {(indexOpen || activeStory) && (
         <button
