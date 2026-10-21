@@ -16,6 +16,7 @@ import {
   smootherstep,
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
+import { cameraRelativeFocusCenter, defaultFocusRadius, focusShapeForLandmark, focusSweepWeight, shouldTravelFocus, type ImageBoundingBox } from "@/lib/focus-region";
 import { withFocusSplatShader } from "@/lib/splat-focus-shader";
 import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, viewerPixelRatio } from "@/lib/viewer-presentation";
 import {
@@ -39,6 +40,8 @@ export type WorldAnchor = WorldAnchorBase & ({
   kind: "story";
   active: boolean;
   category: string;
+  imageBoundingBox?: ImageBoundingBox;
+  imageTarget: { x: number; y: number };
   label: string;
   number: string;
   summary: string;
@@ -193,7 +196,10 @@ export function SparkWorld({
         const focusShader = enableBake ? null : withFocusSplatShader(spark.material.vertexShader);
         const focusCenterUniform = { value: new Vector3() };
         const focusRadiiUniform = { value: new Vector3(1, 1, 1) };
+        const focusCenterViewUniform = { value: new Vector3() };
+        const focusInverseRadiiUniform = { value: new Vector3(1, 1, 1) };
         const focusStrengthUniform = { value: 0 };
+        const focusSweepUniform = { value: 0 };
         const focusOpacityUniform = { value: 0.78 };
         const focusWaveTimeUniform = { value: 0 };
         const focusWaveFrequencyUniform = { value: 0 };
@@ -201,9 +207,10 @@ export function SparkWorld({
         if (focusShader) {
           spark.material.vertexShader = focusShader;
           Object.assign(spark.material.uniforms, {
-            focusCenterWorld: focusCenterUniform,
-            focusRadii: focusRadiiUniform,
+            focusCenterView: focusCenterViewUniform,
+            focusInverseRadii: focusInverseRadiiUniform,
             focusStrength: focusStrengthUniform,
+            focusSweep: focusSweepUniform,
             focusDotRadius: { value: 3.15 },
             focusOutsideOpacity: focusOpacityUniform,
             focusWaveTime: focusWaveTimeUniform,
@@ -414,12 +421,19 @@ export function SparkWorld({
         const initialDepthOfField = depthOfFieldTarget(navigationRadius, null, mobileLayoutQuery.matches);
         spark.focalDistance = initialDepthOfField.focalDistance;
         spark.apertureAngle = initialDepthOfField.apertureAngle;
-        const bubbleRadius = Math.max(navigationRadius * 0.28, 0.8) * 1.3;
+        const defaultBubbleRadius = defaultFocusRadius(navigationRadius);
+        const landmarkShapes = new Map<string, InstanceType<typeof Vector3>>();
+        const bubbleShape = new Vector3(defaultBubbleRadius * 1.3, defaultBubbleRadius, defaultBubbleRadius * 1.3);
+        const bubbleCycleStartShape = bubbleShape.clone();
         let bubbleTargetId: string | null = null;
         const bubblePoint = new Vector3();
         const bubbleCycleStart = new Vector3();
+        const bubbleStartView = new Vector3();
+        const bubbleEndView = new Vector3();
+        const bubbleInverseRotation = new Quaternion();
         let bubbleCycleActive = false;
         let bubbleCycleTargetId: string | null = null;
+        let directHighlightId: string | null = null;
         let lastFocusCycleRevision = focusCycleRevisionRef.current;
         let lastFocusResetRevision = focusResetRevisionRef.current;
         let focusTransition: {
@@ -518,7 +532,7 @@ export function SparkWorld({
 
         const projectedAnchor = new Vector3();
         const anchorInCameraSpace = new Vector3();
-        const projectedAnchorPositions = new Map<string, { x: number; y: number }>();
+        const projectedAnchorPositions = new Map<string, { x: number; y: number; size: number }>();
         const movement = new Vector3();
         const velocity = new Vector3();
         const targetVelocity = new Vector3();
@@ -579,7 +593,10 @@ export function SparkWorld({
               hoveredAnchorIdRef.current = null;
               cycleHoverLockedRef.current = true;
               bubbleCycleStart.copy(focusCenterUniform.value);
-              bubbleCycleActive = true;
+              bubbleCycleStartShape.copy(bubbleShape);
+              bubbleCycleActive = shouldTravelFocus(lastFocusedAnchorId, requestedFocusId, bubbleTargetId);
+              directHighlightId = bubbleCycleActive ? null : requestedFocusId;
+              if (lastFocusedAnchorId === null) focusSweepUniform.value = 0;
               bubbleCycleTargetId = requestedFocusId;
             }
             if (requestedFocusId !== lastFocusedAnchorId || panelOpen !== lastFocusPanelOpen) {
@@ -639,13 +656,21 @@ export function SparkWorld({
                   yaw = cameraEuler.y;
                 } else {
                   focusTransition = {
-                    duration: 1.75,
+                    duration: 2.4,
                     elapsed: 0,
                     position: destination.clone(),
                     rotation: destinationRotation.clone(),
                     startPosition: camera.position.clone(),
                     startRotation: camera.quaternion.clone(),
                   };
+                  bubbleInverseRotation.copy(camera.quaternion).invert();
+                  bubbleStartView.copy(bubbleCycleStart).sub(camera.position).applyQuaternion(bubbleInverseRotation);
+                  bubbleInverseRotation.copy(destinationRotation).invert();
+                  bubbleEndView.copy(focusTarget).sub(destination).applyQuaternion(bubbleInverseRotation);
+                  // A newly appearing effect starts in view, not at an old invisible target.
+                  if (focusStrengthUniform.value < 0.01 || bubbleStartView.z >= 0) {
+                    bubbleStartView.set(0, 0, -bubbleEndView.length());
+                  }
                 }
               }
             }
@@ -769,24 +794,51 @@ export function SparkWorld({
             const effectId = desktopEffects
               ? focusEffectId(requestedFocusId, hoveredId, panelOpen, cycleHoverLockedRef.current)
               : requestedFocusId;
-            const effectAnchor = anchorsRef.current.find((anchor) => anchor.id === effectId && anchor.kind === "story");
+            const effectAnchor = anchorsRef.current.find(
+              (anchor): anchor is Extract<WorldAnchor, { kind: "story" }> => anchor.id === effectId && anchor.kind === "story",
+            );
+            let targetSweep = 0;
             if (focusShader && effectAnchor) {
+              let targetShape = landmarkShapes.get(effectAnchor.id);
+              if (targetShape === undefined) {
+                const shape = focusShapeForLandmark(
+                  navigationRadius,
+                  effectAnchor.imageTarget,
+                  effectAnchor.worldPosition,
+                  effectAnchor.imageBoundingBox,
+                );
+                targetShape = new Vector3(shape.x, shape.y, shape.z);
+                landmarkShapes.set(effectAnchor.id, targetShape);
+              }
               bubblePoint.set(effectAnchor.worldPosition.x, effectAnchor.worldPosition.y, effectAnchor.worldPosition.z);
+              const activateDirectly = directHighlightId === effectAnchor.id;
               if (bubbleCycleActive && effectAnchor.id === bubbleCycleTargetId && focusTransition && !reducedMotionQuery.matches) {
                 const progress = smootherstep(focusTransition.elapsed / focusTransition.duration);
-                focusCenterUniform.value.lerpVectors(bubbleCycleStart, bubblePoint, progress);
+                // Begin settling well before arrival, using actual elapsed time.
+                targetSweep = focusSweepWeight(focusTransition.elapsed / focusTransition.duration);
+                // Interpolate in camera space so the focus follows the same turn as the view.
+                cameraRelativeFocusCenter(bubbleStartView, bubbleEndView, progress,
+                  camera.position, camera.quaternion, focusCenterUniform.value);
+                bubbleShape.lerpVectors(bubbleCycleStartShape, targetShape, progress);
               } else {
                 bubbleCycleActive = false;
-                if (bubbleTargetId === null || reducedMotionQuery.matches) focusCenterUniform.value.copy(bubblePoint);
-                else focusCenterUniform.value.lerp(bubblePoint, 1 - Math.exp(-7 * deltaSeconds));
+                if (bubbleTargetId === null || reducedMotionQuery.matches || (activateDirectly && bubbleTargetId !== effectAnchor.id)) {
+                  // First selection fades in at its final extent, not from a travel shape.
+                  focusCenterUniform.value.copy(bubblePoint);
+                  bubbleShape.copy(targetShape);
+                } else {
+                  focusCenterUniform.value.lerp(bubblePoint, 1 - Math.exp(-7 * deltaSeconds));
+                  bubbleShape.lerp(targetShape, 1 - Math.exp(-7 * deltaSeconds));
+                }
               }
+              if (activateDirectly) directHighlightId = null;
               bubbleTargetId = effectAnchor.id;
               focusStrengthUniform.value += (1 - focusStrengthUniform.value) * (reducedMotionQuery.matches ? 1 : 1 - Math.exp(-5 * deltaSeconds));
               const targetOpacity = storyPanelOpenRef.current && effectAnchor.id === requestedFocusId ? 0.72 : 0.84;
               focusOpacityUniform.value += (targetOpacity - focusOpacityUniform.value) * (1 - Math.exp(-5 * deltaSeconds));
               const breathe = reducedMotionQuery.matches ? 1 : 1 + Math.sin(frameTime * 0.0017) * 0.045;
-              focusRadiiUniform.value.set(bubbleRadius * 1.3 * breathe, bubbleRadius / breathe, bubbleRadius * 1.3 / breathe);
-              focusWaveTimeUniform.value = frameTime * 0.001;
+              focusRadiiUniform.value.set(bubbleShape.x * breathe, bubbleShape.y / breathe, bubbleShape.z / breathe);
+              focusWaveTimeUniform.value = reducedMotionQuery.matches ? 0 : frameTime * 0.001;
               focusWaveAmplitudeUniform.value = reducedMotionQuery.matches ? 0 : navigationRadius * 0.055;
             } else {
               bubbleCycleActive = false;
@@ -796,6 +848,10 @@ export function SparkWorld({
                 bubbleTargetId = null;
               }
             }
+            // Preserve continuity on arrival, interruption, and rapid next/previous input.
+            focusSweepUniform.value += (targetSweep - focusSweepUniform.value)
+              * (reducedMotionQuery.matches ? 1 : 1 - Math.exp(-5 * deltaSeconds));
+            if (focusSweepUniform.value < 0.0001) focusSweepUniform.value = 0;
             if (spark) {
               const anchorDistance = effectAnchor
                 ? camera.position.distanceTo(focalPoint.set(effectAnchor.worldPosition.x, effectAnchor.worldPosition.y, effectAnchor.worldPosition.z))
@@ -809,6 +865,16 @@ export function SparkWorld({
             const boundaryTarget = boundaryOpacity(camera.position.length(), navigationRadius);
             boundaryOpacityUniform.value += (boundaryTarget - boundaryOpacityUniform.value) *
               (reducedMotionQuery.matches ? 1 : 1 - Math.exp(-5 * deltaSeconds));
+            if (focusShader && focusStrengthUniform.value > 0) {
+              // Camera-relative values are shared by every splat vertex in this draw.
+              camera.updateWorldMatrix(true, false);
+              focusCenterViewUniform.value.copy(focusCenterUniform.value).applyMatrix4(camera.matrixWorldInverse);
+              focusInverseRadiiUniform.value.set(
+                1 / focusRadiiUniform.value.x,
+                1 / focusRadiiUniform.value.y,
+                1 / focusRadiiUniform.value.z,
+              );
+            }
             renderer.render(scene, camera);
             if (boundaryScene && boundaryOpacityUniform.value > 0.003) {
               const autoClear = renderer.autoClear;
@@ -839,25 +905,6 @@ export function SparkWorld({
                 Math.abs(projectedAnchor.x) <= 1.08 &&
                 Math.abs(projectedAnchor.y) <= 1.08;
 
-              const screenX = (projectedAnchor.x * 0.5 + 0.5) * 100;
-              const screenY = (-projectedAnchor.y * 0.5 + 0.5) * 100;
-              if (anchor.kind === "story") {
-                const scale = hotspotVisualScale(screenX, screenY);
-                const visualSize = `${(50 * scale).toFixed(1)}px`;
-                if (element.style.getPropertyValue("--hotspot-visual-size") !== visualSize) {
-                  element.style.setProperty("--hotspot-visual-size", visualSize);
-                  element.style.setProperty("--hotspot-core-size", `${(34 * scale).toFixed(1)}px`);
-                }
-              }
-              const previousPosition = projectedAnchorPositions.get(anchor.id);
-              if (
-                !previousPosition ||
-                Math.abs(screenX - previousPosition.x) > 0.005 ||
-                Math.abs(screenY - previousPosition.y) > 0.005
-              ) {
-                element.style.transform = `translate3d(${screenX}vw, ${screenY}vh, 0) translate(-50%, -50%)`;
-                projectedAnchorPositions.set(anchor.id, { x: screenX, y: screenY });
-              }
               if (element.dataset.visible !== String(visible)) {
                 element.dataset.visible = String(visible);
                 element.style.opacity = visible ? "1" : "0";
@@ -865,6 +912,32 @@ export function SparkWorld({
                 element.style.pointerEvents = visible ? "auto" : "none";
                 element.tabIndex = visible ? 0 : -1;
                 element.setAttribute("aria-hidden", visible ? "false" : "true");
+              }
+              if (!visible) continue;
+
+              const screenX = (projectedAnchor.x * 0.5 + 0.5) * 100;
+              const screenY = (-projectedAnchor.y * 0.5 + 0.5) * 100;
+              let previousPosition = projectedAnchorPositions.get(anchor.id);
+              if (!previousPosition) {
+                previousPosition = { x: Infinity, y: Infinity, size: 0 };
+                projectedAnchorPositions.set(anchor.id, previousPosition);
+              }
+              if (anchor.kind === "story") {
+                const scale = hotspotVisualScale(screenX, screenY);
+                const visualSize = Math.round(50 * scale * 10) / 10;
+                if (previousPosition.size !== visualSize) {
+                  element.style.setProperty("--hotspot-visual-size", `${visualSize}px`);
+                  element.style.setProperty("--hotspot-core-size", `${(34 * scale).toFixed(1)}px`);
+                  previousPosition.size = visualSize;
+                }
+              }
+              if (
+                Math.abs(screenX - previousPosition.x) > 0.005 ||
+                Math.abs(screenY - previousPosition.y) > 0.005
+              ) {
+                element.style.transform = `translate3d(${screenX}vw, ${screenY}vh, 0) translate(-50%, -50%)`;
+                previousPosition.x = screenX;
+                previousPosition.y = screenY;
               }
             }
           }

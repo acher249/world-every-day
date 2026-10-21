@@ -90,6 +90,7 @@ a { color: inherit; }
 .hotspot-pulse { position: absolute; inset: 2px; border: 1px solid rgba(255, 255, 255, .6); border-radius: 50%; animation: breathe 2.8s ease-out infinite; }
 .hotspot-orbit, .story-echo-orbit { position: absolute; inset: 1px; border: 1px solid rgba(244, 242, 234, .24); border-top-color: rgba(244, 242, 234, .85); border-radius: 50%; animation: orbit-marker 7s linear infinite; }
 .hotspot-orbit i, .story-echo-orbit i { position: absolute; left: 50%; top: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 9px var(--cyan); }
+.hotspot[data-visible="false"] *, .story-echo[data-visible="false"] * { animation-play-state: paused; }
 .hotspot:hover .hotspot-core, .hotspot:focus-visible .hotspot-core, .hotspot.is-active .hotspot-core { background: rgba(4, 14, 14, .94); box-shadow: 0 3px 18px rgba(0, 0, 0, .42), 0 0 13px rgba(145, 233, 228, .32); }
 .hotspot:focus-visible { outline: none; }
 .hotspot:focus-visible .hotspot-visual { outline: 1px solid var(--cyan); outline-offset: 4px; border-radius: 50%; }
@@ -187,7 +188,7 @@ a { color: inherit; }
   .viewer-status { display: none; }
   .sound-controls { top: 76px; right: 14px; }
   .sound-controls[data-shifted="true"] { right: calc(14px + var(--story-panel-width)); }
-  .sound-controls > .hud-button { width: 44px; padding: 0; }
+  .sound-controls > .sound-toggle { width: 44px; padding: 0; }
   .sound-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .viewer-status > span:first-child { width: 8px; height: 8px; }
   .controls-button { width: 44px; padding: 0; }

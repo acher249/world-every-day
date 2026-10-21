@@ -7,30 +7,58 @@ export function withFocusSplatShader(source: string): string | null {
 
   return source
     .replace(uniforms, `${uniforms}
-uniform vec3 focusCenterWorld;
-uniform vec3 focusRadii;
+uniform vec3 focusCenterView;
+uniform vec3 focusInverseRadii;
+uniform float focusSweep;
 uniform float focusStrength;
 uniform float focusDotRadius;
 uniform float focusOutsideOpacity;
 uniform float focusWaveTime;
 uniform float focusWaveFrequency;
-uniform float focusWaveAmplitude;`)
+uniform float focusWaveAmplitude;
+float focusBlobFalloff(vec3 point) {
+  float distanceFromCenter = length(point);
+  // Distort only the feathered boundary; avoid noise textures and extra passes.
+  if (distanceFromCenter > 0.25 && distanceFromCenter < 2.1) {
+    float phase = focusWaveTime * 0.32;
+    float wobble = 0.23 * sin(point.x * 2.3 + point.y * 1.4 + phase)
+      + 0.15 * sin(point.y * 2.7 - point.x * 1.1 - phase * 0.7);
+    distanceFromCenter /= 1.0 + wobble;
+  }
+  return smoothstep(0.48, 1.4, distanceFromCenter);
+}`)
     .replace(center, `${center}
-    vec3 focusCenterView = (viewMatrix * vec4(focusCenterWorld, 1.0)).xyz;
-    float focusDistance = length((viewCenter - focusCenterView) / focusRadii);
-    float focusFalloff = focusStrength * smoothstep(0.72, 1.32, focusDistance);
+    float focusFalloff = 0.0;
+    // Uniform branch: the whole draw skips focus work when the effect is idle.
+    if (focusStrength > 0.0) {
+      float spatialFalloff = focusBlobFalloff((viewCenter - focusCenterView) * focusInverseRadii);
+      // Travel uses a tighter aperture, capped in angular size so a large
+      // landmark cannot expand the sweep across most of the view.
+      if (focusSweep > 0.0 && viewCenter.z < -0.01 && focusCenterView.z < -0.01) {
+        vec2 projectedOffset = viewCenter.xy * (focusCenterView.z / viewCenter.z) - focusCenterView.xy;
+        vec2 sweepInverseRadii = max(focusInverseRadii.xy / 0.85,
+          vec2(1.0) / (-focusCenterView.z * vec2(0.34, 0.28)));
+        float apertureFalloff = focusBlobFalloff(vec3(projectedOffset * sweepInverseRadii, 0.0));
+        // Replace, rather than union with, the broad spatial bubble during travel.
+        spatialFalloff = mix(spatialFalloff, apertureFalloff, focusSweep);
+      }
+      focusFalloff = focusStrength * spatialFalloff;
+    }
     // Broad, slow world-space swells affect only the reduced outer splats.
     if (focusWaveAmplitude > 0.0 && focusFalloff > 0.001) {
       float wavePhase = dot(center.xz, vec2(0.82, 0.57)) * focusWaveFrequency - focusWaveTime * 0.5;
-      float swell = sin(wavePhase) + 0.35 * sin(wavePhase * 1.7 + focusWaveTime * 0.12);
-      vec3 waveOffset = vec3(0.22 * cos(wavePhase), swell, 0.22 * sin(wavePhase))
+      float waveSin = sin(wavePhase);
+      float swell = waveSin + 0.35 * sin(wavePhase * 1.7 + focusWaveTime * 0.12);
+      vec3 waveOffset = vec3(0.22 * cos(wavePhase), swell, 0.22 * waveSin)
         * (focusWaveAmplitude * focusFalloff);
       viewCenter += (viewMatrix * vec4(waveOffset, 0.0)).xyz;
     }`)
     .replace(radius, `${radius}
     // A uniform screen-space radius keeps the distant dots circular and even.
-    float dotRadius = focusDotRadius;
-    scale1 = mix(scale1, dotRadius, focusFalloff);
-    scale2 = mix(scale2, dotRadius, focusFalloff);
-    vRgba.a *= mix(1.0, focusOutsideOpacity, focusFalloff);`);
+    if (focusStrength > 0.0) {
+      float dotRadius = focusDotRadius;
+      scale1 = mix(scale1, dotRadius, focusFalloff);
+      scale2 = mix(scale2, dotRadius, focusFalloff);
+      vRgba.a *= mix(1.0, focusOutsideOpacity, focusFalloff);
+    }`);
 }

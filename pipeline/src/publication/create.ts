@@ -38,10 +38,12 @@ export function createPublicationManifest({
   }
   const subjects = new Map(artDirection.subjects.map((subject) => [subject.storyId, subject]));
   const anchors = new Map(interactions.anchors.map((anchor) => [anchor.id, anchor]));
+  const detectedLandmarks = new Map(landmarks.landmarks.map((landmark) => [landmark.storyId, landmark]));
   const tones = ["cyan", "amber", "green"] as const;
   const stories = edition.stories.map((story, index) => {
     const subject = subjects.get(story.storyId);
     const anchor = anchors.get(story.storyId);
+    const landmark = detectedLandmarks.get(story.storyId);
     if (!subject || !anchor) throw new Error(`Missing publication mapping for ${story.storyId}`);
     return {
       id: story.storyId,
@@ -52,6 +54,7 @@ export function createPublicationManifest({
       sources: story.sources,
       interaction: {
         imageTarget: anchor.imageTarget,
+        ...(landmark && landmark.visibility !== "not-found" ? { imageBoundingBox: landmark.boundingBox } : {}),
         worldPosition: anchor.worldPosition,
         screenRegion: { ...anchor.imageTarget, tone: tones[index % tones.length] },
       },

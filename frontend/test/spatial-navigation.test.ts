@@ -9,7 +9,28 @@ import {
   getNavigationFloor,
   getNavigationRadius,
   smootherstep,
+  spatialStoryOrder,
 } from "../lib/spatial-navigation";
+
+test("spatial tour follows neighboring bearings and closes the loop without mutating publication order", () => {
+  const make = (id: string, x: number, z: number) => ({ id, interaction: { worldPosition: { x, y: 0, z } } });
+  const stories = [make("back", 0, 5), make("left", -2, 0), make("front", 0, -4), make("right", 20, 0)];
+  const ordered = spatialStoryOrder(stories).map(s => s.id);
+  assert.deepEqual(ordered, ["front", "right", "back", "left"]);
+  assert.equal(cycleId(ordered, "left", 1), "front");
+  assert.equal(cycleId(ordered, "front", -1), "left");
+  assert.equal(stories[0].id, "back");
+  assert.deepEqual(spatialStoryOrder([]), []);
+  assert.deepEqual(spatialStoryOrder([stories[0]]), [stories[0]]);
+});
+
+test("tour starts nearest the initial view across the panorama seam", () => {
+  const stories = [
+    { id: "right", interaction: { worldPosition: { x: 1, y: 0, z: -1 } } },
+    { id: "left", interaction: { worldPosition: { x: -.1, y: 0, z: -1 } } },
+  ];
+  assert.deepEqual(spatialStoryOrder(stories).map(s => s.id), ["left", "right"]);
+});
 
 test("camera focus easing starts and finishes without an abrupt velocity change", () => {
   assert.equal(smootherstep(-1), 0);

@@ -144,6 +144,15 @@ manifests can be copied into the static export, while edition assets belong in
 the separate public-asset bucket and are published by the reviewed workflow.
 This explicit boundary prevents an infrastructure synthesis from silently
 publishing website content.
+
+Landmark detection includes normalized image bounds. Publication carries them
+as `interaction.imageBoundingBox`; the explorer combines their angular extent
+with the baked hotspot distance to size the focus shader. Deploy both the
+pipeline and explorer when changing that contract. Older manifests without
+bounds retain the default focus size. A metadata-only backfill must preserve
+asset checksums and baked positions, update the affected current/history pointer
+checksums, and invalidate the changed public manifests.
+
 Before the first edition is published, seed the public-asset bucket with the
 included unpublished marker so the explorer does not request a missing pointer:
 

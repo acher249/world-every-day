@@ -16,6 +16,12 @@ const assetUrlSchema = z.union([
   httpsUrlSchema,
   z.string().regex(/^\/(?!\/)/, "Use an HTTPS or root-relative asset URL"),
 ]);
+const imageBoundingBoxSchema = z.object({
+  xMin: z.number().min(0).max(1),
+  yMin: z.number().min(0).max(1),
+  xMax: z.number().min(0).max(1),
+  yMax: z.number().min(0).max(1),
+}).refine((box) => box.xMin < box.xMax && box.yMin < box.yMax, "Image bounding box must have positive area");
 
 export const sourceSchema = z.object({
   title: z.string().min(1).max(300),
@@ -37,6 +43,7 @@ export const storySchema = z.object({
       x: z.number().min(0).max(1),
       y: z.number().min(0).max(1),
     }),
+    imageBoundingBox: imageBoundingBoxSchema.optional(),
     worldPosition: z.object({
       x: z.number().finite(),
       y: z.number().finite(),

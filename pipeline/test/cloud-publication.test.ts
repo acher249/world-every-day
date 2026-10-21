@@ -149,8 +149,14 @@ test("publication stays private until an exact staged manifest is approved", asy
     currentEditionPointerSchema.parse(publishedPointers[0]).publicationUrl,
     `/generated/editions/${editionId}/publication-public.json`,
   );
-  const publicManifest = JSON.parse(Buffer.from(publicRecords.get(`generated/editions/${editionId}/publication-public.json`)!).toString("utf8")) as { edition: { status: string; eyebrow: string } };
+  const publicManifest = JSON.parse(Buffer.from(publicRecords.get(`generated/editions/${editionId}/publication-public.json`)!).toString("utf8")) as {
+    edition: { status: string; eyebrow: string };
+    stories: Array<{ interaction: { imageBoundingBox?: { xMin: number; yMin: number; xMax: number; yMax: number } } }>;
+  };
   assert.equal(publicManifest.edition.status, "published");
+  assert.deepEqual(publicManifest.stories[0]?.interaction.imageBoundingBox, {
+    xMin: 0.1, yMin: 0.4, xMax: 0.2, yMax: 0.5,
+  });
   assert.match(publicManifest.edition.eyebrow, /Published edition/);
   assert.match(previewManifest.edition.eyebrow, /Technical test/);
   assert.equal((await handler({ editionId, mode: "publish", confirmPublish: true })).status, "published");

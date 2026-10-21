@@ -1,5 +1,17 @@
 export type Point3 = { x: number; y: number; z: number };
 
+/** Clockwise tour around the origin, starting nearest the initial forward view. */
+export function spatialStoryOrder<T extends { id: string; interaction: { worldPosition: Point3 } }>(stories: readonly T[]): T[] {
+  const angle = (story: T) => {
+    const { x, z } = story.interaction.worldPosition;
+    return (Math.atan2(x, -z) + Math.PI * 2) % (Math.PI * 2);
+  };
+  const ordered = [...stories].sort((a, b) => angle(a) - angle(b) || a.id.localeCompare(b.id));
+  if (ordered.length < 2) return ordered;
+  const first = angle(ordered[0]) <= Math.PI * 2 - angle(ordered[ordered.length - 1]) ? 0 : ordered.length - 1;
+  return [...ordered.slice(first), ...ordered.slice(0, first)];
+}
+
 const MINIMUM_FOCUS_DISTANCE = 2.5;
 const FOCUS_STANDOFF_RATIO = 0.9;
 const MAX_NAVIGATION_RADIUS = 5.3703;

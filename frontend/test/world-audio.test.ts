@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { WorldAudio } from "../lib/world-audio";
+import { WorldAudio, movementPresets, type MovementPresetId } from "../lib/world-audio";
 
 class FakeParam {
   value = 0;
@@ -40,6 +40,28 @@ class FakeAudioContext {
   async suspend() { this.state = "suspended"; }
   async close() { this.state = "closed"; }
 }
+
+test("eleven movement presets reuse the audio graph and preserve mute", async () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { AudioContext: FakeAudioContext } as unknown as Window & typeof globalThis;
+  const audio = new WorldAudio();
+  try {
+    assert.equal(Object.keys(movementPresets).length, 11);
+    audio.setMovementPreset("soft-ion"); // Can choose a preset before enabling audio.
+    await audio.enable();
+    const context = FakeAudioContext.latest;
+    const count = context.oscillators;
+    audio.setMovement(.5);
+    for (const id of Object.keys(movementPresets) as MovementPresetId[]) audio.setMovementPreset(id);
+    assert.equal(context.oscillators, count);
+    audio.disable();
+    audio.setMovementPreset("deep-engine");
+    assert.equal(context.gains[0].gain.value, 0);
+  } finally {
+    audio.dispose();
+    globalThis.window = previousWindow;
+  }
+});
 
 test("first interaction fades in ambience without a tap effect", async () => {
   const previousWindow = globalThis.window;

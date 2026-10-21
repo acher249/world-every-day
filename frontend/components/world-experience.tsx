@@ -8,7 +8,7 @@ import {
   type WorldAnchor,
 } from "@/components/spark-world";
 import { MobileJoystick } from "@/components/mobile-joystick";
-import { cycleId } from "@/lib/spatial-navigation";
+import { cycleId, spatialStoryOrder } from "@/lib/spatial-navigation";
 import { pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
 import { resolveProjectSiteUrl } from "@/lib/site-links";
 import { WorldAudio, type WorldSound } from "@/lib/world-audio";
@@ -346,7 +346,8 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   const localSplatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
   const localSplatSha256 = process.env.NEXT_PUBLIC_WORLD_SPLAT_SHA256;
   const splatUrl = publication.world.splat?.url ?? localSplatUrl;
-  const { edition, stories, storyEchoes } = publication;
+  const { edition, storyEchoes } = publication;
+  const stories = useMemo(() => spatialStoryOrder(publication.stories), [publication.stories]);
   const renderedSplatSha256 = publication.world.splat?.sha256 ?? localSplatSha256;
   const interactionsMatchRenderedWorld = canRenderWorldInteractions({
     interactionSplatSha256:
@@ -400,6 +401,8 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         x: story.interaction.screenRegion.x,
         y: story.interaction.screenRegion.y,
       },
+      imageBoundingBox: story.interaction.imageBoundingBox,
+      imageTarget: story.interaction.imageTarget,
       id: story.id,
       label: story.title,
       number: String(index + 1).padStart(2, "0"),
@@ -504,6 +507,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   }, [activeId, archiveOpen, closeStory, controlsOpen, focusNextStory, focusedId, indexOpen]);
 
   function selectStory(story: PublicationStory, openPanel: boolean) {
+    setFocusCycleRevision((revision) => revision + 1);
     playSound(openPanel ? "story" : "travel");
     setActiveId(openPanel ? story.id : null);
     focusedIdRef.current = story.id;

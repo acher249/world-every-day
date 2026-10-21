@@ -71,6 +71,17 @@ test("screen regions must use normalized coordinates", async () => {
   assert.throws(() => parsePublicationManifest(fixture));
 });
 
+test("optional panorama bounds are validated without breaking older editions", async () => {
+  const fixture = (await readFixture()) as PublicationManifest;
+  assert.equal(parsePublicationManifest(fixture).stories[0].interaction.imageBoundingBox, undefined);
+  fixture.stories[0].interaction.imageBoundingBox = {
+    xMin: 0.1, yMin: 0.2, xMax: 0.3, yMax: 0.4,
+  };
+  assert.deepEqual(parsePublicationManifest(fixture).stories[0].interaction.imageBoundingBox, fixture.stories[0].interaction.imageBoundingBox);
+  fixture.stories[0].interaction.imageBoundingBox.xMax = 0.05;
+  assert.throws(() => parsePublicationManifest(fixture), /positive area/);
+});
+
 test("every story requires a finite 3D world anchor", async () => {
   const fixture = (await readFixture()) as PublicationManifest;
   fixture.stories[0].interaction.worldPosition.x = Number.POSITIVE_INFINITY;

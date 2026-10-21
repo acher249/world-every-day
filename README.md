@@ -139,6 +139,13 @@ These pieces remain separable so contributors can introduce other sources,
 generators, world models, interfaces, or cloud providers without rebuilding the
 entire system.
 
+Gemini identifies each story landmark in the generated panorama before the
+pipeline maps its target into the 3D world. The image bounds also scale the
+landmark's focus effect. This October 20 example shows the detected regions
+(colored boxes) and raycast targets (white dots):
+
+![Generated panorama annotated with eight Gemini landmark bounding boxes and raycast targets](docs/assets/landmark-bounding-boxes-2026-10-20.webp)
+
 ### Backend and infrastructure
 
 Server-side stages live in `pipeline/`; the AWS CDK application lives in

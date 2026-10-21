@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1",
+  "asset": "landmark-bounding-boxes-2026-10-20.webp",
+  "assetType": "generated-image-annotation",
+  "sha256": "a6eac64caef53050b851df6e1227b0f79335e6e016a49537371e6fccd61a4cce",
+  "dimensions": {
+    "width": 2048,
+    "height": 1427
+  },
+  "createdAt": "2026-10-20",
+  "createdFor": "A World Every Day README technical architecture illustration",
+  "creator": "A World Every Day contributors",
+  "generation": {
+    "sourceEdition": "daily-2026-10-20",
+    "sourceImage": "project-generated panorama analysis image",
+    "imageProvider": "Google Nano Banana",
+    "annotationProvider": "Google Gemini",
+    "annotationModel": "gemini-3.8-flash",
+    "rendering": "Project-authored SVG overlay composited with Sharp; WebP quality 90",
+    "sourceArticleImages": []
+  },
+  "rights": {
+    "projectLicense": "MIT for project-authored annotation and documentation only",
+    "redistribution": "Included by the project creator as documentation of a project-generated image, subject to applicable Google service terms and law.",
+    "providerTerms": "https://ai.google.dev/gemini-api/terms",
+    "attribution": "No additional attribution is requested by the project creator.",
+    "thirdPartyMaterial": "No source article images or third-party trademarks were intentionally supplied."
+  },
+  "notes": "The boxes are image-space landmark detections, not validated 3D object bounds. This illustration is not an article image or documentary record."
+}

@@ -1,6 +1,23 @@
 export type WorldSound = "hover" | "tap" | "story" | "travel";
 
-const movementMix = { wind: 0.022, tone: 0.01, buzz: 0.07 };
+type MovementPreset = {
+  label: string; wind: number; tone: number; buzz: number;
+  pitch: number; sweep: number; cutoff: number; wave: OscillatorType;
+};
+export const movementPresets = {
+  "electric-buzz": { label: "Electric Buzz", wind: .022, tone: .01, buzz: .07, pitch: 115, sweep: 75, cutoff: 500, wave: "sawtooth" },
+  "soft-ion": { label: "Soft Ion", wind: .012, tone: .045, buzz: .01, pitch: 180, sweep: 90, cutoff: 420, wave: "sine" },
+  "deep-engine": { label: "Deep Engine", wind: .04, tone: .03, buzz: .055, pitch: 55, sweep: 25, cutoff: 210, wave: "triangle" },
+  "air-glide": { label: "Air Glide", wind: .16, tone: .006, buzz: 0, pitch: 160, sweep: 40, cutoff: 1600, wave: "sine" },
+  "warm-hover": { label: "Warm Hover", wind: .015, tone: .025, buzz: .045, pitch: 85, sweep: 40, cutoff: 350, wave: "triangle" },
+  "retro-scout": { label: "Retro Scout", wind: .005, tone: .012, buzz: .025, pitch: 220, sweep: 160, cutoff: 900, wave: "square" },
+  "glass-drift": { label: "Glass Drift", wind: .01, tone: .025, buzz: .016, pitch: 620, sweep: 160, cutoff: 1800, wave: "sine" },
+  "submarine": { label: "Submarine", wind: .055, tone: .05, buzz: .025, pitch: 42, sweep: 18, cutoff: 150, wave: "sine" },
+  "velvet-drive": { label: "Velvet Drive", wind: .025, tone: .025, buzz: .04, pitch: 140, sweep: 45, cutoff: 280, wave: "triangle" },
+  "plasma-skiff": { label: "Plasma Skiff", wind: .045, tone: .008, buzz: .028, pitch: 320, sweep: 220, cutoff: 1300, wave: "sawtooth" },
+  "lunar-rover": { label: "Lunar Rover", wind: .07, tone: .012, buzz: .035, pitch: 72, sweep: 60, cutoff: 650, wave: "square" },
+} satisfies Record<string, MovementPreset>;
+export type MovementPresetId = keyof typeof movementPresets;
 
 const chords = [
   [130.81, 164.81, 196, 293.66], // C add9
@@ -17,6 +34,12 @@ export class WorldAudio {
   private movementFilter: BiquadFilterNode | null = null;
   private movementTone: OscillatorNode | null = null;
   private movementBuzz: OscillatorNode | null = null;
+  private movementWindGain: GainNode | null = null;
+  private movementToneGain: GainNode | null = null;
+  private movementBuzzGain: GainNode | null = null;
+  private movementBuzzFilter: BiquadFilterNode | null = null;
+  private movementPreset: MovementPresetId = "lunar-rover";
+  private movementIntensity = 0;
   private pad: { gain: GainNode; tones: OscillatorNode[] } | null = null;
   private chordTimer: ReturnType<typeof setInterval> | null = null;
   private accentTimer: ReturnType<typeof setInterval> | null = null;
@@ -100,10 +123,25 @@ export class WorldAudio {
     const context = this.context;
     if (!this.enabled || !context || context.state !== "running") return;
     const level = Math.max(0, Math.min(1, intensity));
+    this.movementIntensity = level;
+    const preset = movementPresets[this.movementPreset];
     this.movementGain?.gain.setTargetAtTime(level, context.currentTime, level > 0 ? 0.15 : 0.25);
-    this.movementFilter?.frequency.setTargetAtTime(220 + level * 350, context.currentTime, 0.15);
-    this.movementTone?.frequency.setTargetAtTime(130 + level * 60, context.currentTime, 0.15);
-    this.movementBuzz?.frequency.setTargetAtTime(115 + level * 75, context.currentTime, 0.15);
+    this.movementFilter?.frequency.setTargetAtTime(preset.cutoff * (0.5 + level * 0.7), context.currentTime, 0.15);
+    this.movementTone?.frequency.setTargetAtTime(preset.pitch * 1.13 + level * preset.sweep * .8, context.currentTime, 0.15);
+    this.movementBuzz?.frequency.setTargetAtTime(preset.pitch + level * preset.sweep, context.currentTime, 0.15);
+  }
+
+  setMovementPreset(id: MovementPresetId): void {
+    if (!Object.hasOwn(movementPresets, id)) return;
+    this.movementPreset = id;
+    const preset = movementPresets[id];
+    const now = this.context?.currentTime ?? 0;
+    this.movementWindGain?.gain.setTargetAtTime(preset.wind, now, .12);
+    this.movementToneGain?.gain.setTargetAtTime(preset.tone, now, .12);
+    this.movementBuzzGain?.gain.setTargetAtTime(preset.buzz, now, .12);
+    this.movementBuzzFilter?.frequency.setTargetAtTime(preset.cutoff, now, .12);
+    if (this.movementBuzz) this.movementBuzz.type = preset.wave;
+    this.setMovement(this.movementIntensity);
   }
 
   dispose(): void {
@@ -118,6 +156,10 @@ export class WorldAudio {
     this.movementFilter = null;
     this.movementTone = null;
     this.movementBuzz = null;
+    this.movementWindGain = null;
+    this.movementToneGain = null;
+    this.movementBuzzGain = null;
+    this.movementBuzzFilter = null;
   }
 
   private createSoundscape(): void {
@@ -156,7 +198,7 @@ export class WorldAudio {
     const movementBuzz = context.createOscillator();
     const movementBuzzFilter = context.createBiquadFilter();
     const movementBuzzGain = context.createGain();
-    const mix = movementMix;
+    const mix = movementPresets[this.movementPreset];
     movementGain.gain.value = 0;
     movementGain.connect(ambience);
     movementFilter.type = "bandpass";
@@ -168,14 +210,14 @@ export class WorldAudio {
     movementWind.connect(movementFilter).connect(movementWindGain).connect(movementGain);
     movementWind.start();
     movementTone.type = "sine";
-    movementTone.frequency.value = 130;
+    movementTone.frequency.value = mix.pitch * 1.13;
     movementToneGain.gain.value = mix.tone;
     movementTone.connect(movementToneGain).connect(movementGain);
     movementTone.start();
-    movementBuzz.type = "sawtooth";
-    movementBuzz.frequency.value = 115;
+    movementBuzz.type = mix.wave;
+    movementBuzz.frequency.value = mix.pitch;
     movementBuzzFilter.type = "lowpass";
-    movementBuzzFilter.frequency.value = 500;
+    movementBuzzFilter.frequency.value = mix.cutoff;
     movementBuzzGain.gain.value = mix.buzz;
     movementBuzz.connect(movementBuzzFilter).connect(movementBuzzGain).connect(movementGain);
     movementBuzz.start();
@@ -183,6 +225,10 @@ export class WorldAudio {
     this.movementFilter = movementFilter;
     this.movementTone = movementTone;
     this.movementBuzz = movementBuzz;
+    this.movementWindGain = movementWindGain;
+    this.movementToneGain = movementToneGain;
+    this.movementBuzzGain = movementBuzzGain;
+    this.movementBuzzFilter = movementBuzzFilter;
   }
 
   private startMusic(context: AudioContext): void {
@@ -221,7 +267,7 @@ export class WorldAudio {
       const voice = context.createGain();
       tone.type = index === 0 ? "triangle" : "sine";
       tone.frequency.value = frequency;
-      voice.gain.value = index === 0 ? 0.007 : 0.005;
+      voice.gain.value = (index === 0 ? 0.007 : 0.005) * 1.3;
       tone.connect(voice).connect(gain);
       tone.start(now);
       return tone;
@@ -239,7 +285,7 @@ export class WorldAudio {
     tone.type = "sine";
     tone.frequency.value = frequency;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.009, now + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.009 * 1.3, now + 0.18);
     gain.gain.setTargetAtTime(0.0001, now + 0.18, 0.8);
     tone.connect(gain).connect(this.ambience!);
     tone.start(now);
