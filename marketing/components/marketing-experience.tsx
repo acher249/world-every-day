@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MarketingSiteConfig } from "@/lib/site-config";
 
 const stages = [
@@ -37,7 +37,14 @@ function GitHubIcon() {
 
 export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteConfig) {
   const reduceMotion = useReducedMotion();
-  const [previewActive, setPreviewActive] = useState(false);
+  const [showEmbeddedWorld, setShowEmbeddedWorld] = useState(false);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 761px) and (pointer: fine)");
+    const update = () => setShowEmbeddedWorld(desktop.matches);
+    update();
+    desktop.addEventListener("change", update);
+    return () => desktop.removeEventListener("change", update);
+  }, []);
   const viewport = { once: true, amount: 0.18 };
   const transition = reduceMotion ? { duration: 0 } : { duration: 0.75, ease: [0.22, 1, 0.36, 1] as const };
 
@@ -74,7 +81,8 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
           </p>
           <div className="hero-actions">
             <a className="primary-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">Enter today’s world <Arrow /></a>
-            <a className="secondary-link" href="#project">Discover the project</a>
+            <a className="secondary-link hero-project-link" href="#project">Discover the project</a>
+            <a className="secondary-link github-link hero-mobile-github" href={githubUrl} target="_blank" rel="noopener noreferrer"><GitHubIcon /> View on GitHub</a>
           </div>
         </motion.div>
 
@@ -177,25 +185,17 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
           </div>
           <div>
             <p>
-              The world below is the current immersive edition. Move through it here,
-              or open the full experience for its complete controls and story index.
+              Explore the current edition, discover its landmarks, and follow the
+              stories behind them. Open the full experience on desktop or mobile.
             </p>
             <a className="secondary-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">Open full experience <Arrow diagonal /></a>
           </div>
         </motion.div>
-        <motion.div className={`world-frame${previewActive ? " is-active" : ""}`} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.08 }} variants={reveal} transition={transition}>
+        {showEmbeddedWorld && <motion.div className="world-frame" initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.08 }} variants={reveal} transition={transition}>
           <div className="frame-bar">
             <span><i /> Live world</span>
             <span>Interactive preview</span>
           </div>
-          <button
-            className="mobile-frame-gate"
-            type="button"
-            aria-pressed={previewActive}
-            onClick={() => setPreviewActive((active) => !active)}
-          >
-            {previewActive ? "Exit preview" : "Interact with world"}
-          </button>
           <iframe
             src={explorerUrl}
             title="Today’s interactive world"
@@ -206,7 +206,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
           <noscript>
             <p className="frame-fallback">JavaScript is required for the embedded world. <a href={explorerUrl} target="_blank" rel="noopener noreferrer">Open it directly.</a></p>
           </noscript>
-        </motion.div>
+        </motion.div>}
       </section>
 
       <section className="open-section">
@@ -240,7 +240,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
               <p className="eyebrow">Fork it. Change it. Build another world.</p>
               <h2>The whole project<br />is an invitation.</h2>
             </div>
-            <a className="primary-link light" href={githubUrl} target="_blank" rel="noopener noreferrer"><span className="github-link"><GitHubIcon /> View on GitHub</span><Arrow diagonal /></a>
+            <a className="primary-link light github-cta" href={githubUrl} target="_blank" rel="noopener noreferrer"><span className="github-link"><GitHubIcon /> View on GitHub</span><span className="github-cta-arrow"><Arrow diagonal /></span></a>
           </motion.div>
         </div>
       </section>
@@ -251,6 +251,11 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         <div>
           <a className="github-link" href={githubUrl} target="_blank" rel="noopener noreferrer"><GitHubIcon /> GitHub</a>
           <a href={explorerUrl} target="_blank" rel="noopener noreferrer">Explore today</a>
+        </div>
+        <div className="creator-credit">
+          <span>Built by Adam</span>
+          <a href="https://x.com/ajc_builds" target="_blank" rel="noopener noreferrer" aria-label="Adam on X">X</a>
+          <a href="https://www.linkedin.com/in/adamchernick/" target="_blank" rel="noopener noreferrer" aria-label="Adam on LinkedIn">LinkedIn</a>
         </div>
       </footer>
     </main>

@@ -670,6 +670,8 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
                       key={world.editionId}
                       className="archive-world-link"
                       href={`/?edition=${encodeURIComponent(world.editionId)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       aria-current={publication.edition.id === world.editionId ? "page" : undefined}
                     >
                       <span>{pastWorldLabel(world.editionId)}</span>
@@ -677,7 +679,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
                     </a>
                   ))}
                   {currentEditionId && publication.edition.id !== currentEditionId && (
-                    <a className="archive-world-link archive-today-link" href="/">
+                    <a className="archive-world-link archive-today-link" href="/" target="_blank" rel="noopener noreferrer">
                       <span>Back to today</span>
                       <ArrowUpRight />
                     </a>

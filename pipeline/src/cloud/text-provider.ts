@@ -8,19 +8,13 @@ import { DEFAULT_GEMINI_EDITORIAL_MODEL, GeminiJsonClient } from "../gemini/clie
 import { GeminiArticleAnalyzer, GeminiArtDirectionProvider, GeminiCandidateEvaluator } from "../gemini/editorial.js";
 import { BedrockArticleAnalyzer } from "../sources/bedrock-article-analysis.js";
 import type { ArticleAnalyzer } from "../sources/article.js";
-import { readVertexClaudeConfig, VertexClaudeClient } from "../vertex/claude.js";
-import { VertexArticleAnalyzer, VertexArtDirectionProvider, VertexCandidateEvaluator } from "../vertex/editorial.js";
 import { parseGoogleKey } from "./google-secret.js";
 
-export type TextProvider = "aws-bedrock" | "google-gemini" | "google-vertex-claude";
+export type TextProvider = "aws-bedrock" | "google-gemini";
 
 export function textProvider(environment: NodeJS.ProcessEnv = process.env): TextProvider {
-  return z.enum(["aws-bedrock", "google-gemini", "google-vertex-claude"])
+  return z.enum(["aws-bedrock", "google-gemini"])
     .parse(environment.EDITORIAL_PROVIDER ?? "google-gemini");
-}
-
-function vertexClient(environment: NodeJS.ProcessEnv): VertexClaudeClient {
-  return new VertexClaudeClient(readVertexClaudeConfig(environment));
 }
 
 function geminiClient(environment: NodeJS.ProcessEnv): GeminiJsonClient {
@@ -45,20 +39,17 @@ export async function cloudTextEnvironment(
 export function candidateEvaluator(environment: NodeJS.ProcessEnv = process.env): CandidateEvaluator {
   const provider = textProvider(environment);
   if (provider === "google-gemini") return new GeminiCandidateEvaluator(geminiClient(environment));
-  if (provider === "google-vertex-claude") return new VertexCandidateEvaluator(vertexClient(environment));
   return new BedrockCandidateEvaluator({ model: environment.EDITORIAL_MODEL });
 }
 
 export function articleAnalyzer(environment: NodeJS.ProcessEnv = process.env): ArticleAnalyzer {
   const provider = textProvider(environment);
   if (provider === "google-gemini") return new GeminiArticleAnalyzer(geminiClient(environment));
-  if (provider === "google-vertex-claude") return new VertexArticleAnalyzer(vertexClient(environment));
   return new BedrockArticleAnalyzer({ model: environment.ARTICLE_ANALYSIS_MODEL });
 }
 
 export function artDirectionProvider(environment: NodeJS.ProcessEnv = process.env): ArtDirectionProvider {
   const provider = textProvider(environment);
   if (provider === "google-gemini") return new GeminiArtDirectionProvider(geminiClient(environment));
-  if (provider === "google-vertex-claude") return new VertexArtDirectionProvider(vertexClient(environment));
   return new BedrockArtDirectionProvider({ model: environment.ART_DIRECTION_MODEL });
 }

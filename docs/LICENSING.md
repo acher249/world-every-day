@@ -107,8 +107,7 @@ specific code stays behind documented interfaces and does not weaken the
 project's license or secret-handling rules.
 
 The AWS pipeline defaults to paid Gemini API for candidate metadata, permitted
-article text, and art direction; Amazon Nova through Bedrock and Claude through
-Google Cloud Vertex AI remain optional. These are managed services: Google or
+article text, and art direction; Amazon Nova through Bedrock remains optional. These are managed services: Google or
 AWS processes the prompts. For a Gemini API key tied to an actively billed
 project, Google's Paid Services terms say prompts and responses are not used to
 improve its products, but allow limited abuse-monitoring retention. This is not
@@ -119,8 +118,7 @@ or evidence excerpts. Operators must verify each source's permission, model
 terms, account retention and invocation-logging settings before live use. See
 the [data boundary](DATA_BOUNDARY.md) and
 [AWS source-text privacy preflight](../infra/aws/README.md#source-text-privacy-preflight).
-The development stack uses the selected Gemini editorial adapter by default;
-the October 16 technical test validated that route through generation.
+The reference deployment uses the Gemini editorial adapter by default.
 
 ### News and social sources
 
@@ -145,7 +143,6 @@ summaries rather than article copies or verbatim passages. See the
 | Gemini editorial analysis, Nano Banana, and landmark detection | User-supplied Gemini API key for a billing-enabled project | Those adapters are enabled |
 | World Labs Marble generation | User-supplied World Labs API key | Automated world generation is enabled |
 | AWS deployment | User-controlled AWS credentials | Deploying or operating the AWS reference stack |
-| Vertex Claude editorial adapter | Keyless AWS-to-Google workload identity federation | Selecting Vertex for the three editorial text stages |
 | Optional commercial sources | Provider-specific key | That source adapter is enabled |
 
 All adapters must fail with an actionable configuration message when credentials

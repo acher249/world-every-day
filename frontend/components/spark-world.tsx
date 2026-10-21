@@ -164,10 +164,11 @@ export function SparkWorld({
         setViewerState("loading");
         if (enableBake) console.info("bake:loading-modules");
 
-        const [{ BackSide, Euler, Matrix4, Mesh, Object3D, PerspectiveCamera, Quaternion, Raycaster, Scene, ShaderMaterial, SphereGeometry, SRGBColorSpace, Vector3, WebGLRenderer }, sparkModule] =
+        const [{ BackSide, Euler, Matrix4, Mesh, Object3D, PerspectiveCamera, Quaternion, Raycaster, Scene, ShaderMaterial, SphereGeometry, SRGBColorSpace, Vector3, WebGLRenderer }, sparkModule, { createCameraQueries }] =
           await Promise.all([
             import("three"),
             import("@sparkjsdev/spark"),
+            import("@/lib/camera-queries"),
           ]);
 
         if (cancelled || !canvas) return;
@@ -375,20 +376,10 @@ export function SparkWorld({
           return;
         }
 
+        const cameraQueries = createCameraQueries(splat);
         let groundHeight: number | undefined;
         try {
-          const groundRaycaster = new Raycaster();
-          groundRaycaster.set(new Vector3(0, 0, 0), new Vector3(0, -1, 0));
-          groundRaycaster.near = 0.001;
-          groundRaycaster.far = Math.max(navigationRadius * 2, 1);
-          const groundHits: Array<{
-            distance: number;
-            point: InstanceType<typeof Vector3>;
-            object: InstanceType<typeof Object3D>;
-          }> = [];
-          splat.raycast(groundRaycaster, groundHits);
-          groundHits.sort((first, second) => first.distance - second.distance);
-          groundHeight = groundHits[0]?.point?.y;
+          groundHeight = cameraQueries.groundHeight(navigationRadius);
         } catch (error) {
           console.warn("Could not locate the ground; using the conservative navigation floor", error);
         }
@@ -551,24 +542,7 @@ export function SparkWorld({
         const focusDirection = new Vector3();
         const focusLookMatrix = new Matrix4();
         const focusRotation = new Quaternion();
-        const focusRaycaster = new Raycaster();
         const focusPositions = new Map<string, InstanceType<typeof Vector3>>();
-        const focusHits: Array<{ distance: number; point: InstanceType<typeof Vector3>; object: InstanceType<typeof Object3D> }> = [];
-        const viewVisibility = (position: { x: number; y: number; z: number }, target: InstanceType<typeof Vector3>) => {
-          if (!splat) return 0;
-          const direction = new Vector3().subVectors(target, new Vector3(position.x, position.y, position.z));
-          const distance = direction.length();
-          focusRaycaster.set(new Vector3(position.x, position.y, position.z), direction.divideScalar(distance));
-          focusRaycaster.near = 0.05;
-          // Ignore the target's own soft splats, but reject nearer terrain or scenery.
-          focusRaycaster.far = distance - Math.min(0.6, distance * 0.12);
-          focusHits.length = 0;
-          splat.raycast(focusRaycaster, focusHits);
-          if (focusHits.length === 0) return 1;
-          let closest = Infinity;
-          for (const hit of focusHits) closest = Math.min(closest, hit.distance);
-          return Math.max(0, Math.min(1, closest / focusRaycaster.far));
-        };
         const floatedCameraPosition = new Vector3();
         const flightSpeed = Math.max(maxDimension * 0.014, 0.08);
         const floatPositionAmplitude = Math.min(
@@ -621,7 +595,7 @@ export function SparkWorld({
                       anchor.worldPosition,
                       navigationRadius,
                       navigationFloor,
-                      (candidate) => viewVisibility(candidate, focusTarget),
+                      (candidate) => cameraQueries.visibility(candidate, focusTarget),
                     );
                     focusPosition = new Vector3(selected.x, selected.y, selected.z);
                   } catch (error) {

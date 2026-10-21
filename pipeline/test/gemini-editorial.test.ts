@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import type { GoogleGenAI } from "@google/genai";
-import { cloudTextEnvironment, articleAnalyzer, candidateEvaluator, artDirectionProvider } from "../src/cloud/text-provider.js";
+import { cloudTextEnvironment, articleAnalyzer, candidateEvaluator, artDirectionProvider, textProvider } from "../src/cloud/text-provider.js";
 import { GeminiJsonClient } from "../src/gemini/client.js";
 import { GeminiArticleAnalyzer, GeminiArtDirectionProvider, GeminiCandidateEvaluator } from "../src/gemini/editorial.js";
 import { candidateSetSchema } from "../src/sources/schema.js";
@@ -12,6 +12,21 @@ const environment = {
   GEMINI_EDITORIAL_MODEL: "gemini-3.8-flash",
   GOOGLE_AI_API_KEY: "test-key",
 } as NodeJS.ProcessEnv;
+
+test("editorial provider defaults to Gemini and rejects unsupported routes without fallback", async () => {
+  assert.equal(textProvider({}), "google-gemini");
+  assert.equal(textProvider({ EDITORIAL_PROVIDER: "aws-bedrock" }), "aws-bedrock");
+  const invalid = { EDITORIAL_PROVIDER: "unsupported" };
+  for (const factory of [candidateEvaluator, articleAnalyzer, artDirectionProvider]) {
+    assert.throws(() => factory(invalid));
+  }
+  let secretReads = 0;
+  const secrets = { send: async () => { secretReads += 1; return {}; } } as never;
+  await assert.rejects(cloudTextEnvironment(invalid, secrets));
+  const bedrock = { EDITORIAL_PROVIDER: "aws-bedrock" };
+  assert.equal(await cloudTextEnvironment(bedrock, secrets), bedrock);
+  assert.equal(secretReads, 0);
+});
 
 function clientReturning(value: unknown, requests?: unknown[]): GeminiJsonClient {
   return new GeminiJsonClient({ apiKey: "test-key", model: "gemini-3.8-flash" }, {

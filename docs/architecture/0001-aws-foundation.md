@@ -1,14 +1,11 @@
 # ADR 0001: AWS foundation boundaries
 
-**Status:** Accepted for the initial development stack  
-**Date:** 2026-10-14
+**Status:** Accepted; implementation notes reflect the current reference stack
 
 ## Context
 
-The local edition runner now proves the artifact sequence, retry behavior, and
-provider boundaries. The first cloud step needs durable storage and operational
-state without prematurely coupling every pipeline stage to AWS or enabling paid
-daily automation.
+The edition pipeline needs durable storage and operational state without
+coupling every provider to AWS or enabling paid automation by default.
 
 ## Decision
 
@@ -46,16 +43,15 @@ daily automation.
 
 The stack can synthesize and be reviewed without AWS credentials, deployment,
 provider calls, or publication. A failed edition cannot overwrite immutable
-artifacts, and publication can later update the edition and current pointer in
-one transaction.
+artifacts. Publication updates the edition state and current-world pointer only
+after the required assets and review decisions are available.
 
-The current state machine exercises the lifecycle with fictional marker
-artifacts and no provider calls. Its default path stops and releases its lock at
-editorial review. Static hosting resources now exist, but uploading builds is a
-separate explicit operation. Live stage handlers, approval callbacks, and
-production publication remain future work.
+The fixture workflow remains available without provider calls. A separate live
+workflow implements discovery through generation, browser-backed Lambda
+interaction baking, and publication. Operators choose manual review or explicit
+unattended authorization. Static build uploads remain a separate operation.
 
-The Spark.js interaction baker still requires a browser-capable runtime. No AWS
-compute choice is accepted for that stage until a containerized deployment
-spike proves the required graphics and raycasting behavior.
+The reference development schedule enables the live workflow. Fresh deployments
+keep it disabled. Daily reliability, editorial quality, and device performance
+still require monitoring and review.
 

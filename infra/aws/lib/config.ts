@@ -5,17 +5,8 @@ export type DeploymentConfig = {
   alarmNotificationEmail?: string;
   budgetAlertEmail?: string;
   editorialModel: string;
-  editorialProvider: "aws-bedrock" | "google-gemini" | "google-vertex-claude";
+  editorialProvider: "aws-bedrock" | "google-gemini";
   geminiEditorialModel: string;
-  vertex?: {
-    projectId: string;
-    projectNumber: string;
-    poolId: string;
-    providerId: string;
-    serviceAccountEmail: string;
-    location: string;
-    model: string;
-  };
   landmarkVisionModel: string;
   nanoBananaModel: string;
   worldLabsModel: string;
@@ -76,35 +67,8 @@ export function readDeploymentConfig(
   );
   const enableSchedule = rawEnableSchedule === true || rawEnableSchedule === "true";
   const editorialProvider = setting(node, environment, "editorialProvider", "WORLD_EVERY_DAY_EDITORIAL_PROVIDER") ?? "google-gemini";
-  if (editorialProvider !== "aws-bedrock" && editorialProvider !== "google-gemini" && editorialProvider !== "google-vertex-claude") {
-    throw new Error("editorialProvider must be aws-bedrock, google-gemini, or google-vertex-claude");
-  }
-  const vertexSettings = [
-    ["projectId", "WORLD_EVERY_DAY_VERTEX_PROJECT_ID"],
-    ["projectNumber", "WORLD_EVERY_DAY_VERTEX_PROJECT_NUMBER"],
-    ["poolId", "WORLD_EVERY_DAY_VERTEX_WIF_POOL_ID"],
-    ["providerId", "WORLD_EVERY_DAY_VERTEX_WIF_PROVIDER_ID"],
-    ["serviceAccountEmail", "WORLD_EVERY_DAY_VERTEX_SERVICE_ACCOUNT_EMAIL"],
-    ["location", "WORLD_EVERY_DAY_VERTEX_LOCATION"],
-    ["model", "WORLD_EVERY_DAY_VERTEX_CLAUDE_MODEL"],
-  ] as const;
-  const vertexValues = Object.fromEntries(vertexSettings.map(([name, key]) =>
-    [name, setting(node, environment, `vertex${name[0].toUpperCase()}${name.slice(1)}`, key)]));
-  if (editorialProvider === "google-vertex-claude" &&
-      vertexSettings.some(([name]) => !vertexValues[name])) {
-    throw new Error("Vertex Claude requires project ID/number, WIF pool/provider, service account, location, and model settings");
-  }
-  const vertex = editorialProvider === "google-vertex-claude"
-    ? Object.fromEntries(vertexSettings.map(([name]) => [name, String(vertexValues[name])])) as NonNullable<DeploymentConfig["vertex"]>
-    : undefined;
-  if (vertex && (!/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(vertex.projectId) ||
-      !/^\d+$/.test(vertex.projectNumber) ||
-      !/^[a-z][a-z0-9_-]{3,31}$/.test(vertex.poolId) ||
-      !/^[a-z][a-z0-9_-]{3,31}$/.test(vertex.providerId) ||
-      !/^[^\s@]+@[^\s@]+\.iam\.gserviceaccount\.com$/.test(vertex.serviceAccountEmail) ||
-      !/^[a-z]+-[a-z]+\d$/.test(vertex.location) ||
-      !/^claude-[a-z0-9-]+(?:@\d{8})?$/.test(vertex.model))) {
-    throw new Error("Invalid Vertex Claude configuration");
+  if (editorialProvider !== "aws-bedrock" && editorialProvider !== "google-gemini") {
+    throw new Error("editorialProvider must be aws-bedrock or google-gemini");
   }
   const editorialModel = setting(
     node,
@@ -225,7 +189,6 @@ export function readDeploymentConfig(
     editorialModel,
     editorialProvider,
     geminiEditorialModel,
-    vertex,
     landmarkVisionModel,
     enableSchedule,
     environmentName,

@@ -4,17 +4,41 @@ A living, evolving digital installation. Every day, a new world is generated
 from developments in science, technology, culture, health, climate and
 communities around the world.
 
-**Status:** Early prototype. A fictional frontend demo and a factual local
-vertical slice are available. The AWS workflow can now run unattended from
-live RSS/Atom discovery through image generation, Marble 1.1, 3D hotspot baking, and
-public publication. An October 19 test generated a nine-story world and was
-promoted to the current edition without regenerating its assets. Editorial
-breadth, visual QA on representative
-devices, and reliable daily publication remain open. The 7:30 AM Pacific
-development schedule now opts into paid generation and public publication.
-Failed runs leave the previous published world in place.
+Explore on desktop or mobile, with keyboard-and-mouse or touch controls.
 
-## Thesis
+[Explore today's world](https://explore.aworldeveryday.com) ·
+[About the project](https://aworldeveryday.com) ·
+[Quick start](#quick-start) · [Contribute](CONTRIBUTING.md)
+
+[![A short tour of A World Every Day's interactive 3D explorer](docs/assets/explorer-demo.gif)](https://explore.aworldeveryday.com)
+
+*Look around. Follow a landmark. Discover the story behind it.*
+
+**Early prototype.** The AWS pipeline runs from story discovery through public
+publication, with a daily 7:30 AM Pacific development schedule. Editorial
+breadth, visual quality, and daily reliability are still evolving. Failed runs
+leave the previous world in place.
+
+## Quick start
+
+Run the local demo with **Node.js 20.9+**. No API keys or AWS account needed.
+
+```bash
+git clone https://github.com/acher249/world-every-day.git
+cd world-every-day/frontend
+npm i
+npm start
+```
+
+Open [localhost:3000](http://localhost:3000). The demo uses fictional stories
+and a poster fallback; a generated 3D world is optional.
+
+For the full experience, [explore the live world](https://explore.aworldeveryday.com).
+To run your own installation, see the [pipeline guide](pipeline/README.md) and
+[AWS deployment guide](infra/aws/README.md). The separate project site lives in
+[`marketing/`](marketing/).
+
+## Why this exists
 
 Information increasingly arrives as an endless feed: fragments competing for
 attention and quickly displaced by whatever comes next. The news is perhaps the
@@ -41,9 +65,17 @@ recent developments. Ideas, discoveries, places, and events are brought
 together as one limited, navigable environment: something to wander, look
 around, and slowly explore.
 
+![A World Every Day explorer showing a generated landscape with numbered story landmarks](docs/assets/explorer-overview.png)
+
+*A landscape of stories to wander through and discover.*
+
 Visitors move through it as an interactive 3D world. Its landmarks are more than
 scenery: select one to learn what it represents, read the story behind it, and
 follow the original sources when you want to go deeper.
+
+![A selected lantern landmark highlighted in the world beside its story summary and source link](docs/assets/explorer-story-detail.png)
+
+*Select a landmark to bring it into focus, read the story behind it, and open the original source.*
 
 As the project continues, the worlds become a living archive. You can return to
 today, move backward through earlier editions, and see time not as a list of
@@ -99,14 +131,13 @@ Source articles are processed **ephemerally in memory** and then discarded.
 Their bodies and verbatim passages are never copied into project storage or
 republished. Persistent artifacts contain source links and provenance, content
 hashes, and original project-written summaries, claims, and visual details.
-The default editorial route uses the paid Gemini API, with Bedrock Nova and
-Vertex Claude as optional adapters. For a Gemini API key tied to a project with
+The default editorial route uses the paid Gemini API, with Bedrock Nova as an
+optional adapter. For a Gemini API key tied to a project with
 active billing, [Google's Paid Services terms](https://ai.google.dev/gemini-api/terms)
 say it does not use prompts or responses to improve its products; limited
 abuse-monitoring retention still applies. We keep article text bounded and
 ephemeral in this project and review each source's permitted use. The
-development workers use this configuration; the October 16 technical test ran
-through the image and world stages. See the
+reference deployment uses this configuration. See the
 [source-data boundary](docs/DATA_BOUNDARY.md) and
 [deployment preflight](infra/aws/README.md#source-text-privacy-preflight).
 
@@ -115,7 +146,7 @@ through the image and world stages. See the
 AWS hosts and orchestrates the reference deployment: compute, storage, asset
 delivery, secrets, and monitoring live in the project's AWS account. AWS Step
 Functions coordinates each stage from collection through publication. Model
-calls may go to Gemini, optional Vertex AI, Nano Banana, and World Labs.
+calls may go to Gemini, optional Bedrock Nova, Nano Banana, and World Labs.
 
 The main building blocks are:
 
@@ -123,9 +154,8 @@ The main building blocks are:
   with [AWS Step Functions](https://aws.amazon.com/step-functions/) at the center
   of the pipeline.
 - [Gemini API](https://ai.google.dev/gemini-api/docs) for editorial analysis,
-  with [Amazon Bedrock](https://aws.amazon.com/bedrock/) Nova and
-  [Google Cloud Vertex AI](https://cloud.google.com/vertex-ai) Claude as
-  optional alternatives.
+  with [Amazon Bedrock](https://aws.amazon.com/bedrock/) Nova as an
+  optional alternative.
 - [Nano Banana](https://ai.google.dev/gemini-api/docs/image-generation) for
   creating a 360-degree equirectangular source image from the selected stories.
 - [World Labs Marble](https://www.worldlabs.ai/blog/marble-world-model) for
@@ -141,7 +171,7 @@ entire system.
 
 Gemini identifies each story landmark in the generated panorama before the
 pipeline maps its target into the 3D world. The image bounds also scale the
-landmark's focus effect. This October 20 example shows the detected regions
+landmark's focus effect. This example shows the detected regions
 (colored boxes) and raycast targets (white dots):
 
 ![Generated panorama annotated with eight Gemini landmark bounding boxes and raycast targets](docs/assets/landmark-bounding-boxes-2026-10-20.webp)
@@ -210,6 +240,7 @@ never commit a populated `.env` file.
 
 The separate `marketing/` application introduces the art project, links to the
 open-source repository, and embeds the current explorer as a lazy-loaded preview.
+The embedded preview is desktop-only; mobile visitors open the dedicated explorer.
 It is a static Next.js application with no credentials or server runtime.
 
 ```bash
@@ -285,6 +316,8 @@ Contributions are welcome across the frontend, editorial system, source and
 generation adapters, cloud infrastructure, accessibility, documentation, and
 entirely new ways of using the pattern. Read [CONTRIBUTING.md](CONTRIBUTING.md)
 before opening an issue or pull request.
+
+For security concerns, see [SECURITY.md](SECURITY.md).
 
 ## License and providers
 

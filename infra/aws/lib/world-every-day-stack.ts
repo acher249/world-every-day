@@ -281,16 +281,7 @@ export class WorldEveryDayStack extends Stack {
       interval: Duration.seconds(2),
       maxAttempts: 2,
     });
-    const textProviderEnvironment: Record<string, string> = config.editorialProvider === "google-vertex-claude" && config.vertex ? {
-      EDITORIAL_PROVIDER: "google-vertex-claude",
-      VERTEX_PROJECT_ID: config.vertex.projectId,
-      VERTEX_PROJECT_NUMBER: config.vertex.projectNumber,
-      VERTEX_WIF_POOL_ID: config.vertex.poolId,
-      VERTEX_WIF_PROVIDER_ID: config.vertex.providerId,
-      VERTEX_SERVICE_ACCOUNT_EMAIL: config.vertex.serviceAccountEmail,
-      VERTEX_LOCATION: config.vertex.location,
-      VERTEX_CLAUDE_MODEL: config.vertex.model,
-    } : config.editorialProvider === "google-gemini" ? {
+    const textProviderEnvironment: Record<string, string> = config.editorialProvider === "google-gemini" ? {
       EDITORIAL_PROVIDER: "google-gemini",
       GEMINI_EDITORIAL_MODEL: config.geminiEditorialModel,
       GOOGLE_SECRET_NAME: googleSecret.secretName,

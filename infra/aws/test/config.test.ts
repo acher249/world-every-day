@@ -14,7 +14,6 @@ test("deployment defaults are development and schedule-disabled", () => {
     editorialModel: "amazon.nova-lite-v1:0",
     editorialProvider: "google-gemini",
     geminiEditorialModel: "gemini-3.8-flash",
-    vertex: undefined,
     landmarkVisionModel: "gemini-3.8-flash",
     enableSchedule: false,
     environmentName: "development",
@@ -56,7 +55,6 @@ test("ignored local environment settings are supported but CDK context wins", ()
       editorialModel: "amazon.nova-lite-v1:0",
       editorialProvider: "google-gemini",
       geminiEditorialModel: "gemini-3.8-flash",
-      vertex: undefined,
       landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: true,
       environmentName: "production",
@@ -87,20 +85,8 @@ test("ignored local environment settings are supported but CDK context wins", ()
   );
 });
 
-test("Vertex requires complete keyless workload identity settings", () => {
-  assert.throws(() => readDeploymentConfig(context({ editorialProvider: "google-vertex-claude" }) as never),
-    /requires project ID/);
-  const config = readDeploymentConfig(context({ editorialProvider: "google-vertex-claude" }) as never, {
-    WORLD_EVERY_DAY_VERTEX_PROJECT_ID: "sample-project",
-    WORLD_EVERY_DAY_VERTEX_PROJECT_NUMBER: "123456789",
-    WORLD_EVERY_DAY_VERTEX_WIF_POOL_ID: "editorial_pool",
-    WORLD_EVERY_DAY_VERTEX_WIF_PROVIDER_ID: "aws_provider",
-    WORLD_EVERY_DAY_VERTEX_SERVICE_ACCOUNT_EMAIL: "editorial@sample-project.iam.gserviceaccount.com",
-    WORLD_EVERY_DAY_VERTEX_LOCATION: "us-east5",
-    WORLD_EVERY_DAY_VERTEX_CLAUDE_MODEL: "claude-haiku-4-5",
-  });
-  assert.equal(config.editorialProvider, "google-vertex-claude");
-  assert.equal(config.vertex?.model, "claude-haiku-4-5");
+test("unsupported editorial providers fail explicitly", () => {
+  assert.throws(() => readDeploymentConfig(context({ editorialProvider: "unsupported" }) as never), /editorialProvider must be/);
 });
 
 test("custom domains require a hosted zone and us-east-1", () => {

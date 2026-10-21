@@ -8,7 +8,7 @@ function template(options: {
   alarm?: boolean;
   budget?: boolean;
   enableSchedule?: boolean;
-  editorialProvider?: "aws-bedrock" | "google-gemini" | "google-vertex-claude";
+  editorialProvider?: "aws-bedrock" | "google-gemini";
   environmentName?: "development" | "production";
   siteDomain?: boolean;
 } = {}): Template {
@@ -21,15 +21,6 @@ function template(options: {
       editorialModel: "amazon.nova-lite-v1:0",
       editorialProvider: options.editorialProvider ?? "aws-bedrock",
       geminiEditorialModel: "gemini-3.8-flash",
-      vertex: options.editorialProvider === "google-vertex-claude" ? {
-        projectId: "sample-project",
-        projectNumber: "123456789",
-        poolId: "editorial_pool",
-        providerId: "aws_provider",
-        serviceAccountEmail: "editorial@sample-project.iam.gserviceaccount.com",
-        location: "us-east5",
-        model: "claude-haiku-4-5",
-      } : undefined,
       landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: options.enableSchedule ?? false,
       environmentName: options.environmentName ?? "development",
@@ -214,21 +205,6 @@ test("production state enables deletion protection and point-in-time recovery", 
       PointInTimeRecoveryEnabled: true,
     },
   });
-});
-
-test("Vertex text workers have explicit WIF settings and no Bedrock model grants", () => {
-  const rendered = template({ editorialProvider: "google-vertex-claude" });
-  for (const prefix of ["EditorialShortlistHandler", "ArticleAnalysisHandler", "ArtDirectionHandler"]) {
-    const worker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
-      .find(([id]) => id.startsWith(prefix))?.[1] as {
-        Properties?: { Environment?: { Variables?: Record<string, string> } };
-      } | undefined;
-    assert.equal(worker?.Properties?.Environment?.Variables?.EDITORIAL_PROVIDER, "google-vertex-claude");
-    assert.equal(worker?.Properties?.Environment?.Variables?.VERTEX_PROJECT_ID, "sample-project");
-    assert.equal(worker?.Properties?.Environment?.Variables?.VERTEX_CLAUDE_MODEL, "claude-haiku-4-5");
-    assert.equal(worker?.Properties?.Environment?.Variables?.GOOGLE_SECRET_NAME, undefined);
-  }
-  assert.doesNotMatch(JSON.stringify(rendered.toJSON()), /bedrock:InvokeModel|foundation-model\/amazon\.nova-lite/);
 });
 
 test("Gemini text workers use only the existing Google secret, with no Bedrock grant", () => {

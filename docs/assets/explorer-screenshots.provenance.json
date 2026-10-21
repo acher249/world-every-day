@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1",
+  "assets": ["explorer-overview.png", "explorer-story-detail.png"],
+  "assetType": "application-screenshots",
+  "createdAt": "2026-10-20",
+  "creator": "Project maintainer, supplied for README inclusion",
+  "sourceEdition": "source-expansion-2026-10-19-test",
+  "sourceUrl": "https://explore.aworldeveryday.com/?edition=source-expansion-2026-10-19-test",
+  "processing": "Original supplied screenshots copied without modification.",
+  "rights": {
+    "projectLicense": "MIT for project-authored interface and documentation only",
+    "redistribution": "Supplied by the project maintainer for repository documentation. Generated scenery remains subject to the applicable Google and World Labs service terms; third-party marks are not relicensed.",
+    "providerTerms": [
+      "https://ai.google.dev/gemini-api/terms",
+      "https://www.worldlabs.ai/terms-of-service"
+    ],
+    "attribution": "A World Every Day. The story-detail screenshot displays its GOV.UK source attribution and link.",
+    "thirdPartyMaterial": "Browser chrome and associated marks are visible. The scene was generated with Nano Banana and World Labs Marble and rendered with Spark.js; the story panel contains a project-authored summary, not an article reproduction."
+  }
+}

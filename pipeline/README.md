@@ -48,8 +48,8 @@ WORLD_LABS_MODEL=marble-1.1
 landmark detection. Use a key tied to a project with active billing for the
 editorial route; [Google's Paid Services terms](https://ai.google.dev/gemini-api/terms)
 say prompts and responses are not used to improve its products, but permit
-limited abuse-monitoring retention. Bedrock Nova and Vertex Claude remain
-optional editorial adapters; Vertex uses keyless workload identity federation.
+limited abuse-monitoring retention. Bedrock Nova remains an
+optional editorial adapter.
 The visual scene prompt sent to Google can contain story-derived physical
 details. See the [data boundary](../docs/DATA_BOUNDARY.md).
 `WORLD_LABS_KEY` enables the optional World Labs
@@ -89,12 +89,11 @@ analyzers remain the default for tests. A single
 analysis produces a clear headline, original summary, source-grounded claims,
 and granular visual details. Missing visual details remain non-fatal.
 
-Gemini, Bedrock, and Vertex AI are managed services, not local inference.
+Gemini and Bedrock are managed services, not local inference.
 Before live use, review source permissions and provider handling in the
 [privacy preflight](../infra/aws/README.md#source-text-privacy-preflight).
-The development workers currently use Gemini. The enabled AWS workflow has
-published test editions; this does not establish consistent editorial quality
-or daily story yield.
+The reference deployment uses Gemini. Daily editorial quality and story yield
+remain operational responsibilities, not guarantees of the workflow.
 
 Validate a versioned source configuration and collection window without making
 network requests:
@@ -122,14 +121,8 @@ The deployed reference allowlist includes ten PLOS journals. Their 30-second cra
 enforced across AWS workers through DynamoDB and within a single local process;
 do not run concurrent local collection or article-analysis processes against
 that host. The CDK collector timeout is
-seven minutes to accommodate host-wide pacing. An October 18 AWS test of an
-earlier set collected 69 candidates and shortlisted nine
-from the October 15–16 window, without fetching article bodies or publishing.
-
-The 2026-10-13 live validation fetched all 16 configured feeds without a feed
-failure and found 54 candidates in a 24-hour window. That run produced one
-ten-story edition, one Nano Banana panorama, and one Marble 1.1 SPZ. Local live
-artifacts remain ignored by Git.
+seven minutes to accommodate host-wide pacing. Local live artifacts remain
+ignored by Git. Daily yield varies with feed freshness and editorial fit.
 
 ## Cost visibility
 

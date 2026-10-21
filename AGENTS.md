@@ -19,21 +19,15 @@ Read these documents before making architectural or product changes:
    [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) before adding a dependency,
    provider, source, or generated asset.
 
-The current implementation includes a fictional frontend demonstration,
-server-side panorama and landmark-detection stages, bounded story-discovery and
-editorial-selection foundations, and provider-neutral world generation with an
-optional World Labs adapter. One live local ten-story vertical slice now spans
-story discovery, hosted editorial analysis, art direction, panorama generation,
-Marble 1.1 world generation, landmark detection, Spark.js raycast baking, and
-local publication assembly. A fixture-backed runner exercises that full artifact
-chain without network access or paid services, and an explicitly gated live
-local runner can resume each stage around a required human review. The AWS
-workflow also has an explicitly opted-in unattended path through image and
-Marble generation, interaction baking, and public publication. An October 19
-nine-story test was promoted to the current edition. Daily live RSS/Atom collection is scheduled,
-and recurring generation and publication are enabled in the development stack;
-a publication-quality daily edition remains incomplete. Do not describe planned
-features as implemented.
+The implementation includes a credential-free fictional demo, a provider-neutral
+generation pipeline, and an opt-in AWS workflow from RSS/Atom discovery through
+editorial analysis, panorama generation, Marble world generation, landmark
+detection, Spark.js interaction baking, and public publication. The reference
+deployment enables recurring generation; fresh stacks disable schedules by
+default. Local fixture runners use no paid services. Manual review remains
+available alongside explicitly authorized unattended runs. Treat daily editorial
+quality, device performance, and operational reliability as ongoing work, not
+guaranteed outcomes.
 
 ## Repository conventions
 

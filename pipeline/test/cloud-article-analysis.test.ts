@@ -114,7 +114,7 @@ test("article-analysis workers require source policy and reuse immutable evidenc
       const differentProvider = createArticleAnalysisWorker({
         artifacts: approvedArtifacts,
         configuration,
-        producer: { provider: "google-vertex-claude", model: "claude-haiku-4-5" },
+        producer: { provider: "other-provider", model: "other-model" },
         async analyze() {
           throw new Error("A resumed edition must not repeat analysis");
         },

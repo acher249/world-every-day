@@ -42,21 +42,10 @@ The current stack synthesizes:
 The fixture workflow validates state transitions, immutable marker artifacts,
 locking, failure handling, and the review boundary. It makes no provider calls
 and stops at editorial review by default. It is not the live daily pipeline.
-The gated live workflow completed one four-story AWS technical edition on
-October 16. It collected feed metadata, analyzed permitted articles, generated
-art direction and a Nano Banana panorama, produced a Marble 1.1 SPZ, detected
-landmarks, baked Spark.js anchors, staged a publication, and served it at a
-direct test URL. This is not a publication-quality daily edition, and it did
-not advance `generated/current.json`. The separate World Labs probe also
-authenticated read access. The recurring schedule now runs the full live path.
-An October 18 one-time 6:15 PM Pacific run opted into paid stages and
-unattended public publication. The first execution reached the edition gate but
-failed on a missing S3 permission. After that was corrected, a same-edition
-resume reused the upstream artifacts and published one story. Its editorial
-and visual quality were not human-reviewed. A failed run leaves the current
+The recurring schedule runs the full live path. A failed run leaves the current
 published pointer unchanged and needs inspection before retrying.
 
-The reasoning and unresolved browser-baking boundary are recorded in
+The original architecture decision and its implementation notes are recorded in
 [`docs/architecture/0001-aws-foundation.md`](../../docs/architecture/0001-aws-foundation.md).
 
 ## Local validation
@@ -98,11 +87,10 @@ would remove the live custom-domain resources.
 | --- | --- | --- | --- |
 | `WORLD_EVERY_DAY_ENVIRONMENT` | `environmentName` | `development` | `development` or `production` |
 | `WORLD_EVERY_DAY_ENABLE_SCHEDULE` | `enableSchedule` | `false` | Enables the daily trigger only when explicitly set to `true` |
-| `WORLD_EVERY_DAY_EDITORIAL_PROVIDER` | `editorialProvider` | `google-gemini` | Select paid Gemini, optional `aws-bedrock`, or optional `google-vertex-claude`; no automatic fallback |
+| `WORLD_EVERY_DAY_EDITORIAL_PROVIDER` | `editorialProvider` | `google-gemini` | Select paid Gemini, optional `aws-bedrock`; no automatic fallback |
 | `WORLD_EVERY_DAY_GEMINI_EDITORIAL_MODEL` | `geminiEditorialModel` | `gemini-3.8-flash` | Gemini model for all three editorial text stages |
 | `WORLD_EVERY_DAY_EDITORIAL_MODEL` | `editorialModel` | `amazon.nova-lite-v1:0` | Pinned Amazon-operated Bedrock model for candidate metadata evaluation |
 | `WORLD_EVERY_DAY_ARTICLE_ANALYSIS_MODEL` | `articleAnalysisModel` | `amazon.nova-lite-v1:0` | Amazon-operated Bedrock model for approved full article text; other IDs are rejected |
-| `WORLD_EVERY_DAY_VERTEX_*` | `vertex*` | unset | Required with Vertex: Google project ID/number, WIF pool/provider, service-account email, region, and Claude model ID; see `.env.example` |
 | `WORLD_EVERY_DAY_LANDMARK_VISION_MODEL` | `landmarkVisionModel` | `gemini-3.8-flash` | Google model for generated-image landmark detection; it does not receive source pages |
 | `WORLD_EVERY_DAY_NANO_BANANA_MODEL` | `nanoBananaModel` | `gemini-nano-banana-2.1` | Model identifier for optional paid raw-image generation |
 | `WORLD_EVERY_DAY_WORLD_LABS_MODEL` | `worldLabsModel` | `marble-1.1` | Model identifier for optional paid World Labs generation |
@@ -232,35 +220,20 @@ Example input for a deliberately started execution:
 }
 ```
 
-The first development-account run on October 14, 2026 found 56 candidates with
-no failed feeds. A repeat execution returned the same artifact without creating
-a new S3 object version. The daily schedule now reaches this workflow through a
-small input-preparation state machine. It supplies a Pacific-date edition ID and
-the previous 24-hour window. The deployed development input now sets the paid,
-unattended, and publication gates to `true`.
-An October 18 one-time EventBridge delivery test started at 1:45 PM Pacific and
-completed live collection with 16 candidates and no feed failures. It made no
-paid model calls and did not update the public current-world pointer.
+The daily schedule reaches this workflow through a small input-preparation
+state machine. It supplies a Pacific-date edition ID and the previous 24-hour
+window. The reference development input enables paid analysis, unattended
+generation, and publication.
 
 Only when `confirmPaidAnalysis` is explicitly `true` does the same manual
 workflow evaluate candidate metadata and create immutable
 `candidate-evaluations.json` and `shortlist.json` artifacts. The current code
-uses the selected Gemini, Bedrock Nova, or Vertex Claude adapter in batches of at most
+uses the selected Gemini or Bedrock Nova adapter in batches of at most
 ten candidates (at most 20 requests for 100 candidates with one malformed-response
 retry per batch); a completed artifact is reused on resume.
 The deployed development worker uses the 32-source RSS/Atom allowlist, including
 GOV.UK news and European Commission environment news.
-An October 18 rerun of the October 15–16 window found 69 candidates and
-shortlisted nine from feed metadata, four from PLOS, with no failed feeds.
-It stopped before linked-article fetching, generation, or publication. A prior
-17-source test found 46 candidates and shortlisted four; neither shortlist is
-an approved daily edition.
-An earlier manually approved Google shortlist
-run evaluated 56 candidates and shortlisted 15. That earlier daily collection
-configuration did not call a model.
-
-That first immutable test shortlist contains eight discovery-only sources and
-must not be treated as an article-analysis queue. New shortlist artifacts apply
+Shortlist artifacts apply
 the reviewed source-access policy, record its configuration checksum, and
 exclude discovery-only stories. If fewer than ten approved stories remain,
 review the source mix instead of fetching a restricted article.
@@ -271,10 +244,7 @@ addition to `confirmPaidAnalysis: true`. A preflight checks the shortlist's
 source-policy checksum and every selected source before the bounded Map starts.
 At most 15 workers run, with concurrency limited to two; each writes only
 original summaries, claims, visual details, usage, and provenance, never source
-article text. Completed evidence is reused on resume. One manual test edition
-analyzed ten approved articles and reused all ten records on a later run without
-repeating model calls. An older test edition predates source-policy checks and
-intentionally fails this preflight.
+article text. Completed evidence is reused on resume. Artifacts from an older source policy must pass the current preflight before reuse.
 
 ### Source-text privacy preflight
 
@@ -284,14 +254,7 @@ secret, which is read only by the selected Lambda workers at runtime. Google
 processes these prompts; for a Gemini API key tied to a project with active
 billing, its [Paid Services terms](https://ai.google.dev/gemini-api/terms) say
 prompts and responses are not used to improve its products, while limited
-abuse-monitoring retention remains possible. Bedrock Nova and Vertex Claude
-are optional managed alternatives. See the [data boundary](../../docs/DATA_BOUNDARY.md).
-
-The development workers were updated and paid-tested through a direct preview
-on October 16. Four approved articles were analyzed ephemerally; one image,
-world, and direct technical-test edition were generated. The current-world
-pointer was not changed. Do not reuse earlier immutable artifacts as evidence
-of the revised source policy.
+abuse-monitoring retention remains possible. Bedrock Nova is an optional managed alternative. See the [data boundary](../../docs/DATA_BOUNDARY.md).
 
 Before changing the provider, source policy, or deployment:
 
@@ -302,12 +265,7 @@ Before changing the provider, source policy, or deployment:
    `world-every-day/<environmentName>/google-ai` secret, not CDK context or a
    Lambda environment variable. Confirm the reviewed 32-source allowlist is in the
    deployed bundle before any live collection.
-2. If selecting Vertex Claude, enable the Vertex AI API and model, configure
-   [AWS-to-Google workload identity federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-other-clouds)
-   for only these Lambda roles, and set `WORLD_EVERY_DAY_VERTEX_*` in the
-   ignored `infra/aws/.env.local`. Review [Google's managed-model policy](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/zero-data-retention)
-   and [Anthropic's Vertex terms](https://www-cdn.anthropic.com/471bd07290603ee509a5ea0d5ccf131ea5897232/anthropic-vertex-commercial-terms-march-2024.pdf).
-3. If selecting Bedrock, confirm Nova access. With a named role-based profile, inspect the account's retention
+2. If selecting Bedrock, confirm Nova access. With a named role-based profile, inspect the account's retention
    setting and model-invocation logging in that Region (these commands only
    read configuration):
 
@@ -316,7 +274,7 @@ Before changing the provider, source policy, or deployment:
    aws --profile <role-profile> --region <region> bedrock get-model-invocation-logging-configuration
    ```
 
-4. For Bedrock, interpret the returned retention setting using the current AWS documentation,
+3. For Bedrock, interpret the returned retention setting using the current AWS documentation,
    including any inherited/default mode and model-specific requirements.
    Confirm that it meets your policy and that text invocation logging will not
    retain source prompts or outputs. Bedrock
@@ -325,7 +283,7 @@ Before changing the provider, source policy, or deployment:
    retention or logs. If the configuration cannot be verified, keep the stage
    off. An organization requiring **no hosted processing** needs a separately
    reviewed self-hosted adapter; Bedrock does not meet that requirement.
-5. Deploy updated text workers only with explicit approval, verify the chosen
+4. Deploy updated text workers only with explicit approval, verify the chosen
    provider and IAM scope, and separately approve live tests before enabling
    any schedule. The provider never falls back silently.
 
@@ -406,11 +364,6 @@ operator choice with real provider costs and public output, not a substitute
 for editorial or visual QA. The deployed 7:30 AM development schedule now sets
 these flags; fresh stacks remain disabled until explicitly enabled.
 
-An October 2026 private SPZ fixture test validated the Lambda-hosted Spark.js
-browser baker. It loaded a real 30 MB SPZ and wrote 12 raycast anchors (nine
-story landmarks and three context markers) in about nine seconds. This was a
-stage-level test, not a paid end-to-end edition or public publication.
-
 ## World Labs key check
 
 The standalone `WorldLabsAuthProbe` Lambda is available as the
@@ -424,15 +377,13 @@ return the key, world list, or provider response body. A successful check
 verifies API access, not world-generation permissions, model compatibility,
 available credits, or a successful panorama-to-world run. Those require a
 separate, explicitly approved generation test.
-The development-account read-only probe returned HTTP 200 on October 15, 2026.
 
 ## Daily collection and publication boundary
 
 The development schedule runs at 7:30 AM `America/Los_Angeles`. EventBridge
 passes its scheduled timestamp to an input-preparation state machine, which
 starts the live workflow with a stable Pacific-date edition ID and a 24-hour
-window. A separate one-time schedule verified delivery before recurrence was
-enabled. Fresh deployments keep the schedule disabled unless explicitly enabled
+window. Fresh deployments keep the schedule disabled unless explicitly enabled
 with `-c enableSchedule=true`; use that context on later development-stack
 deployments too, or CDK will disable it again.
 
@@ -441,9 +392,6 @@ stages and public publication, subject to stage checks and provider success.
 Each successful publication atomically moves the former current edition into
 the public pointer's `pastWorlds` list. The explorer uses that list for its
 archive menu; technical previews that were never current stay out of it.
-The October 19 catch-up run used a separate edition ID because the earlier
-collection artifact was immutable under the previous source allowlist. It
-published a one-story world after bounded article and art-direction retries.
 Monitor editorial quality, citations, generated assets, hotspot alignment, public URLs,
 and pointer updates; failed runs must leave the previous public world intact.
 

@@ -25,7 +25,6 @@ import type { EditionProviders } from "./edition-run.js";
 function textModel(environment: NodeJS.ProcessEnv, stage: "evaluation" | "article" | "art"): string {
   const provider = textProvider(environment);
   if (provider === "google-gemini") return environment.GEMINI_EDITORIAL_MODEL?.trim() || DEFAULT_GEMINI_EDITORIAL_MODEL;
-  if (provider === "google-vertex-claude") return environment.VERTEX_CLAUDE_MODEL?.trim() || "";
   if (stage === "article") return environment.ARTICLE_ANALYSIS_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;
   if (stage === "art") return environment.ART_DIRECTION_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;
   return environment.EDITORIAL_MODEL?.trim() || AMAZON_NOVA_TEXT_MODEL;

@@ -19,7 +19,6 @@ by its `npm run license:check` command.
 | fast-xml-parser | RSS and Atom parsing | MIT | <https://github.com/NaturalIntelligence/fast-xml-parser> |
 | node-html-parser | Shortlisted article text extraction | MIT | <https://github.com/taoqf/node-fast-html-parser> |
 | Google Gen AI SDK | Gemini editorial, Nano Banana, and generated-image landmark API client | Apache-2.0 | <https://github.com/googleapis/js-genai> |
-| Google Auth Library | Keyless AWS-to-Google workload identity federation for optional Vertex Claude analysis | Apache-2.0 | <https://github.com/googleapis/google-auth-library-nodejs> |
 | Sharp | Deterministic image processing | Apache-2.0 | <https://github.com/lovell/sharp> |
 | Puppeteer Core | Headless browser control for private interaction baking | Apache-2.0 | <https://github.com/puppeteer/puppeteer> |
 | @sparticuz/chromium | Lambda-compatible Chromium packaging | MIT | <https://github.com/Sparticuz/chromium> |
@@ -91,7 +90,7 @@ those named transitive packages and exact reported licenses.
 
 ## External services
 
-Google Gemini/Nano Banana, Google Cloud Vertex AI, Anthropic Claude, World Labs Marble, and AWS are external proprietary
+Google Gemini/Nano Banana, World Labs Marble, and AWS are external proprietary
 services rather than bundled open-source libraries. Their respective terms apply
 when their adapters are enabled. See [Licensing and service boundaries](docs/LICENSING.md).
 
