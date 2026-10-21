@@ -25,6 +25,13 @@ test("story cycling keeps its target when another hotspot passes under the point
   assert.equal(focusEffectId(null, null, false, false), null);
 });
 
+test("left story list centers previews in the viewport to its right", () => {
+  const yaw = focusPanelYaw(1440, 430, 1440 / 900, 60, "left");
+  const projectedNdcX = Math.tan(yaw) / ((1440 / 900) * Math.tan(Math.PI / 6));
+  assert.ok(Math.abs(projectedNdcX - 430 / 1440) < 1e-10);
+  assert.equal(yaw, -focusPanelYaw(1440, 430, 1440 / 900, 60, "right"));
+});
+
 test("depth of field follows highlighted landmarks and returns to a gentler idle focus", () => {
   const idle = depthOfFieldTarget(20, null, false);
   const near = depthOfFieldTarget(20, 3, false);

@@ -6,10 +6,10 @@ export function hotspotVisualScale(screenX: number, screenY: number): number {
   return 0.8 + 0.55 * (1 - smootherstep(edge));
 }
 
-/** Horizontal rotation needed to frame a target beside a right-hand panel. */
-export function focusPanelYaw(width: number, panelWidth: number, aspect: number, verticalFovDegrees: number): number {
+/** Horizontal rotation needed to frame a target in the unobscured viewport. */
+export function focusPanelYaw(width: number, panelWidth: number, aspect: number, verticalFovDegrees: number, side: "left" | "right" = "right"): number {
   if (width <= 0 || panelWidth <= 0 || panelWidth >= width) return 0;
-  const targetNdcX = -panelWidth / width;
+  const targetNdcX = (side === "left" ? 1 : -1) * panelWidth / width;
   return Math.atan(targetNdcX * aspect * Math.tan(verticalFovDegrees * Math.PI / 360));
 }
 
@@ -30,7 +30,7 @@ export function depthOfFieldTarget(
   mobile: boolean,
 ): { focalDistance: number; apertureAngle: number } {
   const idleDistance = Math.max(navigationRadius * 0.7, 2);
-  const idleAperture = mobile ? 0.0025 : 0.0032;
+  const idleAperture = mobile ? 0.0065 : 0.0096;
   if (anchorDistance === null) {
     return { focalDistance: idleDistance, apertureAngle: idleAperture };
   }

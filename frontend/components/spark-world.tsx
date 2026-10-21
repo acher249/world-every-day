@@ -13,6 +13,7 @@ import {
   getNavigationFloor,
   getFocusPosition,
   getNavigationRadius,
+  interpolateHeading,
   smootherstep,
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
@@ -63,6 +64,7 @@ type SparkWorldProps = {
   focusCycleRevision?: number;
   focusResetRevision?: number;
   storyPanelOpen?: boolean;
+  storyIndexOpen?: boolean;
   alt: string;
   anchors?: WorldAnchor[];
   onAnchorHover?: () => void;
@@ -81,6 +83,7 @@ export function SparkWorld({
   focusCycleRevision = 0,
   focusResetRevision = 0,
   storyPanelOpen = false,
+  storyIndexOpen = false,
   alt,
   anchors = [],
   onAnchorHover,
@@ -100,6 +103,7 @@ export function SparkWorld({
   const focusCycleRevisionRef = useRef(focusCycleRevision);
   const focusResetRevisionRef = useRef(focusResetRevision);
   const storyPanelOpenRef = useRef(storyPanelOpen);
+  const storyIndexOpenRef = useRef(storyIndexOpen);
   const hoveredAnchorIdRef = useRef<string | null>(null);
   const cycleHoverLockedRef = useRef(false);
   const cycleNavigationActiveRef = useRef(false);
@@ -113,6 +117,7 @@ export function SparkWorld({
   focusCycleRevisionRef.current = focusCycleRevision;
   focusResetRevisionRef.current = focusResetRevision;
   storyPanelOpenRef.current = storyPanelOpen;
+  storyIndexOpenRef.current = storyIndexOpen;
 
   useEffect(() => {
     if (focusResetRevision === 0) return;
@@ -414,7 +419,6 @@ export function SparkWorld({
         let lastPointerY = 0;
         const pressedKeys = new Set<string>();
         const cameraEuler = new Euler(0, 0, 0, "YXZ");
-        const cameraFloatEuler = new Euler(0, 0, 0, "YXZ");
         const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
         // Spark's depth of field is part of its splat renderer, not a second
         // full-screen post-processing pass. Keep mobile aperture restrained.
@@ -440,12 +444,14 @@ export function SparkWorld({
           duration: number;
           elapsed: number;
           position: InstanceType<typeof Vector3>;
-          rotation: InstanceType<typeof Quaternion>;
+          pitch: number;
+          yaw: number;
           startPosition: InstanceType<typeof Vector3>;
-          startRotation: InstanceType<typeof Quaternion>;
+          startPitch: number;
+          startYaw: number;
         } | null = null;
         let lastFocusedAnchorId: string | null = null;
-        let lastFocusPanelOpen = false;
+        let lastFocusPanelSide: "left" | "right" | null = null;
 
         const updateCameraRotation = () => {
           cameraEuler.set(pitch, yaw, 0);
@@ -569,7 +575,6 @@ export function SparkWorld({
           navigationRadius * 0.034,
           maxDimension * 0.0056,
         );
-        const floatRotationAmplitude = 0.011;
         const floatPhase = Math.random() * Math.PI * 2;
         let cameraFloatTime = 0;
         let previousFrameTime = performance.now();
@@ -583,6 +588,7 @@ export function SparkWorld({
             const requestedFocusId = focusedAnchorIdRef.current;
             const desktopEffects = !mobileLayoutQuery.matches;
             const panelOpen = storyPanelOpenRef.current && desktopEffects;
+            const panelSide = panelOpen ? "right" : storyIndexOpenRef.current && desktopEffects ? "left" : null;
             if (focusResetRevisionRef.current !== lastFocusResetRevision) {
               lastFocusResetRevision = focusResetRevisionRef.current;
               hoveredAnchorIdRef.current = null;
@@ -599,9 +605,9 @@ export function SparkWorld({
               if (lastFocusedAnchorId === null) focusSweepUniform.value = 0;
               bubbleCycleTargetId = requestedFocusId;
             }
-            if (requestedFocusId !== lastFocusedAnchorId || panelOpen !== lastFocusPanelOpen) {
+            if (requestedFocusId !== lastFocusedAnchorId || panelSide !== lastFocusPanelSide) {
               lastFocusedAnchorId = requestedFocusId;
-              lastFocusPanelOpen = panelOpen;
+              lastFocusPanelSide = panelSide;
               focusTransition = null;
               const anchor = anchorsRef.current.find(({ id }) => id === requestedFocusId);
               let destination: InstanceType<typeof Vector3> | null = null;
@@ -632,11 +638,14 @@ export function SparkWorld({
                 );
                 focusLookMatrix.lookAt(destination, focusTarget, up);
                 focusRotation.setFromRotationMatrix(focusLookMatrix);
-                if (panelOpen) {
-                  const panelWidth = document.querySelector(".story-panel")?.getBoundingClientRect().width
+                if (panelSide) {
+                  const panelWidth = document.querySelector(panelSide === "left" ? ".story-index" : ".story-panel")?.getBoundingClientRect().width
                     ?? Math.min(430, canvas.clientWidth * 0.92);
-                  const panelYaw = focusPanelYaw(canvas.clientWidth, panelWidth, camera.aspect, camera.fov);
-                  focusRotation.multiply(new Quaternion().setFromAxisAngle(up, panelYaw));
+                  const panelYaw = focusPanelYaw(canvas.clientWidth, panelWidth, camera.aspect, camera.fov, panelSide);
+                  cameraEuler.setFromQuaternion(focusRotation, "YXZ");
+                  cameraEuler.y += panelYaw;
+                  cameraEuler.z = 0;
+                  focusRotation.setFromEuler(cameraEuler);
                 }
                 destinationRotation = focusRotation;
               } else if (requestedFocusId === null) {
@@ -648,6 +657,12 @@ export function SparkWorld({
 
               if (destination && destinationRotation) {
                 velocity.set(0, 0, 0);
+                cameraEuler.setFromQuaternion(camera.quaternion, "YXZ");
+                const startPitch = cameraEuler.x;
+                const startYaw = cameraEuler.y;
+                cameraEuler.setFromQuaternion(destinationRotation, "YXZ");
+                cameraEuler.z = 0;
+                destinationRotation.setFromEuler(cameraEuler);
                 if (reducedMotionQuery.matches) {
                   camera.position.copy(destination);
                   camera.quaternion.copy(destinationRotation);
@@ -659,9 +674,11 @@ export function SparkWorld({
                     duration: 2.4,
                     elapsed: 0,
                     position: destination.clone(),
-                    rotation: destinationRotation.clone(),
+                    pitch: cameraEuler.x,
+                    yaw: cameraEuler.y,
                     startPosition: camera.position.clone(),
-                    startRotation: camera.quaternion.clone(),
+                    startPitch,
+                    startYaw,
                   };
                   bubbleInverseRotation.copy(camera.quaternion).invert();
                   bubbleStartView.copy(bubbleCycleStart).sub(camera.position).applyQuaternion(bubbleInverseRotation);
@@ -696,14 +713,12 @@ export function SparkWorld({
                 transitionProgress,
               );
               clampToNavigationBounds(camera.position, navigationRadius, navigationFloor);
-              camera.quaternion.slerpQuaternions(
-                focusTransition.startRotation,
-                focusTransition.rotation,
-                transitionProgress,
-              );
+              // Separate heading and elevation keep the horizon level throughout the turn.
+              pitch = focusTransition.startPitch + (focusTransition.pitch - focusTransition.startPitch) * transitionProgress;
+              yaw = interpolateHeading(focusTransition.startYaw, focusTransition.yaw, transitionProgress);
+              updateCameraRotation();
               if (focusTransition.elapsed >= focusTransition.duration) {
                 camera.position.copy(focusTransition.position);
-                camera.quaternion.copy(focusTransition.rotation);
                 focusTransition = null;
                 cameraEuler.setFromQuaternion(camera.quaternion, "YXZ");
                 pitch = cameraEuler.x;
@@ -769,19 +784,8 @@ export function SparkWorld({
                 Math.sin(cameraFloatTime * 0.17 + floatPhase + 3.4) *
                   floatPositionAmplitude * 0.45,
               );
-              cameraFloatEuler.set(
-                (
-                  Math.sin(cameraFloatTime * 0.16 + floatPhase + 0.9) +
-                  Math.sin(cameraFloatTime * 0.31 + floatPhase) * 0.22
-                ) * floatRotationAmplitude * 0.72,
-                (
-                  Math.sin(cameraFloatTime * 0.14 + floatPhase + 2.1) +
-                  Math.sin(cameraFloatTime * 0.29 + floatPhase * 0.8) * 0.24
-                ) * floatRotationAmplitude,
-                Math.sin(cameraFloatTime * 0.12 + floatPhase + 4.2) *
-                  floatRotationAmplitude * 0.38,
-              );
-              cameraFloatRig.quaternion.setFromEuler(cameraFloatEuler);
+              // Translation retains the ambient float without introducing parent-rig roll.
+              cameraFloatRig.quaternion.identity();
             }
 
             floatedCameraPosition.copy(camera.position).applyQuaternion(cameraFloatRig.quaternion);

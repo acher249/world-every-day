@@ -8,9 +8,18 @@ import {
   getFocusPosition,
   getNavigationFloor,
   getNavigationRadius,
+  interpolateHeading,
   smootherstep,
   spatialStoryOrder,
 } from "../lib/spatial-navigation";
+
+test("level camera headings take the short path across the panorama seam", () => {
+  const degrees = Math.PI / 180;
+  assert.ok(Math.abs(interpolateHeading(170 * degrees, -170 * degrees, 0.5) - Math.PI) < 1e-10);
+  assert.ok(Math.abs(interpolateHeading(-170 * degrees, 170 * degrees, 0.5) + Math.PI) < 1e-10);
+  assert.equal(interpolateHeading(0, 1, 0), 0);
+  assert.equal(interpolateHeading(0, 1, 1), 1);
+});
 
 test("spatial tour follows neighboring bearings and closes the loop without mutating publication order", () => {
   const make = (id: string, x: number, z: number) => ({ id, interaction: { worldPosition: { x, y: 0, z } } });

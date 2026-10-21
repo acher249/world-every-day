@@ -152,11 +152,13 @@ function StoryIndex({
   activeId,
   onClose,
   onSelect,
+  onPreview,
 }: {
   stories: PublicationStory[];
   activeId: string | null;
   onClose: () => void;
   onSelect: (story: PublicationStory) => void;
+  onPreview: (story: PublicationStory) => void;
 }) {
   return (
     <motion.aside
@@ -187,6 +189,10 @@ function StoryIndex({
             <button
               className={activeId === story.id ? "is-active" : ""}
               onClick={() => onSelect(story)}
+              onPointerEnter={(event) => {
+                if (event.pointerType === "mouse") onPreview(story);
+              }}
+              onFocus={() => onPreview(story)}
             >
               <span className="story-list-number">{String(index + 1).padStart(2, "0")}</span>
               <span>
@@ -522,6 +528,17 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
     setControlsOpen(false);
   }
 
+  function previewStoryFromIndex(story: PublicationStory) {
+    if (
+      window.matchMedia(mobileLayoutQuery).matches ||
+      !window.matchMedia("(hover: hover) and (pointer: fine)").matches ||
+      focusedIdRef.current === story.id
+    ) return;
+    focusedIdRef.current = story.id;
+    setFocusedId(story.id);
+    setFocusCycleRevision((revision) => revision + 1);
+  }
+
   async function toggleSound() {
     autoSoundAttemptedRef.current = true;
     const audio = audioRef.current ?? new WorldAudio();
@@ -555,6 +572,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           focusCycleRevision={focusCycleRevision}
           focusResetRevision={focusResetRevision}
           storyPanelOpen={activeId !== null}
+          storyIndexOpen={indexOpen}
           mobileMovementRef={mobileMovementRef}
           posterSrc={publication.world.poster.src}
           splatSha256={renderedSplatSha256}
@@ -820,8 +838,12 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         {indexOpen ? (
           <StoryIndex
             stories={stories}
-            activeId={activeId}
-            onClose={() => setIndexOpen(false)}
+            activeId={focusedId}
+            onClose={() => {
+              setIndexOpen(false);
+              closeStory();
+            }}
+            onPreview={previewStoryFromIndex}
             onSelect={(story) => selectStory(story, !window.matchMedia(mobileLayoutQuery).matches)}
           />
         ) : null}

@@ -1,5 +1,11 @@
 export type Point3 = { x: number; y: number; z: number };
 
+/** Interpolate heading across the shortest arc, including the ±PI seam. */
+export function interpolateHeading(start: number, end: number, progress: number) {
+  const delta = Math.atan2(Math.sin(end - start), Math.cos(end - start));
+  return start + delta * Math.max(0, Math.min(1, progress));
+}
+
 /** Clockwise tour around the origin, starting nearest the initial forward view. */
 export function spatialStoryOrder<T extends { id: string; interaction: { worldPosition: Point3 } }>(stories: readonly T[]): T[] {
   const angle = (story: T) => {
