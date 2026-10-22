@@ -8,11 +8,12 @@ import {
   type WorldAnchor,
 } from "@/components/spark-world";
 import { MobileJoystick } from "@/components/mobile-joystick";
+import { WelcomeOverlay } from "@/components/welcome-overlay";
 import { cycleId, spatialStoryOrder } from "@/lib/spatial-navigation";
 import { pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
 import { resolveProjectSiteUrl } from "@/lib/site-links";
 import { WorldAudio, type WorldSound } from "@/lib/world-audio";
-import { canRenderWorldInteractions } from "@/lib/world-interactions";
+import { canRenderWorldInteractions, landmarkCompanion } from "@/lib/world-interactions";
 import type { StickValue } from "@/lib/touch-navigation";
 import type {
   PublicationManifest,
@@ -421,11 +422,13 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       tone: story.interaction.screenRegion.tone,
       worldPosition: story.interaction.worldPosition,
     })),
+      ...stories.map(landmarkCompanion),
       ...storyEchoes.map((echo): WorldAnchor => {
         const storyIndex = stories.findIndex(({ id }) => id === echo.storyId);
         const story = stories[storyIndex];
         return {
           kind: "echo",
+          storyId: echo.storyId,
           explanation: echo.explanation,
           fallbackScreenPosition: echo.interaction.imageTarget,
           id: echo.id,
@@ -487,6 +490,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (document.querySelector(".welcome-overlay[open]")) return;
       if (event.key === "Escape") {
         if (archiveOpen || activeId || indexOpen || controlsOpen || focusedId) {
           event.preventDefault();
@@ -579,6 +583,10 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           splatUrl={splatUrl}
           anchors={anchors}
           onAnchorHover={() => playSound("hover")}
+          onStoryNavigate={(id) => {
+            const story = stories.find((candidate) => candidate.id === id);
+            if (story) selectStory(story, false);
+          }}
           onMovementChange={setMovementSound}
           onAnchorSelect={(id) => {
             const story = stories.find((candidate) => candidate.id === id);
@@ -865,6 +873,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       <AnimatePresence>
         {controlsOpen ? <ControlsModal onClose={() => setControlsOpen(false)} /> : null}
       </AnimatePresence>
+      <WelcomeOverlay ready={viewerState === "ready" || viewerState === "poster" || viewerState === "error"} />
     </main>
     </MotionConfig>
   );

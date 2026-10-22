@@ -72,12 +72,28 @@ path is a useful solution, not a fixed template. Preserve a quiet camera area,
 continuous terrain, clear outward sightlines, and distinct landmark addresses
 without making every edition spatially identical.
 
+Every primary hotspot has a companion **Landmark Echo** explaining the physical
+representation: what visitors are looking at, what the real object or process
+does, and how the artwork connects to that idea. Keep this to one or two plain
+sentences grounded in supplied story facts, and identify invented sculptures or
+metaphors as artwork rather than reported objects. Older editions without this
+explanation fall back to their original story summary, labeled as interpretation.
+It shares the story's baked
+3D anchor and focus bounds, with a small screen-space offset for its badge.
+Selecting the companion opens its story panel and dismisses the tooltip;
+hovering it does not create a persistent selection.
+Use short, literal object names, not invented technical or poetic titles.
+Representations are artwork, not necessarily objects reported in an article.
+
 The interaction layer may also identify several **Story Echoes**:
 secondary environmental details that reveal how a story shaped the world, such
 as terrain, material, or ecological traces. An echo must be visibly separate
 from its story's primary landmark, grounded in the supplied story details, and
 omitted whenever the connection is uncertain. Aim for six to eight echoes from
 different stories when the generated environment supports them.
+Selecting a standalone echo or its tooltip moves the camera to its related
+story without opening the story panel. Landmark tooltips remain highlighted
+while hovered and can be selected to open the story panel.
 
 ## Avoid
 
@@ -91,6 +107,18 @@ different stories when the generated environment supports them.
 
 Context, citations, and explanation belong in the interactive layer. The world
 should remain spacious, coherent, and open to exploration.
+
+## Landmark surface checks
+
+During baking, bounded landmarks use a 5×5 ray grid plus the detected target.
+The baker prefers the nearest depth band supported by neighboring samples,
+rejects isolated hits, and places the anchor on an actual sampled surface.
+This helps avoid shooting through arches or rings into the background. If no
+supported surface is found, baking fails rather than inventing a position.
+Unbounded legacy targets retain single-ray behavior. This is a geometric
+heuristic, not proof of object identity; foreground clutter or an inaccurate
+box can still require detection review. All sampling happens during baking,
+not in the viewer's render loop.
 
 ## Pipeline contract
 

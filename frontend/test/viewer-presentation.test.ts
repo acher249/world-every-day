@@ -46,7 +46,9 @@ test("depth of field follows highlighted landmarks and returns to a gentler idle
 });
 
 test("mobile splat rendering uses a lower pixel ratio cap", () => {
-  assert.equal(viewerPixelRatio(3, true), 1.25);
-  assert.equal(viewerPixelRatio(3, false), 1.5);
+  assert.equal(viewerPixelRatio(3, true), 1.5);
+  assert.equal(viewerPixelRatio(3, false), 3);
   assert.equal(viewerPixelRatio(1, true), 1);
+  assert.equal(viewerPixelRatio(0.8, false), 0.8);
+  assert.equal(viewerPixelRatio(NaN, false), 1);
 });

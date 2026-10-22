@@ -9,7 +9,7 @@ import {
   type ArtDirection,
 } from "./schema.js";
 
-export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v3";
+export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v7";
 
 export const defaultArtDirectionConstraints = {
   required: [

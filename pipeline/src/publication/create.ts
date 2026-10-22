@@ -51,6 +51,7 @@ export function createPublicationManifest({
       title: story.title,
       summary: story.summary,
       representation: subject.subject,
+      ...(subject.grounding ? { representationExplanation: subject.grounding.artisticInterpretation } : {}),
       sources: story.sources,
       interaction: {
         imageTarget: anchor.imageTarget,

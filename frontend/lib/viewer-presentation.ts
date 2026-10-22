@@ -42,7 +42,8 @@ export function depthOfFieldTarget(
   };
 }
 
-/** Bound splat fill rate on touch layouts without changing desktop sharpness. */
+/** Use native desktop resolution and bound mobile splat fill rate. */
 export function viewerPixelRatio(devicePixelRatio: number, mobile: boolean): number {
-  return Math.min(Math.max(devicePixelRatio, 1), mobile ? 1.25 : 1.5);
+  const ratio = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return mobile ? Math.min(ratio, 1.5) : ratio;
 }

@@ -37,6 +37,7 @@ export const storySchema = z.object({
   title: z.string().min(1).max(180),
   summary: z.string().min(1).max(700),
   representation: z.string().min(1).max(240),
+  representationExplanation: z.string().min(1).max(300).optional(),
   sources: z.array(sourceSchema).max(8),
   interaction: z.object({
     imageTarget: z.object({

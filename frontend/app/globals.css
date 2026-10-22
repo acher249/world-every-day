@@ -99,9 +99,17 @@ a { color: inherit; }
 .hotspot-label strong { color: var(--ink); font: 400 15px/1.25 Georgia, "Times New Roman", serif; }
 .hotspot-label > span { color: rgba(244, 242, 234, .67); font-size: 10px; line-height: 1.45; }
 .hotspot-label em { color: var(--muted); font-size: 8px; font-style: normal; text-transform: uppercase; letter-spacing: .11em; }
+.hotspot:has(.hotspot-label:hover), .hotspot:focus-visible, .story-echo:hover, .story-echo:focus-visible { z-index: 9; }
+.hotspot:hover .hotspot-label, .hotspot:focus-visible .hotspot-label, .story-echo:hover .hotspot-label, .story-echo:focus-visible .hotspot-label { pointer-events: auto; }
+/* Bridge the small gap between a companion badge and its tooltip. */
+.story-echo-label::before { content: ""; position: absolute; left: 0; right: 0; top: -16px; height: 16px; }
+.story-echo:not(.landmark-companion) { cursor: pointer; }
+.story-echo-label .echo-story-action { justify-self: start; padding: 7px 10px; margin-top: 5px; border: 1px solid #d8bcff60; border-radius: 999px; color: #d8bcff; font-size: 10px; }
 .hotspot:hover .hotspot-label, .hotspot:focus-visible .hotspot-label, .story-echo:hover .hotspot-label, .story-echo:focus-visible .hotspot-label { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 .spark-world[data-hover-suppressed="true"] .hotspot:hover .hotspot-label { opacity: 0; visibility: hidden; }
-.story-echo { position: absolute; z-index: 6; left: 0; top: 0; width: 120px; height: 120px; display: grid; place-items: center; border-radius: 50%; cursor: help; contain: layout style; will-change: transform; }
+.spark-world[data-hover-suppressed="true"] .story-echo .hotspot-label { opacity: 0; visibility: hidden; pointer-events: none; }
+.story-echo { position: absolute; z-index: 6; left: 0; top: 0; width: 120px; height: 120px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; display: grid; place-items: center; border-radius: 50%; cursor: help; contain: layout style; will-change: transform; }
+.story-echo.landmark-companion { z-index: 8; width: 44px; height: 44px; cursor: pointer; }
 .story-echo-visual { position: relative; display: grid; place-items: center; width: 40px; height: 40px; pointer-events: none; }
 .story-echo-core { position: relative; z-index: 2; display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid rgba(208, 181, 255, .82); border-radius: 50%; background: rgba(17, 10, 25, .75); color: #d8bcff; box-shadow: 0 3px 18px rgba(0, 0, 0, .42), 0 0 14px rgba(174, 126, 255, .18); backdrop-filter: blur(8px); font-size: 12px; transition: transform .25s ease, background .25s ease; }
 .story-echo-pulse { position: absolute; inset: 4px; border: 1px solid rgba(216, 188, 255, .6); border-radius: 50%; animation: echo-breathe 3.4s ease-out infinite; }
@@ -111,7 +119,13 @@ a { color: inherit; }
 .story-echo:focus-visible { outline: none; }
 .story-echo:focus-visible .story-echo-visual { outline: 1px solid #d8bcff; outline-offset: 4px; border-radius: 50%; }
 .story-echo-label small { color: #d8bcff; }
+.story-echo-label { left: calc(50% + var(--echo-label-shift, 0px)); }
 .story-echo-label > span { color: rgba(244, 242, 234, .88); font-size: 12px; line-height: 1.45; }
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  .story-echo { width: 160px; height: 160px; }
+  /* Leave the adjacent numbered landmark's visible core unobstructed. */
+  .story-echo.landmark-companion { width: 72px; height: 72px; }
+}
 
 .story-index, .story-panel { position: absolute; z-index: 30; top: 0; bottom: 0; width: var(--story-panel-width); padding: 94px 30px 88px; overflow-y: auto; border-color: var(--line); background: var(--panel); box-shadow: 0 0 70px rgba(0, 0, 0, .45); backdrop-filter: blur(24px) saturate(1.12); scrollbar-width: thin; }
 .story-index { left: 0; border-right: 1px solid var(--line); }
@@ -156,6 +170,39 @@ a { color: inherit; }
 .control-keys { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px; }
 .control-keys kbd { min-width: 29px; height: 29px; padding: 0 8px; display: inline-grid; place-items: center; border: 1px solid rgba(255, 255, 255, .22); border-bottom-color: rgba(255, 255, 255, .38); border-radius: 5px; background: rgba(255, 255, 255, .055); color: var(--ink); font: 700 9px/1 Arial, Helvetica, sans-serif; letter-spacing: .08em; text-transform: uppercase; box-shadow: 0 2px 0 rgba(0, 0, 0, .35); }
 .controls-note { margin: 23px 0 0; color: var(--muted); font-size: 9px; line-height: 1.6; text-transform: uppercase; letter-spacing: .14em; }
+
+.welcome-overlay { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; color: var(--ink); background: transparent; overflow-y: auto; }
+.welcome-overlay[open] { display: grid; place-items: center; }
+.welcome-overlay::backdrop { background: rgba(2, 9, 9, .32); backdrop-filter: blur(1px) saturate(.85); }
+.welcome-card { position: relative; width: min(460px, 100%); padding: 28px; border: 1px solid rgba(145, 233, 228, .2); border-radius: 20px; background: rgba(7, 19, 18, .97); box-shadow: 0 24px 100px #0006; }
+.welcome-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.welcome-card h2 { margin: 12px 0; font: 400 36px/1.08 Georgia, "Times New Roman", serif; letter-spacing: -.035em; }
+.welcome-card > p { color: #c5cfca; font-size: 13px; line-height: 1.65; }
+.welcome-navigation { display: flex; align-items: center; gap: 20px; padding: 20px 0; margin-top: 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.welcome-navigation.mobile-controls { display: none; }
+.welcome-navigation strong { display: block; margin-bottom: 6px; color: var(--ink); font-size: 13px; }
+.welcome-navigation span { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.welcome-move-keys { flex-shrink: 0; text-align: center; }
+.welcome-move-keys kbd, .welcome-arrows kbd { display: inline-grid; place-items: center; width: 25px; height: 25px; margin: 2px; border: 1px solid #91e9e450; border-radius: 5px; background: #91e9e40b; color: var(--cyan); font-family: inherit; font-size: 11px; }
+.welcome-stick { flex-shrink: 0; color: var(--cyan); }
+.welcome-tips { display: grid; gap: 14px; margin: 22px 0; }
+.welcome-tips p { display: flex; align-items: center; gap: 13px; margin: 0; color: #c5cfca; font-size: 12px; line-height: 1.5; }
+.welcome-marker { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border: 1px solid #91e9e460; border-radius: 50%; color: var(--cyan); font-size: 10px; }
+.welcome-marker.echo { border-color: #d8bcff60; color: #d8bcff; }
+.welcome-arrows { display: flex; flex: 0 0 auto; color: var(--cyan); white-space: nowrap; }
+.welcome-arrows svg { display: block; }
+.welcome-tips:last-child { margin-bottom: 0; }
+@media (max-width: 760px), (orientation: landscape) and (pointer: coarse) {
+  .welcome-overlay { padding: 16px; }
+  .welcome-card { padding: 22px; border-radius: 18px; }
+  .welcome-card h2 { font-size: 31px; }
+  .welcome-navigation.desktop-controls { display: none; }
+  .welcome-navigation.mobile-controls { display: flex; }
+  .welcome-navigation { padding: 14px 0; gap: 14px; }
+}
+@media (max-height: 740px) {
+  .welcome-overlay[open] { align-items: safe center; justify-items: center; padding: 16px; }
+}
 
 @keyframes breathe { 0% { transform: scale(.7); opacity: .8; } 80%, 100% { transform: scale(1.75); opacity: 0; } }
 @keyframes echo-breathe { 0% { transform: scale(.72) rotate(0deg); opacity: .75; } 80%, 100% { transform: scale(1.65) rotate(45deg); opacity: 0; } }

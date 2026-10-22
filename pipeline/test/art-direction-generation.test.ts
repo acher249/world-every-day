@@ -129,6 +129,10 @@ test("art-direction prompt distinguishes grounded details from interpretation", 
   const prompt = buildArtDirectionPrompt(capturedStories);
 
   assert.match(prompt, /never present them as reported facts/i);
+  assert.match(prompt, /short, plain language/);
+  assert.match(prompt, /visitor-facing landmark echo/);
+  assert.match(prompt, /omit unsupported functions/);
+  assert.match(prompt, /Do not repeat the article title/);
   assert.match(prompt, /one continuous setting/i);
   assert.match(prompt, /full 360 degrees/i);
   assert.match(prompt, /avoid flat-frame terms/i);

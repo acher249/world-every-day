@@ -91,11 +91,13 @@ const sourceSplatSha256 = sha256(splatBytes);
 const targets = [
   ...detections.landmarks.map((landmark) => ({
     id: landmark.storyId,
+    boundingBox: landmark.boundingBox,
     x: landmark.target.x,
     y: landmark.target.y,
   })),
   ...(detections.contextMarkers ?? []).map((marker) => ({
     id: marker.id,
+    boundingBox: marker.boundingBox,
     x: marker.target.x,
     y: marker.target.y,
   })),

@@ -17,8 +17,11 @@ import {
   smootherstep,
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
+import { landmarkRayTargets, selectLandmarkSurface, type SurfaceSample } from "@/lib/landmark-raycast";
 import { cameraRelativeFocusCenter, defaultFocusRadius, focusShapeForLandmark, focusSweepWeight, shouldTravelFocus, type ImageBoundingBox } from "@/lib/focus-region";
 import { withFocusSplatShader } from "@/lib/splat-focus-shader";
+import { observeViewerVisibility } from "@/lib/viewer-visibility";
+import { companionOffset } from "@/lib/world-interactions";
 import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, viewerPixelRatio } from "@/lib/viewer-presentation";
 import {
   boundaryFragmentShader,
@@ -49,6 +52,8 @@ export type WorldAnchor = WorldAnchorBase & ({
   tone: "cyan" | "amber" | "green";
 } | {
   kind: "echo";
+  storyId: string;
+  focusStoryId?: string;
   explanation: string;
   label: string;
   storyNumber: string;
@@ -56,7 +61,8 @@ export type WorldAnchor = WorldAnchorBase & ({
 });
 
 function echoDescription(anchor: Extract<WorldAnchor, { kind: "echo" }>): string {
-  return `This is the ${anchor.label.toLowerCase()}, inspired by the article “${anchor.storyTitle}.”`;
+  return anchor.focusStoryId ? anchor.explanation
+    : `${anchor.explanation} From the article “${anchor.storyTitle}.”`;
 }
 
 type SparkWorldProps = {
@@ -69,6 +75,7 @@ type SparkWorldProps = {
   anchors?: WorldAnchor[];
   onAnchorHover?: () => void;
   onAnchorSelect?: (id: string) => void;
+  onStoryNavigate?: (id: string) => void;
   onMovementChange?: (intensity: number) => void;
   onViewerStateChange?: (state: ViewerState) => void;
   posterSrc: string;
@@ -88,6 +95,7 @@ export function SparkWorld({
   anchors = [],
   onAnchorHover,
   onAnchorSelect,
+  onStoryNavigate,
   onMovementChange,
   onViewerStateChange,
   posterSrc,
@@ -321,23 +329,8 @@ export function SparkWorld({
             raycaster.far = Math.max(maxDimension * 100, 100);
 
             return targets.map(({ boundingBox, id, x, y }) => {
-              const candidates = [{ x, y }];
-              if (boundingBox) {
-                const width = boundingBox.xMax - boundingBox.xMin;
-                const height = boundingBox.yMax - boundingBox.yMin;
-                for (const scale of [0.16, 0.32, 0.46]) {
-                  for (const [offsetX, offsetY] of [
-                    [0, -1], [1, 0], [0, 1], [-1, 0],
-                    [1, -1], [1, 1], [-1, 1], [-1, -1],
-                  ]) {
-                    candidates.push({
-                      x: Math.min(boundingBox.xMax, Math.max(boundingBox.xMin, x + width * scale * offsetX)),
-                      y: Math.min(boundingBox.yMax, Math.max(boundingBox.yMin, y + height * scale * offsetY)),
-                    });
-                  }
-                }
-              }
-              let hit: { imageTarget: { x: number; y: number }; point: InstanceType<typeof Vector3> } | undefined;
+              const candidates = landmarkRayTargets({ x, y }, boundingBox);
+              const samples: SurfaceSample[] = [];
               for (const candidate of candidates) {
                 const direction = equirectangularTargetToDirection(candidate);
                 raycaster.set(
@@ -352,10 +345,10 @@ export function SparkWorld({
                 splat?.raycast(raycaster, intersections);
                 intersections.sort((first, second) => first.distance - second.distance);
                 if (intersections[0]?.point) {
-                  hit = { imageTarget: candidate, point: intersections[0].point };
-                  break;
+                  samples.push({ imageTarget: candidate, point: intersections[0].point, distance: intersections[0].distance });
                 }
               }
+              const hit = selectLandmarkSurface(samples, { x, y }, boundingBox);
               return {
                 id,
                 imageTarget: hit?.imageTarget ?? { x, y },
@@ -456,6 +449,7 @@ export function SparkWorld({
           yaw = cameraEuler.y;
         };
         const onKeyDown = (event: KeyboardEvent) => {
+          if (document.querySelector(".welcome-overlay[open]")) return;
           const target = event.target;
           if (
             target instanceof HTMLInputElement ||
@@ -554,7 +548,7 @@ export function SparkWorld({
         let previousFrameTime = performance.now();
         let lastMovementSoundUpdate = 0;
 
-        renderer.setAnimationLoop(() => {
+        const renderFrame = () => {
           if (renderer && scene && camera && splat) {
             const frameTime = performance.now();
             const deltaSeconds = Math.min((frameTime - previousFrameTime) / 1000, 0.1);
@@ -771,7 +765,7 @@ export function SparkWorld({
             const hoveredId = hoveredAnchorIdRef.current;
             const effectId = desktopEffects
               ? focusEffectId(requestedFocusId, hoveredId, panelOpen, cycleHoverLockedRef.current)
-              : requestedFocusId;
+              : hoveredId ?? requestedFocusId;
             const effectAnchor = anchorsRef.current.find(
               (anchor): anchor is Extract<WorldAnchor, { kind: "story" }> => anchor.id === effectId && anchor.kind === "story",
             );
@@ -895,6 +889,14 @@ export function SparkWorld({
 
               const screenX = (projectedAnchor.x * 0.5 + 0.5) * 100;
               const screenY = (-projectedAnchor.y * 0.5 + 0.5) * 100;
+              if (anchor.kind === "echo") {
+                const offset = anchor.focusStoryId ? companionOffset(screenX) : 0;
+                const center = screenX * canvas.clientWidth / 100 + offset;
+                const halfWidth = Math.min(desktopEffects ? 270 : 250, canvas.clientWidth - 32) / 2;
+                const safeCenter = Math.max(16 + halfWidth, Math.min(canvas.clientWidth - 16 - halfWidth, center));
+                const shift = `${Math.round(safeCenter - center)}px`;
+                if (element.style.getPropertyValue("--echo-label-shift") !== shift) element.style.setProperty("--echo-label-shift", shift);
+              }
               let previousPosition = projectedAnchorPositions.get(anchor.id);
               if (!previousPosition) {
                 previousPosition = { x: Infinity, y: Infinity, size: 0 };
@@ -913,13 +915,27 @@ export function SparkWorld({
                 Math.abs(screenX - previousPosition.x) > 0.005 ||
                 Math.abs(screenY - previousPosition.y) > 0.005
               ) {
-                element.style.transform = `translate3d(${screenX}vw, ${screenY}vh, 0) translate(-50%, -50%)`;
+                const offset = anchor.kind === "echo" && anchor.focusStoryId ? companionOffset(screenX) : 0;
+                element.style.transform = `translate3d(calc(${screenX}vw + ${offset}px), ${screenY}vh, 0) translate(-50%, -50%)`;
                 previousPosition.x = screenX;
                 previousPosition.y = screenY;
               }
             }
           }
-        });
+        };
+        if (enableBake) {
+          renderer.setAnimationLoop(renderFrame);
+        } else {
+          removeInputListeners.push(observeViewerVisibility(canvas, (visible) => {
+            previousFrameTime = performance.now();
+            pressedKeys.clear();
+            velocity.set(0, 0, 0);
+            targetVelocity.set(0, 0, 0);
+            if (!visible) onMovementChange?.(0);
+            canvas.dataset.rendering = visible ? "active" : "paused";
+            renderer?.setAnimationLoop(visible ? renderFrame : null);
+          }));
+        }
 
         setProgress(100);
         setViewerState("ready");
@@ -978,8 +994,8 @@ export function SparkWorld({
         ) return;
         cycleHoverLockedRef.current = false;
         setHoverSuppressed(false);
-        const hotspot = event.target instanceof Element ? event.target.closest<HTMLButtonElement>(".hotspot") : null;
-        hoveredAnchorIdRef.current = hotspot?.dataset.anchorId ?? null;
+        const hotspot = event.target instanceof Element ? event.target.closest<HTMLElement>(".hotspot, .story-echo") : null;
+        hoveredAnchorIdRef.current = hotspot?.dataset.focusStoryId ?? (hotspot?.classList.contains("hotspot") ? hotspot.dataset.anchorId ?? null : null);
       }}
     >
       {showPoster ? (
@@ -1047,23 +1063,48 @@ export function SparkWorld({
           </span>
         </button>
       ) : (
-        <div
+        <button
           key={anchor.id}
           ref={(element) => {
             if (element) anchorElementsRef.current.set(anchor.id, element);
             else anchorElementsRef.current.delete(anchor.id);
           }}
-          className="story-echo"
+          type="button"
+          className={`story-echo${anchor.focusStoryId ? " landmark-companion" : ""}`}
           data-anchor-id={anchor.id}
+          data-focus-story-id={anchor.focusStoryId}
           data-anchor-state="baked"
           style={{
-            transform: `translate3d(${anchor.fallbackScreenPosition.x * 100}vw, ${anchor.fallbackScreenPosition.y * 100}vh, 0) translate(-50%, -50%)`,
+            transform: `translate3d(calc(${anchor.fallbackScreenPosition.x * 100}vw + ${anchor.focusStoryId ? companionOffset(anchor.fallbackScreenPosition.x * 100) : 0}px), ${anchor.fallbackScreenPosition.y * 100}vh, 0) translate(-50%, -50%)`,
           }}
           onPointerEnter={(event) => {
-            if (event.pointerType !== "touch") onAnchorHover?.();
+            if (event.pointerType !== "touch" && !cycleNavigationActiveRef.current) {
+              cycleHoverLockedRef.current = false;
+              setHoverSuppressed(false);
+              hoveredAnchorIdRef.current = anchor.focusStoryId ?? null;
+              onAnchorHover?.();
+            }
+          }}
+          onPointerLeave={() => {
+            if (hoveredAnchorIdRef.current === anchor.focusStoryId) hoveredAnchorIdRef.current = null;
+          }}
+          onFocus={() => {
+            cycleHoverLockedRef.current = false;
+            setHoverSuppressed(false);
+            hoveredAnchorIdRef.current = anchor.focusStoryId ?? null;
+          }}
+          onBlur={() => {
+            if (hoveredAnchorIdRef.current === anchor.focusStoryId) hoveredAnchorIdRef.current = null;
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            event.currentTarget.blur();
+            hoveredAnchorIdRef.current = null;
+            setHoverSuppressed(true);
+            if (anchor.focusStoryId) onAnchorSelect?.(anchor.focusStoryId);
+            else onStoryNavigate?.(anchor.storyId);
           }}
           tabIndex={0}
-          role="note"
           aria-label={`Story echo for story ${anchor.storyNumber}. ${echoDescription(anchor)}`}
         >
           <span className="story-echo-visual" aria-hidden="true">
@@ -1072,10 +1113,12 @@ export function SparkWorld({
             <span className="story-echo-core">✦</span>
           </span>
           <span className="hotspot-label story-echo-label">
-            <small>Story Echo · Story {anchor.storyNumber}</small>
+            <small>{anchor.focusStoryId ? "Landmark Echo" : "Story Echo"} · Story {anchor.storyNumber}</small>
+            <strong>{anchor.label}</strong>
             <span>{echoDescription(anchor)}</span>
+            {!anchor.focusStoryId && <span className="echo-story-action">Go to story {anchor.storyNumber} →</span>}
           </span>
-        </div>
+        </button>
       ))}
       {splatUrl && viewerState === "loading" ? (
         <div className="spark-loading" role="status">

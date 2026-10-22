@@ -54,6 +54,9 @@ test("mock edition workflow produces and resumes a complete publication", async 
   assert.equal(publication.storyEchoes[0].storyId, publication.stories[0].id);
   assert.equal(publication.stories[0].sources.length, 1);
   assert.equal(publication.world.splat, null);
+  const artDirection = JSON.parse(await readFile(resolve(runDirectory, "art-direction", "art-direction.json"), "utf8"));
+  const subject = artDirection.subjects.find((entry: { storyId: string }) => entry.storyId === publication.stories[0].id);
+  assert.equal(publication.stories[0].representationExplanation, subject.grounding?.artisticInterpretation);
 
   const resumed = await runEditionWorkflow({
     clock,

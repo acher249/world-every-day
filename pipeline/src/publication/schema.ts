@@ -54,6 +54,7 @@ export const publicationManifestSchema = z.object({
     title: z.string().min(1).max(180),
     summary: z.string().min(1).max(700),
     representation: z.string().min(1).max(240),
+    representationExplanation: z.string().min(1).max(300).optional(),
     sources: z.array(z.object({
       title: z.string().min(1).max(300),
       publisher: z.string().min(1).max(160),
