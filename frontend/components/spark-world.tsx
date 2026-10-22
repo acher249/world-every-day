@@ -214,7 +214,7 @@ export function SparkWorld({
         const focusInverseRadiiUniform = { value: new Vector3(1, 1, 1) };
         const focusStrengthUniform = { value: 0 };
         const focusSweepUniform = { value: 0 };
-        const focusOpacityUniform = { value: 0.78 };
+        const focusBrightnessUniform = { value: 0.5 };
         const focusWaveTimeUniform = { value: 0 };
         const focusWaveFrequencyUniform = { value: 0 };
         const focusWaveAmplitudeUniform = { value: 0 };
@@ -225,8 +225,7 @@ export function SparkWorld({
             focusInverseRadii: focusInverseRadiiUniform,
             focusStrength: focusStrengthUniform,
             focusSweep: focusSweepUniform,
-            focusDotRadius: { value: 3.15 },
-            focusOutsideOpacity: focusOpacityUniform,
+            focusOutsideBrightness: focusBrightnessUniform,
             focusWaveTime: focusWaveTimeUniform,
             focusWaveFrequency: focusWaveFrequencyUniform,
             focusWaveAmplitude: focusWaveAmplitudeUniform,
@@ -303,6 +302,7 @@ export function SparkWorld({
           console.info("bake:raycast-ready", splatCount);
           const developmentWindow = window as typeof window & {
             __WORLD_EVERY_DAY_BAKE_INFO__?: {
+              algorithmVersion: string;
               sourceSplatSha256?: string;
               splatUrl: string;
             };
@@ -359,6 +359,7 @@ export function SparkWorld({
             });
           };
           developmentWindow.__WORLD_EVERY_DAY_BAKE_INFO__ = {
+            algorithmVersion: "surface-grid-v1",
             sourceSplatSha256: splatSha256,
             splatUrl: sourceSplatUrl,
           };
@@ -806,8 +807,8 @@ export function SparkWorld({
               if (activateDirectly) directHighlightId = null;
               bubbleTargetId = effectAnchor.id;
               focusStrengthUniform.value += (1 - focusStrengthUniform.value) * (reducedMotionQuery.matches ? 1 : 1 - Math.exp(-5 * deltaSeconds));
-              const targetOpacity = storyPanelOpenRef.current && effectAnchor.id === requestedFocusId ? 0.72 : 0.84;
-              focusOpacityUniform.value += (targetOpacity - focusOpacityUniform.value) * (1 - Math.exp(-5 * deltaSeconds));
+              const targetBrightness = storyPanelOpenRef.current && effectAnchor.id === requestedFocusId ? 0.25 : 0.5;
+              focusBrightnessUniform.value += (targetBrightness - focusBrightnessUniform.value) * (1 - Math.exp(-5 * deltaSeconds));
               const breathe = reducedMotionQuery.matches ? 1 : 1 + Math.sin(frameTime * 0.0017) * 0.045;
               focusRadiiUniform.value.set(bubbleShape.x * breathe, bubbleShape.y / breathe, bubbleShape.z / breathe);
               focusWaveTimeUniform.value = reducedMotionQuery.matches ? 0 : frameTime * 0.001;

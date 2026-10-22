@@ -318,6 +318,14 @@ npm run edition -- \
   --confirm-world-generation
 ```
 
+Interaction baking samples multiple rays across each landmark's bounding box
+and selects a supported foreground surface rather than blindly using the center
+ray, which can pass through arches or rings. New bakes record their algorithm
+version; outdated browser bakers and cached bakes require an explicit rebuild or
+rebake. Deploy the rebuilt explorer before deploying a baker-version change.
+Restoring an old world must preserve its corrected interaction metadata as well
+as its unchanged splat asset.
+
 Interaction baking also requires the frontend development server and a local
 Chromium debugging endpoint; it verifies that Spark.js loaded the exact SPZ by
 checksum before saving world-space anchors. The publication stage copies an

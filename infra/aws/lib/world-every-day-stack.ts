@@ -142,6 +142,17 @@ export class WorldEveryDayStack extends Stack {
       },
     );
 
+    marketingSite.distribution.addBehavior(
+      "generated/social/latest.json",
+      origins.S3BucketOrigin.withOriginAccessControl(publicAssets),
+      {
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+    );
+
     const editions = new dynamodb.Table(this, "EditionTable", {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       deletionProtection: config.environmentName === "production",
@@ -820,6 +831,59 @@ export class WorldEveryDayStack extends Stack {
     const previewReady = new stepfunctions.Succeed(this, "LivePrivatePreviewReadyForReview");
     const testPreviewPublished = new stepfunctions.Succeed(this, "LiveTestPreviewPublished");
     const published = new stepfunctions.Succeed(this, "LiveEditionPublished");
+    // Optional social publication is isolated from world publication and generation.
+    let afterPublication: stepfunctions.IChainable = published;
+    let xPostFailureAlarm: cloudwatch.Alarm | undefined;
+    if (config.xPostingAccountId) {
+      const xSecret = secretsmanager.Secret.fromSecretNameV2(this, "XSecret",
+        `world-every-day/${config.environmentName}/x`);
+      const xHandler = new lambdaNodejs.NodejsFunction(this, "DailyXPostHandler", {
+        architecture: lambda.Architecture.ARM_64,
+        bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+        depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+        entry: resolve(pipelineRoot, "src/cloud/daily-x-post-handler.ts"),
+        environment: {
+          ARTIFACT_BUCKET: artifacts.bucketName,
+          PUBLIC_ASSET_BUCKET: publicAssets.bucketName,
+          EXPLORER_ORIGIN: `https://${explorerDomain ?? explorerSite.distribution.domainName}`,
+          PROJECT_ORIGIN: `https://${config.siteDomain?.rootDomain ?? marketingSite.distribution.domainName}`,
+          X_SECRET_NAME: xSecret.secretName,
+          X_EXPECTED_ACCOUNT_ID: config.xPostingAccountId,
+          X_POSTING_ENABLED: "true",
+        },
+        handler: "main", runtime: lambda.Runtime.NODEJS_24_X,
+        reservedConcurrentExecutions: 1,
+        projectRoot: pipelineRoot, memorySize: 256, timeout: Duration.minutes(3),
+        logGroup: new logs.LogGroup(this, "DailyXPostLogs", { retention: logs.RetentionDays.ONE_MONTH }),
+      });
+      xSecret.grantRead(xHandler);
+      xHandler.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["s3:PutObject"], resources: [publicAssets.arnForObjects("generated/social/latest.json")],
+      }));
+      xHandler.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["secretsmanager:PutSecretValue"], resources: [`${xSecret.secretArn}-??????`],
+      }));
+      xHandler.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["s3:GetObject", "s3:PutObject"], resources: [artifacts.arnForObjects("social/x/*")],
+      }));
+      xHandler.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["s3:GetObject"], resources: [publicAssets.arnForObjects("generated/editions/*")],
+      }));
+      const post = new tasks.LambdaInvoke(this, "PostPublishedWorldToX", {
+        lambdaFunction: xHandler, payloadResponseOnly: true, retryOnServiceExceptions: false,
+        payload: stepfunctions.TaskInput.fromObject({
+          editionId: stepfunctions.JsonPath.stringAt("$.editionId"),
+          publication: stepfunctions.JsonPath.objectAt("$.publication"),
+        }), resultPath: "$.social",
+      });
+      post.addCatch(new stepfunctions.Succeed(this, "WorldPublishedSocialPostFailed"), { resultPath: "$.socialError" });
+      afterPublication = post.next(published);
+      xPostFailureAlarm = new cloudwatch.Alarm(this, "DailyXPostFailureAlarm", {
+        metric: xHandler.metricErrors({ period: Duration.minutes(5) }), threshold: 1, evaluationPeriods: 1,
+        alarmDescription: "World is published, but X posting failed. Inspect the send record before retrying.",
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+    }
     const conflictingPublicationFlags = new stepfunctions.Fail(this, "ConflictingPublicationFlags");
     const publicationGate = new stepfunctions.Choice(this, "ConfirmPublicPublication")
       .when(
@@ -836,7 +900,7 @@ export class WorldEveryDayStack extends Stack {
           stepfunctions.Condition.isPresent("$.confirmPublish"),
           stepfunctions.Condition.booleanEquals("$.confirmPublish", true),
         ),
-        publishEdition.next(published),
+        publishEdition.next(afterPublication),
       )
       .when(
         stepfunctions.Condition.and(
@@ -1182,6 +1246,7 @@ export class WorldEveryDayStack extends Stack {
       liveWorkflowFailureAlarm.addAlarmAction(alarmAction);
       dailyTriggerFailureAlarm.addAlarmAction(alarmAction);
       scheduleDeadLetterAlarm.addAlarmAction(alarmAction);
+      xPostFailureAlarm?.addAlarmAction(alarmAction);
     }
 
     if (config.budgetAlertEmail && config.monthlyBudgetUsd) {

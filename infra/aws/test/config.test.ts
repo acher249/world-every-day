@@ -6,6 +6,12 @@ function context(values: Record<string, unknown>) {
   return { tryGetContext: (key: string) => values[key] };
 }
 
+test("X posting requires an explicit numeric account ID and permits blank disabled config", () => {
+  assert.equal(readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_ACCOUNT_ID: "" }).xPostingAccountId, undefined);
+  assert.equal(readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_ACCOUNT_ID: "123" }).xPostingAccountId, "123");
+  assert.throws(() => readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_ACCOUNT_ID: "@example" }), /numeric/);
+});
+
 test("deployment defaults are development and schedule-disabled", () => {
   assert.deepEqual(readDeploymentConfig(context({}) as never), {
     alarmNotificationEmail: undefined,

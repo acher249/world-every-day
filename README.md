@@ -198,6 +198,10 @@ works without paid services.
 
 ## Building the project
 
+Optional [daily X posting](docs/DAILY_X_POSTS.md) can announce each world after
+public publication is verified. It is disabled by default. Successful posts also
+update the marketing page's latest-post embed without a site rebuild.
+
 Development is organized around a manual end-to-end world first, followed by the
 editorial engine, story discovery, public experience, and AWS automation. See the
 [phased build plan](docs/BUILD_PLAN.md) for milestones, acceptance criteria, and
@@ -241,6 +245,7 @@ never commit a populated `.env` file.
 The separate `marketing/` application introduces the art project, links to the
 open-source repository, and embeds the current explorer as a lazy-loaded preview.
 The embedded preview is desktop-only; mobile visitors open the dedicated explorer.
+Select **Start exploring** to interact; **Pause exploring** returns to page scrolling.
 It is a static Next.js application with no credentials or server runtime.
 
 ```bash

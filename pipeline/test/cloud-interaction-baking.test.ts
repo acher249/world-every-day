@@ -61,6 +61,7 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
     artifacts,
     baker: {
       method: "spherical-raycast",
+      algorithmVersion: "surface-grid-v1",
       async bake({ landmarks, sourceSplatSha256 }) {
         calls += 1;
         assert.equal(sourceSplatSha256, worldHash);
@@ -76,4 +77,10 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
   assert.equal((await handler({ editionId })).status, "reused");
   assert.equal(calls, 1);
   assert.ok(records.has(`${root}/interactions/interaction-manifest.json`));
+  const key = `${root}/interactions/interaction-manifest.json`;
+  const stale = JSON.parse(Buffer.from(records.get(key)!).toString("utf8"));
+  delete stale.algorithmVersion;
+  records.set(key, Buffer.from(JSON.stringify(stale)));
+  await assert.rejects(handler({ editionId }), /older baking algorithm/);
+  assert.equal(calls, 1, "stale immutable artifacts must require explicit repair");
 });

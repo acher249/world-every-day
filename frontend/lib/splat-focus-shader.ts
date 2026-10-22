@@ -11,8 +11,7 @@ uniform vec3 focusCenterView;
 uniform vec3 focusInverseRadii;
 uniform float focusSweep;
 uniform float focusStrength;
-uniform float focusDotRadius;
-uniform float focusOutsideOpacity;
+uniform float focusOutsideBrightness;
 uniform float focusWaveTime;
 uniform float focusWaveFrequency;
 uniform float focusWaveAmplitude;
@@ -44,7 +43,7 @@ float focusBlobFalloff(vec3 point) {
       }
       focusFalloff = focusStrength * spatialFalloff;
     }
-    // Broad, slow world-space swells affect only the reduced outer splats.
+    // Broad, slow world-space swells affect only the dimmed outer splats.
     if (focusWaveAmplitude > 0.0 && focusFalloff > 0.001) {
       float wavePhase = dot(center.xz, vec2(0.82, 0.57)) * focusWaveFrequency - focusWaveTime * 0.5;
       float waveSin = sin(wavePhase);
@@ -54,11 +53,8 @@ float focusBlobFalloff(vec3 point) {
       viewCenter += (viewMatrix * vec4(waveOffset, 0.0)).xyz;
     }`)
     .replace(radius, `${radius}
-    // A uniform screen-space radius keeps the distant dots circular and even.
+    // Preserve size, anisotropy and opacity; dim color without creating holes.
     if (focusStrength > 0.0) {
-      float dotRadius = focusDotRadius;
-      scale1 = mix(scale1, dotRadius, focusFalloff);
-      scale2 = mix(scale2, dotRadius, focusFalloff);
-      vRgba.a *= mix(1.0, focusOutsideOpacity, focusFalloff);
+      vRgba.rgb *= mix(1.0, focusOutsideBrightness, focusFalloff);
     }`);
 }

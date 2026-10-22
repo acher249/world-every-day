@@ -20,6 +20,8 @@ const secretPatterns = [
   ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g],
   ["Stripe live secret", /\bsk_live_[A-Za-z0-9]{16,}\b/g],
   ["provider credential assignment", /\b(?:GOOGLE_AI_API_KEY|WORLD_LABS_KEY|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN)\s*[:=]\s*["']?[A-Za-z0-9._-]{24,}\b/g],
+  ["X credential literal", /\b(?:X_API_KEY(?:_SECRET)?|X_ACCESS_TOKEN(?:_SECRET)?|X_OAUTH2_ACCESS_TOKEN|X_REFRESH_TOKEN|X_CLIENT_SECRET)["']?\s*[:=]\s*["'][A-Za-z0-9._%+-]{24,}["']/g],
+  ["X environment credential", /^\s*(?:X_API_KEY(?:_SECRET)?|X_ACCESS_TOKEN(?:_SECRET)?|X_OAUTH2_ACCESS_TOKEN|X_REFRESH_TOKEN|X_CLIENT_SECRET)\s*=\s*[A-Za-z0-9._%+-]{24,}\s*$/gm],
 ];
 
 const repositoryRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {

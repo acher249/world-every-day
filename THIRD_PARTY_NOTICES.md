@@ -90,7 +90,11 @@ those named transitive packages and exact reported licenses.
 
 ## External services
 
-Google Gemini/Nano Banana, World Labs Marble, and AWS are external proprietary
+Google Gemini/Nano Banana, World Labs Marble, X, and AWS are external proprietary
 services rather than bundled open-source libraries. Their respective terms apply
 when their adapters are enabled. See [Licensing and service boundaries](docs/LICENSING.md).
+
+The marketing page optionally loads X's hosted post widget. This is not bundled
+MIT-licensed code; X's [embed terms](https://help.x.com/en/using-x/how-to-embed-a-post)
+and [privacy policy](https://x.com/en/privacy) apply.
 

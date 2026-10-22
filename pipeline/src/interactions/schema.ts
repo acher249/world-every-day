@@ -23,6 +23,7 @@ export const interactionManifestSchema = z.object({
   editionId: idSchema,
   createdAt: z.iso.datetime({ offset: true }),
   method: z.enum(["spherical-raycast", "manual"]),
+  algorithmVersion: z.string().min(1).optional(),
   sourceImageSha256: sha256Schema,
   sourceSplatSha256: sha256Schema,
   anchors: z.array(interactionAnchorSchema).min(1).max(18),

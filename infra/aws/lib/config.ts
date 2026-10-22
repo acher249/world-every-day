@@ -11,6 +11,7 @@ export type DeploymentConfig = {
   nanoBananaModel: string;
   worldLabsModel: string;
   enableSchedule: boolean;
+  xPostingAccountId?: string;
   environmentName: "development" | "production";
   monthlyBudgetUsd?: number;
   siteDomain?: {
@@ -66,6 +67,10 @@ export function readDeploymentConfig(
     "WORLD_EVERY_DAY_ENABLE_SCHEDULE",
   );
   const enableSchedule = rawEnableSchedule === true || rawEnableSchedule === "true";
+  const xPostingAccountId = setting(node, environment, "xPostingAccountId", "WORLD_EVERY_DAY_X_ACCOUNT_ID") || undefined;
+  if (xPostingAccountId !== undefined && !/^\d+$/.test(String(xPostingAccountId))) {
+    throw new Error("xPostingAccountId must be a numeric X user ID; omit it to disable posting");
+  }
   const editorialProvider = setting(node, environment, "editorialProvider", "WORLD_EVERY_DAY_EDITORIAL_PROVIDER") ?? "google-gemini";
   if (editorialProvider !== "aws-bedrock" && editorialProvider !== "google-gemini") {
     throw new Error("editorialProvider must be aws-bedrock or google-gemini");
@@ -191,6 +196,7 @@ export function readDeploymentConfig(
     geminiEditorialModel,
     landmarkVisionModel,
     enableSchedule,
+    ...(xPostingAccountId === undefined ? {} : { xPostingAccountId: String(xPostingAccountId) }),
     environmentName,
     monthlyBudgetUsd,
     nanoBananaModel,

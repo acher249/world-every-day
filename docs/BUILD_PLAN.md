@@ -4,6 +4,10 @@ This is the current roadmap for A World Every Day, not a deployment log.
 
 ## What works
 
+- Optional post-publication X Lambda with public availability checks, account
+  verification, and duplicate-send protection. Disabled by default; operators
+  verify their account and write permissions before activation. See [setup](DAILY_X_POSTS.md).
+
 - A full-viewport desktop and mobile explorer with story landmarks, source
   links, past worlds, audio, and bounded camera navigation.
 - A separate static marketing site and a credential-free fictional demo.
@@ -97,6 +101,10 @@ incomplete assets to the current-world pointer.
 - Setup, costs, limitations, and recovery instructions match the implementation.
 
 ## Optional research directions
+
+Paused: generate a ten-second world tour with ambient audio, store the video in
+S3, and attach it to the daily X post after publication verification. Resume
+after hotspot placement corrections are verified.
 
 Additional world models, narrated tours, multiple editorial lenses, linked worlds,
 personal information collections, and richer semantic 3D regions remain future

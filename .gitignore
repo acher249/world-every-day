@@ -11,3 +11,4 @@ coverage/
 *.log
 *.tsbuildinfo
 frontend/public/generated/
+marketing/public/generated/

@@ -44,6 +44,9 @@ export function createCloudInteractionBakingHandler({
     const existing = await artifacts.read(key);
     if (existing) {
       const manifest = interactionManifestSchema.parse(JSON.parse(Buffer.from(existing).toString("utf8")));
+      if (baker.algorithmVersion && manifest.algorithmVersion !== baker.algorithmVersion) {
+        throw new Error("Existing interactions use an older baking algorithm; explicitly rebake this edition before reusing it");
+      }
       if (manifest.editionId !== editionId || manifest.sourceSplatSha256 !== world.asset.sha256 ||
           manifest.sourceImageSha256 !== landmarks.sourceImage.sha256) {
         throw new Error("Existing interactions do not match the world or panorama");

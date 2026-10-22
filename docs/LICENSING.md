@@ -122,6 +122,10 @@ The reference deployment uses the Gemini editorial adapter by default.
 
 ### News and social sources
 
+Optional outbound X posting uses the operator's own authorized account and is
+subject to X's API and automation terms. It is not a source-discovery adapter.
+See [daily X posting](DAILY_X_POSTS.md) for configuration and service-policy links.
+
 Source adapters must respect each source's license, terms, robots directives,
 rate limits, and permitted retention. A public URL is not permission to copy or
 redistribute an article.

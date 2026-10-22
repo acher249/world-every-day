@@ -2,6 +2,7 @@ import type { LandmarkArtifact } from "../landmarks/schema.js";
 import { interactionManifestSchema, type InteractionAnchor, type InteractionManifest } from "./schema.js";
 
 export interface InteractionBaker {
+  readonly algorithmVersion?: string;
   readonly method: InteractionManifest["method"];
   bake(input: {
     landmarks: LandmarkArtifact;
@@ -44,6 +45,7 @@ export async function createInteractionManifest({
     editionId: landmarks.editionId,
     createdAt: createdAt.toISOString(),
     method: baker.method,
+    algorithmVersion: baker.algorithmVersion,
     sourceImageSha256: landmarks.sourceImage.sha256,
     sourceSplatSha256,
     anchors,

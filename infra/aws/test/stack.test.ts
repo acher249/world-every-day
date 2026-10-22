@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { App } from "aws-cdk-lib";
+import { CachePolicy } from "aws-cdk-lib/aws-cloudfront";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { WorldEveryDayStack } from "../lib/world-every-day-stack.js";
 
@@ -11,6 +12,7 @@ function template(options: {
   editorialProvider?: "aws-bedrock" | "google-gemini";
   environmentName?: "development" | "production";
   siteDomain?: boolean;
+  xPostingAccountId?: string;
 } = {}): Template {
   const app = new App();
   const stack = new WorldEveryDayStack(app, "TestStack", {
@@ -23,6 +25,7 @@ function template(options: {
       geminiEditorialModel: "gemini-3.8-flash",
       landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: options.enableSchedule ?? false,
+      xPostingAccountId: options.xPostingAccountId,
       environmentName: options.environmentName ?? "development",
       monthlyBudgetUsd: options.budget ? 25 : undefined,
       nanoBananaModel: "gemini-nano-banana-2.1",
@@ -51,6 +54,24 @@ test("foundation keeps artifacts and static sites in separate private buckets", 
     VersioningConfiguration: { Status: "Enabled" },
   });
   rendered.resourceCountIs("AWS::CloudFront::Distribution", 3);
+});
+
+test("X posting is opt-in and follows publication with an isolated failure path", () => {
+  assert.doesNotMatch(JSON.stringify(template().toJSON()), /PostPublishedWorldToX/);
+  const rendered = template({ xPostingAccountId: "123", alarm: true });
+  const json = JSON.stringify(rendered.toJSON());
+  assert.match(json, /PostPublishedWorldToX/);
+  assert.match(json, /WorldPublishedSocialPostFailed/);
+  assert.match(json, /social\/x\//);
+  rendered.hasResourceProperties("AWS::CloudFront::Distribution", {
+    DistributionConfig: Match.objectLike({ CacheBehaviors: Match.arrayWith([
+      Match.objectLike({ PathPattern: "generated/social/latest.json", CachePolicyId: CachePolicy.CACHING_DISABLED.cachePolicyId }),
+    ]) }),
+  });
+  rendered.hasResourceProperties("AWS::Lambda::Function", {
+    Environment: { Variables: Match.objectLike({ X_EXPECTED_ACCOUNT_ID: "123", X_POSTING_ENABLED: "true" }) },
+    Timeout: 180,
+  });
 });
 
 test("custom domains are opt-in and cover the marketing and explorer sites", () => {

@@ -8,6 +8,7 @@ import {
   type WorldAnchor,
 } from "@/components/spark-world";
 import { MobileJoystick } from "@/components/mobile-joystick";
+import { FullscreenButton } from "@/components/fullscreen-button";
 import { WelcomeOverlay } from "@/components/welcome-overlay";
 import { cycleId, spatialStoryOrder } from "@/lib/spatial-navigation";
 import { pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
@@ -830,6 +831,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         </motion.div>
       )}
 
+      <FullscreenButton />
       {viewerState === "ready" && <MobileJoystick movementRef={mobileMovementRef} onMove={dismissPreviewTitle} />}
 
       {(indexOpen || activeStory) && (

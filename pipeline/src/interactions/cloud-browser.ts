@@ -38,6 +38,7 @@ function siteKey(pathname: string): string | null {
 
 export class CloudBrowserInteractionBaker implements InteractionBaker {
   readonly method = "spherical-raycast" as const;
+  readonly algorithmVersion = "surface-grid-v1";
   readonly #client: S3Client;
   readonly #siteBucket: string;
 
@@ -163,14 +164,17 @@ export class CloudBrowserInteractionBaker implements InteractionBaker {
         }
         throw error;
       }
-      const result = await page.evaluate(({ targets, expectedSha256, expectedSplatPath }) => {
+      const result = await page.evaluate(({ targets, expectedSha256, expectedSplatPath, expectedAlgorithm }) => {
         const runtime = globalThis as typeof globalThis & {
           __WORLD_EVERY_DAY_BAKE_ERROR__?: string;
-          __WORLD_EVERY_DAY_BAKE_INFO__?: { sourceSplatSha256?: string; splatUrl?: string };
+          __WORLD_EVERY_DAY_BAKE_INFO__?: { algorithmVersion?: string; sourceSplatSha256?: string; splatUrl?: string };
           __WORLD_EVERY_DAY_BAKE__?: (values: typeof targets) => unknown;
         };
         if (runtime.__WORLD_EVERY_DAY_BAKE_ERROR__) {
           throw new Error(`Spark.js baker failed to initialize: ${runtime.__WORLD_EVERY_DAY_BAKE_ERROR__}`);
+        }
+        if (runtime.__WORLD_EVERY_DAY_BAKE_INFO__?.algorithmVersion !== expectedAlgorithm) {
+          throw new Error("Spark.js baker is outdated; deploy the rebuilt explorer before baking interactions");
         }
         if (runtime.__WORLD_EVERY_DAY_BAKE_INFO__?.sourceSplatSha256 !== expectedSha256 ||
             runtime.__WORLD_EVERY_DAY_BAKE_INFO__?.splatUrl !== expectedSplatPath ||
@@ -182,6 +186,7 @@ export class CloudBrowserInteractionBaker implements InteractionBaker {
         targets: browserTargets(landmarks),
         expectedSha256: sourceSplatSha256,
         expectedSplatPath: splatPath,
+        expectedAlgorithm: this.algorithmVersion,
       });
       if (!Array.isArray(result)) throw new Error("Spark.js baker returned no anchors");
       const missing = result.filter((anchor) => !anchor?.worldPosition);

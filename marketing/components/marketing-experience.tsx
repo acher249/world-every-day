@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { MarketingSiteConfig } from "@/lib/site-config";
+import { LatestPost } from "@/components/latest-post";
 
 const stages = [
   ["01", "Discover", "Stories, research, and updates from reviewed RSS and Atom feeds."],
@@ -35,9 +36,31 @@ function GitHubIcon() {
   );
 }
 
+function FollowLinks({ className, project = false }: { className: string; project?: boolean }) {
+  const label = project ? "Follow the project on X" : "Follow Adam";
+  const xLabel = project ? label : "Follow Adam on X";
+  return (
+    <div className={`${className} follow-adam`}>
+      <span className="follow-adam-label">{label}</span>
+      <a href={project ? "https://x.com/aworldeveryday" : "https://x.com/ajc_builds"} target="_blank" rel="noopener noreferrer" aria-label={xLabel} title={xLabel}>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M4 3h4l12 18h-4L4 3Z" /><path d="m20 3-7 8M11 13l-7 8" />
+        </svg>
+      </a>
+      {!project && <a href="https://www.linkedin.com/in/adamchernick/" target="_blank" rel="noopener noreferrer" aria-label="Follow Adam on LinkedIn" title="Follow Adam on LinkedIn">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="2" y="2" width="20" height="20" rx="2" />
+          <g fill="var(--paper)"><circle cx="7" cy="7" r="1.5" /><path d="M5.6 10h2.8v8.5H5.6zM10.5 10h2.7v1.1c.6-.9 1.4-1.4 2.5-1.4 2.2 0 3.3 1.4 3.3 3.8v5h-2.8v-4.6c0-1.3-.4-1.9-1.4-1.9-1.1 0-1.5.8-1.5 2v4.5h-2.8z" /></g>
+        </svg>
+      </a>}
+    </div>
+  );
+}
+
 export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteConfig) {
   const reduceMotion = useReducedMotion();
   const [showEmbeddedWorld, setShowEmbeddedWorld] = useState(false);
+  const [exploring, setExploring] = useState(false);
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 761px) and (pointer: fine)");
     const update = () => setShowEmbeddedWorld(desktop.matches);
@@ -62,6 +85,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
           <a className="text-link desktop-link github-link" href={githubUrl} target="_blank" rel="noopener noreferrer"><GitHubIcon /> GitHub <Arrow diagonal /></a>
           <a className="pill-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">Explore today <Arrow /></a>
         </nav>
+        <FollowLinks className="header-follow" />
       </header>
 
       <section className="hero" id="top">
@@ -84,6 +108,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
             <a className="secondary-link hero-project-link" href="#project">Discover the project</a>
             <a className="secondary-link github-link hero-mobile-github" href={githubUrl} target="_blank" rel="noopener noreferrer"><GitHubIcon /> View on GitHub</a>
           </div>
+          <FollowLinks className="project-follow" project />
         </motion.div>
 
         <motion.div
@@ -116,9 +141,9 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
               transition={{ duration: 32, ease: "linear", repeat: Infinity }}
             ><i /></motion.span>
           </div>
-          <span className="signal signal-one">Discovery</span>
-          <span className="signal signal-two">Repair</span>
-          <span className="signal signal-three">Culture</span>
+          <span className="signal signal-one">Science</span>
+          <span className="signal signal-two">Technology</span>
+          <span className="signal signal-three">Medicine</span>
         </motion.div>
 
         <p className="scroll-cue"><span /> Scroll to unfold</p>
@@ -194,15 +219,22 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         {showEmbeddedWorld && <motion.div className="world-frame" initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.08 }} variants={reveal} transition={transition}>
           <div className="frame-bar">
             <span><i /> Live world</span>
-            <span>Interactive preview</span>
+            {exploring ? <button type="button" onClick={() => setExploring(false)}>Pause exploring</button> : <span>Interactive preview</span>}
           </div>
+          <div className="world-preview" data-active={exploring}>
           <iframe
             src={explorerUrl}
             title="Today’s interactive world"
             loading="lazy"
             allow="fullscreen"
             allowFullScreen
+            inert={!exploring}
+            tabIndex={exploring ? 0 : -1}
           />
+          {!exploring && <div className="world-preview-cover">
+            <button type="button" className="primary-link" onClick={() => setExploring(true)}>Start exploring <Arrow /></button>
+          </div>}
+          </div>
           <noscript>
             <p className="frame-fallback">JavaScript is required for the embedded world. <a href={explorerUrl} target="_blank" rel="noopener noreferrer">Open it directly.</a></p>
           </noscript>
@@ -245,6 +277,8 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         </div>
       </section>
 
+      <LatestPost />
+
       <footer className="site-footer section-shell">
         <a className="wordmark" href="#top"><span className="mark" aria-hidden="true"><i /></span><span>A World Every Day</span></a>
         <p>A living, evolving digital installation.</p>
@@ -252,11 +286,8 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
           <a className="github-link" href={githubUrl} target="_blank" rel="noopener noreferrer"><GitHubIcon /> GitHub</a>
           <a href={explorerUrl} target="_blank" rel="noopener noreferrer">Explore today</a>
         </div>
-        <div className="creator-credit">
-          <span>Built by Adam</span>
-          <a href="https://x.com/ajc_builds" target="_blank" rel="noopener noreferrer" aria-label="Adam on X">X</a>
-          <a href="https://www.linkedin.com/in/adamchernick/" target="_blank" rel="noopener noreferrer" aria-label="Adam on LinkedIn">LinkedIn</a>
-        </div>
+        <FollowLinks className="creator-credit project-credit" project />
+        <FollowLinks className="creator-credit author-credit" />
       </footer>
     </main>
   );

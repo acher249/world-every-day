@@ -28,6 +28,11 @@ per-play fee. Gemini text-model rates are scheduled to change on January 1,
 
 ## What can increase the bill
 
+- **Optional X posts:** Not included above. URL-bearing posts are currently
+  listed at $0.20 each (about $6 for 30 posts), plus account lookup and small
+  AWS secret/Lambda costs. Check [X pricing](https://docs.x.com/x-api/getting-started/pricing)
+  before enabling [daily posting](DAILY_X_POSTS.md). No extra model call is used.
+
 - **Retries and extra worlds:** A failed run can still incur model charges.
   Each additional Marble world uses another 1,500 credits, about $1.20 at the
   cited rate.

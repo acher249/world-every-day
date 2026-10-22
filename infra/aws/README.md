@@ -1,5 +1,9 @@
 # AWS infrastructure
 
+Optional [daily X posting](../../docs/DAILY_X_POSTS.md) adds a post-publication
+Lambda. Enable it only after configuring Secrets Manager and verifying the
+numeric account ID (`WORLD_EVERY_DAY_X_ACCOUNT_ID`). It is disabled by default.
+
 This package defines the first AWS foundation for A World Every Day. The
 reference development stack is deployed for website and editorial testing. Its
 7:30 AM Pacific development schedule now opts into the full live workflow,
@@ -127,7 +131,7 @@ CDK provisions the hosting resources but does not upload a build. Build
 directories to the bucket names emitted as `MarketingSiteBucketName` and
 `ExplorerSiteBucketName`. Invalidate the matching distribution using the emitted
 `MarketingSiteDistributionId` or `ExplorerSiteDistributionId` after an upload.
-When syncing `frontend/out/`, exclude `generated/*`: local ignored SPZs and
+When syncing either site's `out/`, exclude `generated/*`: local ignored SPZs and
 manifests can be copied into the static export, while edition assets belong in
 the separate public-asset bucket and are published by the reviewed workflow.
 This explicit boundary prevents an infrastructure synthesis from silently

@@ -111,6 +111,7 @@ function evaluationValue(response: Record<string, unknown>): unknown {
 
 export class BrowserInteractionBaker implements InteractionBaker {
   readonly method = "spherical-raycast" as const;
+  readonly algorithmVersion = "surface-grid-v1";
   readonly #browserUrl: URL;
   readonly #frontendDirectory: string;
   readonly #pageUrl: URL;
@@ -197,9 +198,13 @@ export class BrowserInteractionBaker implements InteractionBaker {
         returnByValue: true,
       });
       const info = evaluationValue(infoResponse) as {
+        algorithmVersion?: string;
         sourceSplatSha256?: string;
         splatUrl?: string;
       } | undefined;
+      if (info?.algorithmVersion !== this.algorithmVersion) {
+        throw new Error("Spark.js baker is outdated; rebuild the explorer before baking interactions");
+      }
       if (
         info?.sourceSplatSha256 !== sourceSplatSha256 ||
         info.splatUrl !== publicUrl
