@@ -102,9 +102,12 @@ incomplete assets to the current-world pointer.
 
 ## Optional research directions
 
-Paused: generate a ten-second world tour with ambient audio, store the video in
-S3, and attach it to the daily X post after publication verification. Resume
-after hotspot placement corrections are verified.
+The optional video workflow renders ten-second world tours in concurrent Lambda
+batches, adds ambient audio, archives validated MP4/WebM videos in S3, and can
+attach the MP4 to an X announcement after publication. Batching keeps individual
+render calls within Lambda's invocation timeout.
+See the [video workflow](WORLD_VIDEO_PLAN.md). This branch is opt-in and disabled
+for new deployments. X video delivery also requires a user grant with `media.write`.
 
 Additional world models, narrated tours, multiple editorial lenses, linked worlds,
 personal information collections, and richer semantic 3D regions remain future

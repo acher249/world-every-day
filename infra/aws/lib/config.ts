@@ -12,6 +12,7 @@ export type DeploymentConfig = {
   worldLabsModel: string;
   enableSchedule: boolean;
   xPostingAccountId?: string;
+  xVideoEnabled?: boolean;
   environmentName: "development" | "production";
   monthlyBudgetUsd?: number;
   siteDomain?: {
@@ -68,6 +69,8 @@ export function readDeploymentConfig(
   );
   const enableSchedule = rawEnableSchedule === true || rawEnableSchedule === "true";
   const xPostingAccountId = setting(node, environment, "xPostingAccountId", "WORLD_EVERY_DAY_X_ACCOUNT_ID") || undefined;
+  const xVideoEnabled = setting(node, environment, "xVideoEnabled", "WORLD_EVERY_DAY_X_VIDEO_ENABLED") === "true" || node.tryGetContext("xVideoEnabled") === true;
+  if (xVideoEnabled && !xPostingAccountId) throw new Error("X video posting requires WORLD_EVERY_DAY_X_ACCOUNT_ID");
   if (xPostingAccountId !== undefined && !/^\d+$/.test(String(xPostingAccountId))) {
     throw new Error("xPostingAccountId must be a numeric X user ID; omit it to disable posting");
   }
@@ -196,6 +199,7 @@ export function readDeploymentConfig(
     geminiEditorialModel,
     landmarkVisionModel,
     enableSchedule,
+    xVideoEnabled,
     ...(xPostingAccountId === undefined ? {} : { xPostingAccountId: String(xPostingAccountId) }),
     environmentName,
     monthlyBudgetUsd,

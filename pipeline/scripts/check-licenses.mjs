@@ -59,3 +59,11 @@ if (failures.length > 0) {
 }
 
 console.log(`License policy passed for ${packages.length} installed packages.`);
+
+// Reviewed native exception: isolated, dynamically linked LGPL FFmpeg encoder.
+const encoder = await readFile(new URL("../src/video/encoder/build-codecs.sh", import.meta.url), "utf8");
+if (!encoder.includes("--disable-gpl --disable-nonfree") || !encoder.includes("--enable-shared --disable-static") ||
+    /--enable-gpl|--enable-nonfree|--enable-libx264/.test(encoder) || !encoder.includes("sha256sum -c")) {
+  throw new Error("Native encoder must preserve the reviewed LGPL-only, checksum-pinned build policy");
+}
+console.log("Native encoder policy passed: GPL/nonfree disabled; sources and notices retained.");

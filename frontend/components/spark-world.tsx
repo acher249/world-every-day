@@ -31,6 +31,7 @@ import {
   boundaryVertexShader,
 } from "@/lib/navigation-boundary";
 import type { StickValue } from "@/lib/touch-navigation";
+import { offlineTour } from "@/lib/offline-tour";
 
 export type ViewerState = "poster" | "loading" | "ready" | "error";
 
@@ -154,6 +155,7 @@ export function SparkWorld({
       return;
     }
     const sourceSplatUrl = splatUrl;
+    const tour = offlineTour();
 
     let cancelled = false;
     let renderer: WebGLRenderer | undefined;
@@ -186,6 +188,7 @@ export function SparkWorld({
           alpha: true,
           antialias: false,
           powerPreference: "high-performance",
+          preserveDrawingBuffer: Boolean(tour),
         });
 
         if (!context) {
@@ -206,6 +209,7 @@ export function SparkWorld({
         spark = new sparkModule.SparkRenderer({
           renderer,
           minSortIntervalMs: 32,
+          ...(tour ? { autoUpdate: false } : {}),
         });
         const focusShader = enableBake ? null : withFocusSplatShader(spark.material.vertexShader);
         const focusCenterUniform = { value: new Vector3() };
@@ -290,15 +294,18 @@ export function SparkWorld({
         camera.far = Math.max(maxDimension * 100, 100);
         camera.position.set(0, 0, 0);
         camera.updateProjectionMatrix();
-        if (!enableBake) renderer.render(scene, camera);
+        if (!enableBake && !tour) renderer.render(scene, camera);
         camera.updateMatrixWorld();
 
-        if (enableBake) {
+        if (enableBake || tour) {
           // Spark normally updates this during rendering. The bake page skips
           // rendering, but CPU raycasts still need the loaded splat count.
           const splatCount = splat.packedSplats?.getNumSplats() ?? splat.extSplats?.getNumSplats() ?? 0;
           if (splatCount < 1) throw new Error("The world contains no raycastable splats");
           splat.context.numSplats.value = splatCount;
+        }
+        if (enableBake) {
+          const splatCount = splat.context.numSplats.value;
           console.info("bake:raycast-ready", splatCount);
           const developmentWindow = window as typeof window & {
             __WORLD_EVERY_DAY_BAKE_INFO__?: {
@@ -398,7 +405,8 @@ export function SparkWorld({
         resize();
 
         let yaw = 0;
-        let pitch = 0;
+        let pitch = tour ? -0.18 : 0;
+        if (tour) camera.rotation.x = pitch;
         let lookPointerId: number | null = null;
         let lastPointerX = 0;
         let lastPointerY = 0;
@@ -544,9 +552,9 @@ export function SparkWorld({
           navigationRadius * 0.034,
           maxDimension * 0.0056,
         );
-        const floatPhase = Math.random() * Math.PI * 2;
+        const floatPhase = (tour ? (tour.seed % 10000) / 10000 : Math.random()) * Math.PI * 2;
         let cameraFloatTime = 0;
-        let previousFrameTime = performance.now();
+        let previousFrameTime = tour ? 0 : performance.now();
         let lastMovementSoundUpdate = 0;
 
         const renderFrame = () => {
@@ -640,7 +648,7 @@ export function SparkWorld({
                   yaw = cameraEuler.y;
                 } else {
                   focusTransition = {
-                    duration: 2.4,
+                    duration: tour ? 1.5 : 2.4,
                     elapsed: 0,
                     position: destination.clone(),
                     pitch: cameraEuler.x,
@@ -848,8 +856,8 @@ export function SparkWorld({
                 1 / focusRadiiUniform.value.z,
               );
             }
-            renderer.render(scene, camera);
-            if (boundaryScene && boundaryOpacityUniform.value > 0.003) {
+            if (!tour) renderer.render(scene, camera);
+            if (!tour && boundaryScene && boundaryOpacityUniform.value > 0.003) {
               const autoClear = renderer.autoClear;
               renderer.autoClear = false;
               renderer.render(boundaryScene, camera);
@@ -924,7 +932,21 @@ export function SparkWorld({
             }
           }
         };
-        if (enableBake) {
+        if (tour) {
+          tour.step = renderFrame;
+          tour.render = async () => {
+            if (!renderer || !scene || !camera || !spark) throw new Error("Tour viewer unavailable");
+            await spark.update({ scene, camera });
+            renderer.render(scene, camera);
+            if (boundaryScene && boundaryOpacityUniform.value > 0.003) {
+              const autoClear = renderer.autoClear;
+              renderer.autoClear = false;
+              renderer.render(boundaryScene, camera);
+              renderer.autoClear = autoClear;
+            }
+          };
+          removeInputListeners.push(() => { delete tour.step; delete tour.render; });
+        } else if (enableBake) {
           renderer.setAnimationLoop(renderFrame);
         } else {
           removeInputListeners.push(observeViewerVisibility(canvas, (visible) => {

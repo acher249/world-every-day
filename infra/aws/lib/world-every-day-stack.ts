@@ -34,6 +34,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DeploymentConfig } from "./config.js";
 import { StaticSite } from "./static-site.js";
+import { VideoWorkflow } from "./video-workflow.js";
 
 export type WorldEveryDayStackProps = StackProps & {
   config: DeploymentConfig;
@@ -56,6 +57,10 @@ export class WorldEveryDayStack extends Stack {
         abortIncompleteMultipartUploadAfter: Duration.days(7),
         expiration: Duration.days(30),
         prefix: "staging/",
+      }, {
+        prefix: "video-work/",
+        expiration: Duration.days(7),
+        noncurrentVersionExpiration: Duration.days(7),
       }],
       objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
       removalPolicy: RemovalPolicy.RETAIN,
@@ -834,6 +839,7 @@ export class WorldEveryDayStack extends Stack {
     // Optional social publication is isolated from world publication and generation.
     let afterPublication: stepfunctions.IChainable = published;
     let xPostFailureAlarm: cloudwatch.Alarm | undefined;
+    let videoFailureAlarm: cloudwatch.Alarm | undefined;
     if (config.xPostingAccountId) {
       const xSecret = secretsmanager.Secret.fromSecretNameV2(this, "XSecret",
         `world-every-day/${config.environmentName}/x`);
@@ -850,10 +856,10 @@ export class WorldEveryDayStack extends Stack {
           X_SECRET_NAME: xSecret.secretName,
           X_EXPECTED_ACCOUNT_ID: config.xPostingAccountId,
           X_POSTING_ENABLED: "true",
+          X_REQUIRE_VIDEO: String(config.xVideoEnabled ?? false),
         },
         handler: "main", runtime: lambda.Runtime.NODEJS_24_X,
-        reservedConcurrentExecutions: 1,
-        projectRoot: pipelineRoot, memorySize: 256, timeout: Duration.minutes(3),
+        projectRoot: pipelineRoot, memorySize: 256, timeout: Duration.minutes(6),
         logGroup: new logs.LogGroup(this, "DailyXPostLogs", { retention: logs.RetentionDays.ONE_MONTH }),
       });
       xSecret.grantRead(xHandler);
@@ -867,17 +873,33 @@ export class WorldEveryDayStack extends Stack {
         actions: ["s3:GetObject", "s3:PutObject"], resources: [artifacts.arnForObjects("social/x/*")],
       }));
       xHandler.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["s3:DeleteObject"], resources: [artifacts.arnForObjects("social/x/worker-lock.json")],
+      }));
+      xHandler.addToRolePolicy(new iam.PolicyStatement({ actions: ["s3:ListBucket"], resources: [artifacts.bucketArn] }));
+      xHandler.addToRolePolicy(new iam.PolicyStatement({
         actions: ["s3:GetObject"], resources: [publicAssets.arnForObjects("generated/editions/*")],
+      }));
+      xHandler.addToRolePolicy(new iam.PolicyStatement({
+        actions: ["s3:GetObject"], resources: [artifacts.arnForObjects("videos/*")],
       }));
       const post = new tasks.LambdaInvoke(this, "PostPublishedWorldToX", {
         lambdaFunction: xHandler, payloadResponseOnly: true, retryOnServiceExceptions: false,
         payload: stepfunctions.TaskInput.fromObject({
           editionId: stepfunctions.JsonPath.stringAt("$.editionId"),
           publication: stepfunctions.JsonPath.objectAt("$.publication"),
+          ...(config.xVideoEnabled ? { video: stepfunctions.JsonPath.objectAt("$.video") } : {}),
         }), resultPath: "$.social",
       });
       post.addCatch(new stepfunctions.Succeed(this, "WorldPublishedSocialPostFailed"), { resultPath: "$.socialError" });
       afterPublication = post.next(published);
+      if (config.xVideoEnabled) {
+        const video = new VideoWorkflow(this, "DailyVideo", { artifacts, publicAssets });
+        videoFailureAlarm = video.failureAlarm;
+        const optional = new stepfunctions.Parallel(this, "OptionalVideoAndX", { resultPath: stepfunctions.JsonPath.DISCARD });
+        optional.branch(video.chain.next(post));
+        optional.addCatch(new stepfunctions.Succeed(this, "WorldPublishedVideoFailed"), { resultPath: "$.videoError" });
+        afterPublication = optional;
+      }
       xPostFailureAlarm = new cloudwatch.Alarm(this, "DailyXPostFailureAlarm", {
         metric: xHandler.metricErrors({ period: Duration.minutes(5) }), threshold: 1, evaluationPeriods: 1,
         alarmDescription: "World is published, but X posting failed. Inspect the send record before retrying.",
@@ -1247,6 +1269,7 @@ export class WorldEveryDayStack extends Stack {
       dailyTriggerFailureAlarm.addAlarmAction(alarmAction);
       scheduleDeadLetterAlarm.addAlarmAction(alarmAction);
       xPostFailureAlarm?.addAlarmAction(alarmAction);
+      videoFailureAlarm?.addAlarmAction(alarmAction);
     }
 
     if (config.budgetAlertEmail && config.monthlyBudgetUsd) {

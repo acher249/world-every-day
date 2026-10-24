@@ -8,11 +8,11 @@ Explore on desktop or mobile, with keyboard-and-mouse or touch controls.
 
 [Explore today's world](https://explore.aworldeveryday.com) ·
 [About the project](https://aworldeveryday.com) ·
-[Quick start](#quick-start) · [Contribute](CONTRIBUTING.md)
+[Quick start](#quick-start) · [Developer docs](docs/README.md) · [Contribute](CONTRIBUTING.md)
 
-[![A short tour of A World Every Day's interactive 3D explorer](docs/assets/explorer-demo.gif)](https://explore.aworldeveryday.com)
+[![A ten-second tour through four stories in A World Every Day's interactive 3D explorer](docs/assets/explorer-demo.gif)](docs/assets/explorer-tour.mp4)
 
-*Look around. Follow a landmark. Discover the story behind it.*
+*Look around. Follow a landmark. Discover the story behind it. [Watch with sound](docs/assets/explorer-tour.mp4).*
 
 **Early prototype.** The AWS pipeline runs from story discovery through public
 publication, with a daily 7:30 AM Pacific development schedule. Editorial
@@ -37,6 +37,35 @@ For the full experience, [explore the live world](https://explore.aworldeveryday
 To run your own installation, see the [pipeline guide](pipeline/README.md) and
 [AWS deployment guide](infra/aws/README.md). The separate project site lives in
 [`marketing/`](marketing/).
+
+To exercise the fictional pipeline without credentials or paid calls, start
+from the repository root:
+
+```bash
+cd pipeline
+npm i
+npm run edition -- --date 2026-01-01 --run-dir ./artifacts/quick-start
+```
+
+This produces sample artifacts, including a publication manifest. Its mock
+world is intentionally not a renderable 3D asset. Rerunning resumes or reuses
+completed stages; it does not publish a website or post to X.
+
+## Developer guides
+
+| Work on | Guide |
+| --- | --- |
+| Discovery, editorial analysis, and local generation | [Pipeline](pipeline/README.md) |
+| 360 image prompts and processing | [Panorama generation](docs/PANORAMA_GENERATION.md) |
+| Daily schedule, state machines, and recovery | [AWS workflow](docs/AWS_WORKFLOW.md) |
+| Video rendering, music, and archival | [Video generation](docs/WORLD_VIDEO_PLAN.md) |
+| App authorization and automated video posts | [X posting](docs/DAILY_X_POSTS.md) |
+| Infrastructure, domains, and secrets | [Deployment](infra/aws/README.md) |
+
+The optional video/X branch runs after successful world publication. It archives
+a ten-second tour with music and attaches it to the daily post. Both features
+are disabled by default for new deployments. See the [docs index](docs/README.md)
+for source policy, costs, and contribution checks.
 
 ## Why this exists
 
@@ -201,6 +230,10 @@ works without paid services.
 Optional [daily X posting](docs/DAILY_X_POSTS.md) can announce each world after
 public publication is verified. It is disabled by default. Successful posts also
 update the marketing page's latest-post embed without a site rebuild.
+An additional opt-in [video branch](docs/WORLD_VIDEO_PLAN.md) renders a ten-second
+tour with ambient music using concurrent Lambda batches, archives WebM and MP4
+files, and waits for the finished video before posting to X. World publication
+does not depend on this optional branch succeeding.
 
 Development is organized around a manual end-to-end world first, followed by the
 editorial engine, story discovery, public experience, and AWS automation. See the

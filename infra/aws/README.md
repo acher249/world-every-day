@@ -1,8 +1,20 @@
 # AWS infrastructure
 
+For the execution sequence, stage flags, and recovery behavior, start with the
+[AWS workflow guide](../../docs/AWS_WORKFLOW.md). This page covers deployment
+configuration and service boundaries. All developer guides are indexed in
+[`docs/README.md`](../../docs/README.md).
+
 Optional [daily X posting](../../docs/DAILY_X_POSTS.md) adds a post-publication
 Lambda. Enable it only after configuring Secrets Manager and verifying the
 numeric account ID (`WORLD_EVERY_DAY_X_ACCOUNT_ID`). It is disabled by default.
+Set `WORLD_EVERY_DAY_X_VIDEO_ENABLED=true` as well to render a ten-second tour
+before posting. This additional branch is disabled by default, runs only after
+full publication, and leaves the world available if video or posting fails.
+Build `frontend/` first; CDK stores an immutable private capture build for the
+workers. Each tour uses one of five original ambient scores and is archived with audio.
+See the [video workflow](../../docs/WORLD_VIDEO_PLAN.md) for batch concurrency,
+encoder packaging, validation, and manual testing.
 
 This package defines the first AWS foundation for A World Every Day. The
 reference development stack is deployed for website and editorial testing. Its

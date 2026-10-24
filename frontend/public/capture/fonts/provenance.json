@@ -1,0 +1,27 @@
+{
+  "purpose": "Private video capture serif and symbol fallbacks; no runtime external font requests.",
+  "redistribution": "Permitted under the included SIL Open Font License notices.",
+  "files": [
+    {
+      "file": "NotoSerif.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notoserif/NotoSerif%5Bwdth,wght%5D.ttf",
+      "sha256": "4d8e6761424656867019081a1a01336f3cb086982682698714054fc33f782713",
+      "license": "OFL-1.1",
+      "modified": false
+    },
+    {
+      "file": "NotoSansSymbols2.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf",
+      "sha256": "7d5fb73b7ca67a6798101741f5d280a3d016a56a197afcd4199dbb57b4b82a21",
+      "license": "OFL-1.1",
+      "modified": false
+    },
+    {
+      "file": "NotoSansSymbols.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols/NotoSansSymbols%5Bwght%5D.ttf",
+      "sha256": "f7e7e04b4a24b6c78893d50cbfd2b2f6cae49617ab047bfef668d252adb128f7",
+      "license": "OFL-1.1",
+      "modified": false
+    }
+  ]
+}

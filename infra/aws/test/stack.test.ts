@@ -13,6 +13,7 @@ function template(options: {
   environmentName?: "development" | "production";
   siteDomain?: boolean;
   xPostingAccountId?: string;
+  xVideoEnabled?: boolean;
 } = {}): Template {
   const app = new App();
   const stack = new WorldEveryDayStack(app, "TestStack", {
@@ -26,6 +27,7 @@ function template(options: {
       landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: options.enableSchedule ?? false,
       xPostingAccountId: options.xPostingAccountId,
+      xVideoEnabled: options.xVideoEnabled,
       environmentName: options.environmentName ?? "development",
       monthlyBudgetUsd: options.budget ? 25 : undefined,
       nanoBananaModel: "gemini-nano-banana-2.1",
@@ -70,7 +72,22 @@ test("X posting is opt-in and follows publication with an isolated failure path"
   });
   rendered.hasResourceProperties("AWS::Lambda::Function", {
     Environment: { Variables: Match.objectLike({ X_EXPECTED_ACCOUNT_ID: "123", X_POSTING_ENABLED: "true" }) },
-    Timeout: 180,
+    Timeout: 360,
+  });
+});
+
+test("optional video uses bounded batches before posting and isolates failures", () => {
+  assert.doesNotMatch(JSON.stringify(template({ xPostingAccountId: "123" }).toJSON()), /RenderVideoBatches/);
+  const rendered = template({ xPostingAccountId: "123", xVideoEnabled: true });
+  const json = JSON.stringify(rendered.toJSON());
+  assert.match(json, /RenderVideoBatches/);
+  assert.match(json, /MaxConcurrency\\?":10/);
+  assert.match(json, /AssembleWorldVideo/);
+  assert.match(json, /editionId\.\$\\?":\\?"\$\.videoJob\.editionId/);
+  assert.match(json, /jobId\.\$\\?":\\?"\$\.videoJob\.jobId/);
+  assert.match(json, /WorldPublishedVideoFailed/);
+  rendered.hasResourceProperties("AWS::Lambda::Function", {
+    Environment: { Variables: Match.objectLike({ X_REQUIRE_VIDEO: "true" }) },
   });
 });
 

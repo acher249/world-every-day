@@ -65,6 +65,11 @@ base, and visible interval before the next subject. Avoid bird's-eye staging,
 immediate foreground objects, shared display platforms, overlapping subjects,
 and clusters that put several hotspots in the same viewing direction.
 
+The panorama prompt starts and ends with a critical level-horizon check against
+the middle pixel row (50% image height). This concerns the geometric horizon,
+not mountain ridges or nearby shorelines; varied terrain remains welcome.
+This is prompt guidance, not an automatic geometric validation or retry stage.
+
 Use one coherent circulation system to make that distribution legible. Its form
 should follow the world: a loop, oval, meander, branching boardwalk, terraced
 route, shoreline, or another navigable structure may all work. The circular

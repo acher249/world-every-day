@@ -5,6 +5,12 @@ artifacts. A fixture-backed local runner exercises the complete chain without
 paid services. Live local stages require explicit flags; the AWS development
 schedule is separately configured for unattended generation and publication.
 
+This page covers local stage commands. Focused guides explain
+[360 image generation](../docs/PANORAMA_GENERATION.md),
+[AWS orchestration](../docs/AWS_WORKFLOW.md),
+[video generation](../docs/WORLD_VIDEO_PLAN.md), and
+[automated X posting](../docs/DAILY_X_POSTS.md).
+
 ## Panorama stage
 
 The stage:

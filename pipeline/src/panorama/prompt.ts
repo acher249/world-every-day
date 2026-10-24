@@ -1,4 +1,11 @@
 const PROJECTION_INSTRUCTIONS = `
+CRITICAL: CENTER THE GEOMETRIC HORIZON VERTICALLY AT 50% OF IMAGE HEIGHT.
+Keep the camera level with zero pitch and roll. Check the pixel position of
+visible distant level horizons against the middle row, y = image height / 2.
+Mountains, buildings, and varied terrain may extend above that row; their
+skyline is not the geometric horizon. Do not flatten terrain or invent a
+visible horizon where it is obscured.
+
 Projection and camera geometry are strict requirements. Create a monoscopic
 full-sphere equirectangular panorama covering 360 degrees of longitude and 180
 degrees of latitude from one fixed optical center. Use a latitude-longitude
@@ -74,5 +81,5 @@ evenly paced sequence around the full sphere rather than a cluster.
 export function buildPanoramaPrompt(scenePrompt: string): string {
   const scene = scenePrompt.trim();
   if (!scene) throw new Error("A non-empty scene prompt is required");
-  return `${PROJECTION_INSTRUCTIONS}\n\nScene content:\n${scene}\n\nThe projection and level-horizon requirements above override any conflicting composition language in the scene content.`;
+  return `${PROJECTION_INSTRUCTIONS}\n\nScene content:\n${scene}\n\nThe projection and level-horizon requirements above override any conflicting composition language in the scene content.\n\nCRITICAL: CHECK YOUR WORK BEFORE RETURNING THE IMAGE. Inspect the pixel positions: the geometric horizon must align with the horizontal middle row, y = image height / 2, as in a true 2:1 equirectangular panorama. The centered 2:1 crop and the overscan canvas share this same midpoint. Check visible distant level horizons around the full 360-degree view; do not mistake nearby shorelines or mountain ridges for the horizon. If the geometric horizon is clearly too high, too low, or tilted, consider the image a failure and correct it before returning. Preserve varied topography, and do not invent a horizon where it is hidden. Return only the clean panorama, with no guide lines or text.`;
 }

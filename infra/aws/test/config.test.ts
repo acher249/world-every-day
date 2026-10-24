@@ -6,6 +6,12 @@ function context(values: Record<string, unknown>) {
   return { tryGetContext: (key: string) => values[key] };
 }
 
+test("video posting is disabled by default and requires an X account", () => {
+  assert.equal(readDeploymentConfig(context({}), {}).xVideoEnabled, false);
+  assert.throws(() => readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_VIDEO_ENABLED: "true" }), /requires/);
+  assert.equal(readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_VIDEO_ENABLED: "true", WORLD_EVERY_DAY_X_ACCOUNT_ID: "123" }).xVideoEnabled, true);
+});
+
 test("X posting requires an explicit numeric account ID and permits blank disabled config", () => {
   assert.equal(readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_ACCOUNT_ID: "" }).xPostingAccountId, undefined);
   assert.equal(readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_ACCOUNT_ID: "123" }).xPostingAccountId, "123");
@@ -22,6 +28,7 @@ test("deployment defaults are development and schedule-disabled", () => {
     geminiEditorialModel: "gemini-3.8-flash",
     landmarkVisionModel: "gemini-3.8-flash",
     enableSchedule: false,
+    xVideoEnabled: false,
     environmentName: "development",
     monthlyBudgetUsd: undefined,
     nanoBananaModel: "gemini-nano-banana-2.1",
@@ -63,6 +70,7 @@ test("ignored local environment settings are supported but CDK context wins", ()
       geminiEditorialModel: "gemini-3.8-flash",
       landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: true,
+      xVideoEnabled: false,
       environmentName: "production",
       monthlyBudgetUsd: 40,
       nanoBananaModel: "gemini-nano-banana-2.1",

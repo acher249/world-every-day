@@ -9,6 +9,10 @@ import { createPanoramaAssets } from "../src/panorama/process.js";
 
 test("buildPanoramaPrompt combines the scene with spherical constraints", () => {
   const prompt = buildPanoramaPrompt("A quiet coastal research garden.");
+  assert.ok(prompt.startsWith("CRITICAL: CENTER THE GEOMETRIC HORIZON"));
+  assert.match(prompt, /CRITICAL: CHECK YOUR WORK BEFORE RETURNING THE IMAGE/);
+  assert.match(prompt, /y = image height \/ 2/);
+  assert.ok(prompt.endsWith("Return only the clean panorama, with no guide lines or text."));
   assert.match(prompt, /quiet coastal research garden/i);
   assert.match(prompt, /full-sphere equirectangular panorama/i);
   assert.match(prompt, /left and right boundaries/i);

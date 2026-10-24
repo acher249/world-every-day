@@ -1,5 +1,17 @@
 import { z } from "zod";
 import { publicationManifestSchema, type PublicationManifest } from "../publication/schema.js";
+import { jobRefSchema } from "../video/job.js";
+
+/** Explicit historical video announcements preserve the original daily post receipt. */
+export function announcementRecordPrefix(event: unknown) {
+  const input = z.object({ editionId: jobRefSchema.shape.editionId,
+    announcement: z.enum(["daily", "video"]).default("daily"), video: z.unknown().optional() }).parse(event);
+  const root = `social/x/${input.editionId}`;
+  if (input.announcement === "daily") return root;
+  const video = jobRefSchema.extend({ status: z.literal("ready") }).parse(input.video);
+  if (video.editionId !== input.editionId) throw new Error("Video announcement edition mismatch");
+  return `${root}/announcements/video-${video.jobId}`;
+}
 
 export function composeDailyPost(manifest: PublicationManifest, origin: string, projectOrigin: string) {
   const clean = (value: string) => value.replace(/https?:\/\/\S+|[@#]/gi, "").replace(/\s+/g, " ").trim();
@@ -29,7 +41,8 @@ export type DailyPostDependencies = {
   verifyPublication: (editionId: string, key: string) => Promise<unknown>;
   accountId: () => Promise<string>;
   claim: (editionId: string, text: string) => Promise<boolean>;
-  post: (text: string) => Promise<string>;
+  prepareMedia?: (editionId: string, manifest: PublicationManifest) => Promise<string>;
+  post: (text: string, mediaId?: string) => Promise<string>;
   receipt: (editionId: string, postId: string) => Promise<void>;
 };
 
@@ -44,9 +57,10 @@ export function createDailyPostHandler(deps: DailyPostDependencies) {
       manifest.edition.fictional || !manifest.world.splat) throw new Error("A real published world is required");
     if (await deps.accountId() !== deps.expectedAccountId) throw new Error("X account does not match configured account");
     const text = composeDailyPost(manifest, deps.origin, deps.projectOrigin);
+    const mediaId = await deps.prepareMedia?.(input.editionId, manifest);
     if (!await deps.claim(input.editionId, text)) return { status: "already-attempted" };
     // Never automatically retry after claiming: even a timeout may mean X posted it.
-    const postId = await deps.post(text);
+    const postId = await deps.post(text, mediaId);
     await deps.receipt(input.editionId, postId);
     return { status: "posted", postId };
   };

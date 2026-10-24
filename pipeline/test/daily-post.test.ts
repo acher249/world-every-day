@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { createDailyPostHandler, composeDailyPost, type DailyPostDependencies } from "../src/social/daily-post.js";
+import { announcementRecordPrefix, createDailyPostHandler, composeDailyPost, type DailyPostDependencies } from "../src/social/daily-post.js";
 import { authorization, createXClient } from "../src/social/x-client.js";
 import { publicationManifestSchema } from "../src/publication/schema.js";
 
@@ -12,6 +12,18 @@ fixture.world.splat = { url: "/world.spz", format: "spz", sha256: fixture.world.
 for (const story of fixture.stories) story.sources = [{ title: "Source", publisher: "Example", url: "https://example.com/story", publishedAt: "2026-01-01T00:00:00Z", kind: "primary" }];
 const manifest = publicationManifestSchema.parse(fixture);
 const event = { editionId: manifest.edition.id, publication: { status: "published", key: "publication.json" } };
+
+test("historical video announcements use stable separate claims without resetting daily posts", () => {
+  const video = { editionId: event.editionId, jobId: "a".repeat(64), status: "ready" };
+  const daily = announcementRecordPrefix(event);
+  const historical = announcementRecordPrefix({ ...event, announcement: "video", video });
+  assert.equal(daily, `social/x/${event.editionId}`);
+  assert.equal(historical, `${daily}/announcements/video-${video.jobId}`);
+  assert.equal(historical, announcementRecordPrefix({ ...event, announcement: "video", video }));
+  assert.throws(() => announcementRecordPrefix({ ...event, announcement: "video" }));
+  assert.throws(() => announcementRecordPrefix({ ...event, announcement: "video", video: { ...video, editionId: "other" } }));
+  assert.throws(() => announcementRecordPrefix({ ...event, announcement: "video", video: { ...video, status: "pending" } }));
+});
 
 function setup(overrides: Partial<DailyPostDependencies> = {}) {
   let claimed = false;
@@ -81,6 +93,21 @@ test("copy fits conservative X length budget even with non-Latin titles", () => 
   assert.ok(weighted <= 280);
   assert.ok(text.startsWith(`${manifest.edition.displayDate}\n\nToday’s World: `));
   assert.ok(text.endsWith("\n\nLearn more: https://example.com/"));
+});
+
+test("failed media preparation never claims or sends a post", async () => {
+  let claims = 0;
+  const { run, posts } = setup({ prepareMedia: async () => { throw Error("video not ready"); }, claim: async () => { claims++; return true; } });
+  await assert.rejects(run(event), /video not ready/);
+  assert.equal(claims, 0);
+  assert.equal(posts.length, 0);
+});
+
+test("prepared media is attached to the claimed post", async () => {
+  let attached: string | undefined;
+  const { run } = setup({ prepareMedia: async () => "789", post: async (_, id) => { attached = id; return "456"; } });
+  await run(event);
+  assert.equal(attached, "789");
 });
 
 const keys = { X_API_KEY: "example", X_API_KEY_SECRET: "secret", X_ACCESS_TOKEN: "token", X_ACCESS_TOKEN_SECRET: "token-secret" };

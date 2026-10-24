@@ -90,6 +90,29 @@ those named transitive packages and exact reported licenses.
 
 ## External services
 
+### Optional video encoder
+
+The optional assembly Lambda runs FFmpeg 8.0.1 as a separate executable under
+LGPL-2.1-or-later. This reviewed native exception is necessary to assemble,
+validate, and encode archived WebM and X-compatible MP4 video. It is dynamically
+linked; the project does not link FFmpeg into its JavaScript code. GPL/nonfree
+features and libx264 are disabled. The native build policy is checked by
+`pipeline/scripts/check-licenses.mjs` and the container verifies its license.
+
+The encoder also uses OpenH264 2.6.0 (BSD-2-Clause), libvpx 1.15.2 (BSD-3-Clause),
+Opus 1.5.2 (BSD-3-Clause), and the platform's zlib. Source URLs, exact checksums,
+and build commands are in `pipeline/src/video/encoder/build-codecs.sh`.
+The container retains source archives/build instructions in `/opt/video/sources`
+and license notices in `/opt/video/licenses`. Keep these when redistributing
+the container, preserve replacement/relinking rights, and comply with the
+included licenses. Codec patent obligations are separate; a source-built
+OpenH264 library does not inherit Cisco's binary-distribution patent coverage.
+
+- FFmpeg: <https://ffmpeg.org/legal.html>
+- OpenH264: <https://github.com/cisco/openh264>
+- libvpx: <https://github.com/webmproject/libvpx>
+- Opus: <https://opus-codec.org/license/>
+
 Google Gemini/Nano Banana, World Labs Marble, X, and AWS are external proprietary
 services rather than bundled open-source libraries. Their respective terms apply
 when their adapters are enabled. See [Licensing and service boundaries](docs/LICENSING.md).
@@ -98,3 +121,11 @@ The marketing page optionally loads X's hosted post widget. This is not bundled
 MIT-licensed code; X's [embed terms](https://help.x.com/en/using-x/how-to-embed-a-post)
 and [privacy policy](https://x.com/en/privacy) apply.
 
+
+## Video capture fonts
+
+The optional capture build bundles unmodified Noto Serif, Noto Sans Symbols, and Noto Sans Symbols 2
+from [Google Fonts](https://github.com/google/fonts), copyright 2022 The Noto
+Project Authors, under SIL Open Font License 1.1. These provide serif text and
+arrow symbols on Lambda. Their license texts and source/checksum provenance live
+in `frontend/public/capture/fonts/`. They are not fetched at runtime.

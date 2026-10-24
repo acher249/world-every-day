@@ -1,13 +1,15 @@
 {
   "schemaVersion": "1",
-  "asset": "explorer-demo.gif",
-  "assetType": "application-screen-recording",
-  "createdAt": "2026-10-20",
-  "creator": "Project maintainer, supplied for README inclusion",
-  "source": "a-world-every-day.mov",
-  "processing": "Converted with FFmpeg to a silent looping GIF at 720 pixels wide, 10 frames per second, and a 96-color palette.",
+  "assets": ["explorer-demo.gif", "explorer-tour.mp4"],
+  "assetType": "application-ui-tour",
+  "createdAt": "2026-10-23",
+  "creator": "A World Every Day, approved by the project maintainer for README inclusion",
+  "source": "Local UI capture of published edition daily-2026-10-23 using pipeline/src/video/ui-tour-probe.ts",
+  "sourceSplatSha256": "739870da8bda410c9e298c244cb7de0761e599ef78f37058289ac0b908e2a772",
+  "processing": "Ten-second, 1280x720, 30 fps H.264/AAC MP4. A silent looping GIF was derived with FFmpeg at 800 pixels wide, 12 fps, and a 128-color palette.",
+  "audio": "Original project-authored procedural ambient synthesis from pipeline/src/video/ambient.ts; no third-party music samples.",
   "rights": {
-    "projectLicense": "MIT for project-authored interface and documentation only",
+    "projectLicense": "MIT for project-authored interface, procedural audio, and documentation only",
     "redistribution": "Supplied by the project maintainer for repository documentation. Generated scenery remains subject to applicable Google and World Labs service terms; third-party marks are not relicensed.",
     "providerTerms": [
       "https://ai.google.dev/gemini-api/terms",

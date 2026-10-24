@@ -15,6 +15,9 @@ daily artwork, the public experience, or the open framework underneath it.
 Small fixes, documentation improvements, accessibility work, and focused tests
 do not need advance discussion.
 
+Use the [developer docs index](docs/README.md) to find the relevant stage guide
+before changing generation, AWS orchestration, videos, or X delivery.
+
 For vulnerabilities or exposed credentials, follow [SECURITY.md](SECURITY.md)
 rather than posting sensitive details in a public issue.
 

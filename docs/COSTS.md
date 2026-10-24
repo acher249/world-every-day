@@ -28,6 +28,19 @@ per-play fee. Gemini text-model rates are scheduled to change on January 1,
 
 ## What can increase the bill
 
+- **Optional world videos:** Not included above. A ten-second, 720p, 30 fps
+  tour uses 30 batches of ten frames, with up to ten Lambda workers at once.
+  At the initial measured rate of 47 seconds per frame and 3,008 MB per worker,
+  budget roughly **$0.70–$0.90 per video** before retries and transfer. Concurrency
+  reduces waiting time, not total compute cost. The estimate includes room for
+  startup and encoding; actual cost depends on scene complexity.
+  A complete UI tour used about **$0.57 in render compute** and finished in
+  approximately 23 minutes; encoding costs under $0.01. This is measured usage priced at published rates,
+  not an invoice reconciliation. Temporary
+  frames expire after seven days; final videos remain in the archive.
+  See the [video plan](WORLD_VIDEO_PLAN.md) and
+  [Lambda pricing](https://aws.amazon.com/lambda/pricing/).
+
 - **Optional X posts:** Not included above. URL-bearing posts are currently
   listed at $0.20 each (about $6 for 30 posts), plus account lookup and small
   AWS secret/Lambda costs. Check [X pricing](https://docs.x.com/x-api/getting-started/pricing)
