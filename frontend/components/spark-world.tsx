@@ -22,7 +22,7 @@ import { cameraRelativeFocusCenter, defaultFocusRadius, focusShapeForLandmark, f
 import { withFocusSplatShader } from "@/lib/splat-focus-shader";
 import { observeViewerVisibility } from "@/lib/viewer-visibility";
 import { companionOffset } from "@/lib/world-interactions";
-import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, viewerPixelRatio } from "@/lib/viewer-presentation";
+import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, updateProjectionCamera, viewerPixelRatio } from "@/lib/viewer-presentation";
 import {
   boundaryFragmentShader,
   boundaryLatitudeSegments,
@@ -863,7 +863,10 @@ export function SparkWorld({
               renderer.render(boundaryScene, camera);
               renderer.autoClear = autoClear;
             }
-            camera.updateMatrixWorld();
+            // Offline batches replay camera steps without rendering. Update the
+            // float rig too: updateMatrixWorld alone can use its stale matrix,
+            // projecting markers differently at the start of each frame batch.
+            updateProjectionCamera(camera);
 
             for (const anchor of anchorsRef.current) {
               const element = anchorElementsRef.current.get(anchor.id);

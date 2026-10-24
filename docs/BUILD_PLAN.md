@@ -106,7 +106,7 @@ The optional video workflow renders ten-second world tours in concurrent Lambda
 batches, adds ambient audio, archives validated MP4/WebM videos in S3, and can
 attach the MP4 to an X announcement after publication. Batching keeps individual
 render calls within Lambda's invocation timeout.
-See the [video workflow](WORLD_VIDEO_PLAN.md). This branch is opt-in and disabled
+See the [video workflow](VIDEO_GENERATION.md). This branch is opt-in and disabled
 for new deployments. X video delivery also requires a user grant with `media.write`.
 
 Additional world models, narrated tours, multiple editorial lenses, linked worlds,

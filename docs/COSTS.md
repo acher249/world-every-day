@@ -1,5 +1,15 @@
 # Costs
 
+Pricing checked October 23, 2026. USD; estimates exclude taxes.
+
+**With the optional video and X post enabled, budget about $2.40–$3.10 per
+day ($72–$93 per 30 days).** With prepaid World Labs credits, the corresponding
+additional spend is about **$1.20–$1.90 per day ($36–$57 per 30 days)**.
+This is a planning budget, not a spending cap or an invoice total; media-upload
+charges still need reconciliation in the X console.
+
+## World generation
+
 One successful daily world is estimated to cost **$1.50–$1.90 in services**, or
 **$45–$57 over 30 days**, at October 2026 prices. This assumes one image, one
 Marble 1.1 world, no paid retries, and modest traffic. It is an estimate, not a
@@ -23,7 +33,13 @@ These are planning ranges based on [Gemini pricing](https://ai.google.dev/gemini
 [Secrets Manager](https://aws.amazon.com/secrets-manager/pricing/), and
 [Route 53](https://aws.amazon.com/route53/pricing/). The image's 8K enlargement
 is local processing, not a second generation request. Browser audio costs no
-per-play fee. Gemini text-model rates are scheduled to change on January 1,
+per-play fee. For the configured `gemini-3.8-flash`, standard input is $0.75 per million
+tokens and output (including thinking) is $3.75 per million. The editorial
+range is an allowance, not a measured daily token total. Nano Banana 2.1
+4K image output is approximately $0.113, plus input and text/thinking tokens;
+landmark analysis is a separate text-model request. Marble pano input uses
+1,500 credits at 1,250 credits per dollar, or $1.20. These are standard API
+rates, not batch discounts or consumer subscriptions. Gemini text-model rates are scheduled to change on January 1,
 2027, so revisit this estimate then.
 
 ## What can increase the bill
@@ -36,14 +52,22 @@ per-play fee. Gemini text-model rates are scheduled to change on January 1,
   startup and encoding; actual cost depends on scene complexity.
   A complete UI tour used about **$0.57 in render compute** and finished in
   approximately 23 minutes; encoding costs under $0.01. This is measured usage priced at published rates,
-  not an invoice reconciliation. Temporary
+  not an invoice reconciliation. At 3,008 MB, render compute is
+  `billed seconds × (3008 / 1024) × $0.0000166667` in us-east-1.
+  For comparison, 300 frames × 47 seconds is about $0.69 before startup.
+  Four GiB of temporary disk adds about $0.0015 at that duration (the first
+  512 MiB is free); requests and encoding add little. AWS free-tier credits
+  are not deducted here because they are shared with other account workloads. Temporary
   frames expire after seven days; final videos remain in the archive.
-  See the [video plan](WORLD_VIDEO_PLAN.md) and
+  See the [video guide](VIDEO_GENERATION.md) and
   [Lambda pricing](https://aws.amazon.com/lambda/pricing/).
 
 - **Optional X posts:** Not included above. URL-bearing posts are currently
-  listed at $0.20 each (about $6 for 30 posts), plus account lookup and small
-  AWS secret/Lambda costs. Check [X pricing](https://docs.x.com/x-api/getting-started/pricing)
+  listed at $0.20 each (about $6 for 30 posts), plus account lookup, media operations, and small
+  AWS secret/Lambda costs. Allow **$0.20–$0.30 per post** for planning. The
+  public table does not separately price every chunked-upload and polling
+  operation used here, so this allowance is not a verified all-in media tariff.
+  Check actual credit deductions in the X console; do not assume uploads are free. Check [X pricing](https://docs.x.com/x-api/getting-started/pricing)
   before enabling [daily posting](DAILY_X_POSTS.md). No extra model call is used.
 
 - **Retries and extra worlds:** A failed run can still incur model charges.
@@ -53,9 +77,15 @@ per-play fee. Gemini text-model rates are scheduled to change on January 1,
   full loads per day, that is roughly 0.9 TB of transfer per month before other
   page assets. CloudFront's [pay-as-you-go plan](https://aws.amazon.com/cloudfront/pricing/pay-as-you-go/)
   includes 1 TB of monthly transfer and 10 million requests; charges apply
-  beyond the allowance. The larger panorama poster is loaded only as a fallback.
-- **AWS usage:** Logs, storage, requests, and transfer vary with traffic and
-  retries. The sites are static and do not need always-on servers.
+  beyond the account-wide allowance; other projects can consume it too. The larger panorama poster is loaded only as a fallback.
+- **AWS usage:** Logs, S3 storage and versions, container images in ECR,
+  DynamoDB, alarms, requests, and transfer vary with retention, traffic, and
+  retries. The $0.04–$0.10 base AWS allowance is approximate and can grow as
+  the archive grows. It is not a line-item bill reconciliation. Domain
+  registration and development/backfill runs are excluded. The sites are
+  static and do not need always-on servers. See [S3](https://aws.amazon.com/s3/pricing/),
+  [ECR](https://aws.amazon.com/ecr/pricing/), and
+  [CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) pricing.
 
 The deployed development schedule currently permits paid generation and public
 publication. **There is no automatic spending cutoff.** The reference stack has

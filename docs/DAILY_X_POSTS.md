@@ -5,6 +5,10 @@ It posts the edition date, permanent world link, one or two complete story
 headlines, and a project link. With video enabled, it waits for the archived
 MP4 and attaches it. Preview publications do not trigger delivery.
 
+Dated worlds use clean `/?edition=YYYY-MM-DD` links. Deploy the date-aware
+explorer before updating the posting worker. Existing full-ID links remain
+supported; no archived assets or previously posted tweets need to be rewritten.
+
 Posting is disabled by default. X is an optional proprietary service with
 separate API charges; see [costs](COSTS.md). The deployment and execution sequence
 are covered in the [AWS workflow guide](AWS_WORKFLOW.md).
@@ -86,7 +90,7 @@ to `false` for text-only delivery. Before deploying video support, build
 
 Activation applies to subsequent full public runs, including manual runs. It
 does not backfill older worlds. Scheduling is a separate setting. See
-[video generation](WORLD_VIDEO_PLAN.md) for rendering, music, and archival.
+[video generation](VIDEO_GENERATION.md) for rendering, music, and archival.
 
 ## 5. Verify a post
 

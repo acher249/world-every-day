@@ -13,7 +13,7 @@ before posting. This additional branch is disabled by default, runs only after
 full publication, and leaves the world available if video or posting fails.
 Build `frontend/` first; CDK stores an immutable private capture build for the
 workers. Each tour uses one of five original ambient scores and is archived with audio.
-See the [video workflow](../../docs/WORLD_VIDEO_PLAN.md) for batch concurrency,
+See the [video workflow](../../docs/VIDEO_GENERATION.md) for batch concurrency,
 encoder packaging, validation, and manual testing.
 
 This package defines the first AWS foundation for A World Every Day. The

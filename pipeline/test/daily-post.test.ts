@@ -45,7 +45,17 @@ test("daily post verifies publication, sends once, and records the X post ID", a
   assert.deepEqual(await run(event), { status: "already-attempted" });
   assert.equal(posts.length, 1);
   assert.deepEqual(receipts, ["456"]);
-  assert.ok(posts[0].includes(`?edition=${manifest.edition.id}`));
+  assert.ok(posts[0].includes(`?edition=${manifest.edition.id.match(/\d{4}-\d{2}-\d{2}/)?.[0]}`));
+});
+
+test("public posts use date links for historical IDs and retain undated edition links", () => {
+  const copy = structuredClone(manifest);
+  copy.edition.id = "source-expansion-2026-10-19-test";
+  const text = composeDailyPost(copy, "https://explore.example.com", "https://example.com");
+  assert.ok(text.includes("https://explore.example.com/?edition=2026-10-19"));
+  assert.ok(!text.includes("source-expansion"));
+  copy.edition.id = "special-edition";
+  assert.ok(composeDailyPost(copy, "https://explore.example.com", "https://example.com").includes("?edition=special-edition"));
 });
 
 test("disabled integration makes no external calls; previews are rejected", async () => {

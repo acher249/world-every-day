@@ -1,6 +1,33 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, viewerPixelRatio } from "../lib/viewer-presentation";
+import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, updateProjectionCamera, viewerPixelRatio } from "../lib/viewer-presentation";
+import { Group, PerspectiveCamera, Scene, Vector3 } from "three";
+
+test("hotspot projection matches continuous rendering across offline batch boundaries", () => {
+  function projections(batchStart: number) {
+    const scene = new Scene();
+    const rig = new Group();
+    const camera = new PerspectiveCamera(60, 16 / 9, 0.1, 100);
+    scene.add(rig); rig.add(camera);
+    const result: number[][] = [];
+    for (let frame = 0; frame < 60; frame++) {
+      rig.position.set(0.3 * Math.cos(frame / 90), 0.1 * Math.sin(frame / 70), 0);
+      camera.rotation.y = frame / 400;
+      updateProjectionCamera(camera);
+      const projected = new Vector3(1, 0, -5).project(camera);
+      if (frame >= batchStart) {
+        result.push(projected.toArray());
+        scene.updateMatrixWorld(); // The matrix update normally performed by rendering.
+        assert.ok(projected.distanceTo(new Vector3(1, 0, -5).project(camera)) < 1e-12);
+      }
+    }
+    return result;
+  }
+  const continuous = projections(0);
+  for (const start of [0, 10, 20, 30, 40, 50]) {
+    assert.deepEqual(projections(start), continuous.slice(start));
+  }
+});
 
 test("hotspot artwork grows at center and shrinks at viewport edges", () => {
   assert.equal(hotspotVisualScale(50, 50), 1.35);

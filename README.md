@@ -58,9 +58,10 @@ completed stages; it does not publish a website or post to X.
 | Discovery, editorial analysis, and local generation | [Pipeline](pipeline/README.md) |
 | 360 image prompts and processing | [Panorama generation](docs/PANORAMA_GENERATION.md) |
 | Daily schedule, state machines, and recovery | [AWS workflow](docs/AWS_WORKFLOW.md) |
-| Video rendering, music, and archival | [Video generation](docs/WORLD_VIDEO_PLAN.md) |
+| Video rendering, music, and archival | [Video generation](docs/VIDEO_GENERATION.md) |
 | App authorization and automated video posts | [X posting](docs/DAILY_X_POSTS.md) |
 | Infrastructure, domains, and secrets | [Deployment](infra/aws/README.md) |
+| Daily operating estimates and cost drivers | [Costs](docs/COSTS.md) |
 
 The optional video/X branch runs after successful world publication. It archives
 a ten-second tour with music and attaches it to the daily post. Both features
@@ -230,7 +231,7 @@ works without paid services.
 Optional [daily X posting](docs/DAILY_X_POSTS.md) can announce each world after
 public publication is verified. It is disabled by default. Successful posts also
 update the marketing page's latest-post embed without a site rebuild.
-An additional opt-in [video branch](docs/WORLD_VIDEO_PLAN.md) renders a ten-second
+An additional opt-in [video branch](docs/VIDEO_GENERATION.md) renders a ten-second
 tour with ambient music using concurrent Lambda batches, archives WebM and MP4
 files, and waits for the finished video before posting to X. World publication
 does not depend on this optional branch succeeding.

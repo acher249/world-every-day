@@ -9,7 +9,7 @@ social posting are separate opt-in operations.
 | [Pipeline](../pipeline/README.md) | Local setup, fictional end-to-end run, discovery, editorial analysis, world generation, and baking |
 | [360 image generation](PANORAMA_GENERATION.md) | Prompt inputs, projection, image processing, artifacts, and local commands |
 | [AWS workflow](AWS_WORKFLOW.md) | State machines, daily schedule, stage flags, publication, and recovery |
-| [Video generation](WORLD_VIDEO_PLAN.md) | Batched rendering, music, encoding, S3 archival, and manual testing |
+| [Video generation](VIDEO_GENERATION.md) | Batched rendering, music, encoding, S3 archival, and manual testing |
 | [Automated X posting](DAILY_X_POSTS.md) | App authorization, credentials, activation, video delivery, and troubleshooting |
 | [AWS deployment](../infra/aws/README.md) | Account configuration, infrastructure, domains, secrets, and alarms |
 | [Contributing](../CONTRIBUTING.md) | Package checks and contribution expectations |

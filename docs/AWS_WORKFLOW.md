@@ -69,6 +69,9 @@ or trigger social delivery. See [publication details](../infra/aws/README.md#pri
 
 The public asset bucket holds the poster, SPZ, and publication manifest.
 `generated/current.json` points to the current world and its archive entries.
+Public links use `/?edition=YYYY-MM-DD`, resolved through that archive. Internal
+edition IDs and asset keys stay unchanged. Existing full-ID links still work;
+the viewer replaces them with the date URL after loading a listed world.
 Private intermediate artifacts stay in the artifact bucket. Article bodies
 are processed ephemerally and are not stored; see [data handling](DATA_BOUNDARY.md).
 
@@ -79,7 +82,7 @@ Only successful full publication enters the optional delivery branch:
   before posting. Build `frontend/` before deploying this branch.
 - Video rendering uses 30 batches of ten frames, at most ten workers at once.
   Assembly validates the result before X upload. Music selection remains stable
-  on retries. See [video generation](WORLD_VIDEO_PLAN.md).
+  on retries. See [video generation](VIDEO_GENERATION.md).
 - Credentials and account checks, upload processing, and duplicate-post
   protection are covered in [X posting](DAILY_X_POSTS.md).
 

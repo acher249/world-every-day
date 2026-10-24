@@ -19,7 +19,8 @@ export function composeDailyPost(manifest: PublicationManifest, origin: string, 
   const weight = (value: string) => Array.from(value.replace(/https?:\/\/\S+/g, "x".repeat(23)))
     .reduce((sum, character) => sum + (character.codePointAt(0)! < 128 ? 1 : 2), 0);
   const link = new URL("/", origin);
-  link.searchParams.set("edition", manifest.edition.id);
+  const date = manifest.edition.id.match(/(?:^|-)(\d{4}-\d{2}-\d{2})(?:-|$)/)?.[1];
+  link.searchParams.set("edition", date && z.iso.date().safeParse(date).success ? date : manifest.edition.id);
   const header = `${clean(manifest.edition.displayDate)}\n\nToday’s World: ${link.href}\n\n`;
   const footer = `\n\nLearn more: ${new URL("/", projectOrigin).href}`;
   const sentences: string[] = [];

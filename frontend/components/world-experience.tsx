@@ -11,7 +11,7 @@ import { MobileJoystick } from "@/components/mobile-joystick";
 import { FullscreenButton } from "@/components/fullscreen-button";
 import { WelcomeOverlay } from "@/components/welcome-overlay";
 import { cycleId, spatialStoryOrder } from "@/lib/spatial-navigation";
-import { pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
+import { editionHref, pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
 import { resolveProjectSiteUrl } from "@/lib/site-links";
 import { WorldAudio, type WorldSound } from "@/lib/world-audio";
 import { canRenderWorldInteractions, landmarkCompanion } from "@/lib/world-interactions";
@@ -678,7 +678,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
                     <a
                       key={world.editionId}
                       className="archive-world-link"
-                      href={`/?edition=${encodeURIComponent(world.editionId)}`}
+                      href={editionHref(world.editionId)}
                       aria-current={publication.edition.id === world.editionId ? "page" : undefined}
                     >
                       <span>{pastWorldLabel(world.editionId)}</span>

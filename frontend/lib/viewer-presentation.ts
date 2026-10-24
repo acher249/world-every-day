@@ -1,4 +1,10 @@
 import { smootherstep } from "@/lib/spatial-navigation";
+import type { Camera } from "three";
+
+/** Projection must include the float rig even when an offline step skips rendering. */
+export function updateProjectionCamera(camera: Camera): void {
+  camera.updateWorldMatrix(true, false);
+}
 
 /** Marker artwork changes size; its button and tooltip do not. */
 export function hotspotVisualScale(screenX: number, screenY: number): number {

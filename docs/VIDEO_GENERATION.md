@@ -51,11 +51,9 @@ pins its build hash so deployments cannot change an in-progress video.
 Bundled OFL-licensed Noto fonts provide serif and symbol fallbacks on Lambda.
 The separate UI-free `/capture/` route remains available for benchmarks.
 
-The measured software-rendering baseline is approximately 47 seconds per frame
-at 3,008 MB. Three consecutive frames confirmed that this is not just startup.
-The account rejected a 6,144 MB setting and does not permit reserved concurrency
-while retaining AWS's required unreserved capacity. Higher-memory throughput is
-unmeasured. Standard Lambda's invocation limit is 15 minutes; see
+Render workers use 3,008 MB and software rendering. Batches keep each invocation
+within Lambda's 15-minute limit. Available memory and concurrency depend on the
+AWS account quotas; see
 [AWS limits](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html).
 
 ## Batched motion
@@ -63,22 +61,20 @@ unmeasured. Standard Lambda's invocation limit is 15 minutes; see
 One controlled clock drives all 300 frames at `frame / 30`. The tour starts
 looking slightly down and selects four spatially ordered stories at 1, 3, 5,
 and 7 seconds. Capture-only moves take 1.5 seconds. Each worker replays the cheap
-UI/camera steps from zero, rendering only its assigned frames. Independently
-rendered local batch frames matched the continuous tour pixel-for-pixel.
+UI/camera steps from zero, rendering only its assigned frames. Every batch uses the same timeline, including camera and UI state.
 
 Each worker handles ten frames and saves them individually. Retries skip existing
 frames; a batch receipt records their hashes and order. A completed video skips
 the batch stage. A new world/publication checksum creates a different job.
 Only one render execution per edition should be started at a time.
 
-The earlier clean-scene baseline rendered 300 frames in approximately 22 minutes and encoded
-both formats in 67 seconds. Render compute was approximately $0.56, excluding
-storage, encoding, and X charges. The account has ten shared concurrency slots; competing Lambda
-work may throttle workers and increase elapsed time. Throttles back off and retry.
+The reference account has ten shared concurrency slots. Competing Lambda work
+may throttle workers and increase elapsed time; throttles back off and retry.
+See [costs](COSTS.md) for measured runtime and operating estimates.
 
 ## Music and encoding
 
-Implemented: each new video selects one of five approved ten-second stereo
+Each new video selects one of five approved ten-second stereo
 scores: Sunlit Chimes, Soft Orbit, Glass Garden, Tidal Glow, or Night Bloom.
 The choice is pseudorandom from the edition ID and world checksum and is saved
 in the job and completed manifest. Retries keep the same score; consecutive
@@ -114,8 +110,8 @@ supported operational mode.
 
 ## X delivery
 
-Implemented: optional chunked MP4 upload, processing-status polling, and media
-attachment. Upload receipts are reused while valid. The worker verifies the
+The optional X worker uploads the MP4 in chunks, polls processing status, and
+attaches the completed media to the post. Upload receipts are reused while valid. The worker verifies the
 account and published edition; media failures occur before the post claim.
 A conditional claim still prevents blindly retrying an ambiguous post request.
 An expiring S3 lock serializes credential refreshes. OAuth 2.0 needs `media.write`
@@ -165,11 +161,11 @@ node --import tsx src/video/music-options-cli.ts /tmp/music-options /tmp/ui-tour
 ```
 
 Open `/tmp/music-options/index.html` for 20-second audio samples and ten-second
-video comparisons. These locally synthesized sketches use no third-party samples
+video comparisons. These locally synthesized tracks use no third-party samples
 or paid service. All five are approved for randomized selection in new videos.
 Deploy implementation changes before expecting the daily workflow to use them.
 
-### Existing clean-scene capture
+### UI-free capture
 
 For one local frame, build `frontend/`, then run from `pipeline/`:
 

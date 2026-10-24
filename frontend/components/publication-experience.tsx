@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { WorldExperience } from "@/components/world-experience";
-import { currentEditionPointerSchema, publicationPathForEdition, unpublishedCurrentSchema, type PastWorld } from "@/lib/publication-loader";
+import { currentEditionPointerSchema, editionDate, resolveEditionRequest, unpublishedCurrentSchema, type PastWorld } from "@/lib/publication-loader";
 import { parsePublicationManifest, type PublicationManifest } from "@/lib/publication-schema";
 
 export function PublicationExperience({ fallback }: { fallback: PublicationManifest }) {
@@ -17,6 +17,7 @@ export function PublicationExperience({ fallback }: { fallback: PublicationManif
         const requested = new URLSearchParams(window.location.search).get("edition");
         let path: string;
         let expectedHash: string | undefined;
+        let expectedEditionId: string | undefined;
         const current = await fetch("/generated/current.json", { cache: "no-store", signal: controller.signal });
         if (!current.ok && current.status !== 404) throw new Error(`Current edition request failed: ${current.status}`);
         const currentPayload: unknown = current.ok ? await current.json() : null;
@@ -28,10 +29,10 @@ export function PublicationExperience({ fallback }: { fallback: PublicationManif
           setCurrentEditionId(pointer.editionId);
         }
         if (requested) {
-          const archived = pointer?.pastWorlds?.find((world) => world.editionId === requested);
-          const target = archived ?? (pointer?.editionId === requested ? pointer : null);
-          path = target?.publicationUrl ?? publicationPathForEdition(requested);
-          expectedHash = target?.publicationSha256;
+          const target = resolveEditionRequest(requested, pointer);
+          path = target.publicationUrl;
+          expectedHash = target.publicationSha256;
+          expectedEditionId = target.editionId;
         } else {
           if (!pointer) {
             setPublication(fallback);
@@ -39,6 +40,7 @@ export function PublicationExperience({ fallback }: { fallback: PublicationManif
           }
           path = pointer.publicationUrl;
           expectedHash = pointer.publicationSha256;
+          expectedEditionId = pointer.editionId;
         }
         const response = await fetch(path, { signal: controller.signal });
         if (!response.ok) throw new Error(`Publication request failed: ${response.status}`);
@@ -50,8 +52,19 @@ export function PublicationExperience({ fallback }: { fallback: PublicationManif
         }
         const result = parsePublicationManifest(JSON.parse(contents));
         if (result.edition.status !== "published") throw new Error("Requested edition is not published");
-        if (requested && result.edition.id !== requested) throw new Error("Requested edition id mismatch");
-        if (!controller.signal.aborted) setPublication(result);
+        if (result.edition.id !== expectedEditionId) throw new Error("Requested edition id mismatch");
+        if (!controller.signal.aborted) {
+          const date = editionDate(result.edition.id);
+          const datedTarget = date && pointer
+            ? [pointer, ...(pointer.pastWorlds ?? [])].find((world) => editionDate(world.editionId) === date)
+            : null;
+          if (requested && date && datedTarget?.editionId === result.edition.id) {
+            const url = new URL(window.location.href);
+            url.searchParams.set("edition", date);
+            window.history.replaceState(window.history.state, "", url);
+          }
+          setPublication(result);
+        }
       } catch (error) {
         if (controller.signal.aborted) return;
         console.error("Could not load the published world", error);

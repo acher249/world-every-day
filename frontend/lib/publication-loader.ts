@@ -39,6 +39,29 @@ export const currentEditionPointerSchema = z.object({
 
 export type PastWorld = NonNullable<z.infer<typeof currentEditionPointerSchema>["pastWorlds"]>[number];
 
+export function editionDate(editionId: string): string | null {
+  const date = editionId.match(/(?:^|-)(\d{4}-\d{2}-\d{2})(?:-|$)/)?.[1];
+  return date && z.iso.date().safeParse(date).success ? date : null;
+}
+
+export function editionHref(editionId: string): string {
+  return `/?edition=${encodeURIComponent(editionDate(editionId) ?? editionId)}`;
+}
+
+/** Dates resolve only through the published archive, never guessed asset paths. */
+export function resolveEditionRequest(requested: string, pointer: z.infer<typeof currentEditionPointerSchema> | null) {
+  const worlds = pointer ? [pointer, ...(pointer.pastWorlds ?? [])] : [];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(requested)) {
+    if (!z.iso.date().safeParse(requested).success) throw new Error("Invalid edition date");
+    const target = worlds.find((world) => editionDate(world.editionId) === requested);
+    if (!target) throw new Error("No published world for this date");
+    return target;
+  }
+  return worlds.find((world) => world.editionId === requested) ?? {
+    editionId: requested, publicationUrl: publicationPathForEdition(requested), publicationSha256: undefined,
+  };
+}
+
 export function pastWorldLabel(editionId: string): string {
   const date = editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0];
   if (!date) return editionId;
