@@ -36,7 +36,8 @@ needs a separately reviewed local or self-hosted model. See the
 [AWS deployment preflight](../infra/aws/README.md#source-text-privacy-preflight).
 
 The story library retains candidate metadata and editorial evaluations, never
-article bodies. Unused eligible stories can be reused for 14 days, subject to
+article bodies. The active backlog holds up to 50 of the newest unused eligible
+stories, reusable for 14 days, subject to
 current source permissions; selected articles are analyzed anew.
 
 Historical artifacts retain their own provider and source-policy provenance;

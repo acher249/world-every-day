@@ -44,7 +44,9 @@ stories can still generate a world. Zero usable stories stops the run.
 
 The library reuses immutable candidate metadata and evaluations already in
 private S3; it does not store article text or need another database. It admits
-up to 100 cached stories alongside up to 100 newly discovered candidates.
+only the 50 newest unused eligible stories alongside up to 100 newly discovered
+candidates. The active backlog is recalculated for each new run: newer eligible
+stories displace older ones. Older audit records remain separate from this cap.
 Each edition records a checksum-bound `sources/library-snapshot.json`, so retries
 reuse the same inputs. Matching model/prompt evaluations are reused, with recency
 recalculated; changed evaluators assess the candidates again.

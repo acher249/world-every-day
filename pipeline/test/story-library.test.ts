@@ -19,6 +19,35 @@ const configuration = parseSourceConfiguration({ schemaVersion: "1.0.0", artifac
   kind: candidate.source.kind, articleAccess: "ephemeral-analysis", allowedArticleHosts: ["news.example.test"],
 }] });
 const producer = { type: "fixture" as const, provider: "fixture", model: "fixture", promptVersion: "v1" };
+test("backlog keeps only the 50 newest eligible stories and cycles in newer arrivals", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "story-library-cap-"));
+  try {
+    const artifacts = new LocalArtifactStore(dir);
+    const ids: string[] = [];
+    const addEdition = async (editionId: string, count: number, start: number) => {
+      const stories = Array.from({ length: count }, (_, index) => ({ ...candidate,
+        id: (start + index + 1).toString(16).padStart(64, "0"),
+        canonicalUrl: `https://news.example.test/story-${start + index}`,
+        publishedAt: new Date(Date.parse("2026-10-13T00:00:00Z") + (start + index) * 60_000).toISOString(),
+      }));
+      const set = { ...candidates, candidates: stories };
+      const assessed = { ...evaluations, editionId, candidateSetSha256: candidateSetSha256(set),
+        evaluations: stories.map((story) => ({ ...evaluation, storyId: story.id, eventKey: `event-${story.id}` })),
+      };
+      for (const [key, value] of [["sources/candidate-set.json", set], ["editorial/candidate-evaluations.json", assessed]] as const) {
+        await artifacts.putImmutable({ key: `editions/${editionId}/${key}`, bytes: Buffer.from(JSON.stringify(value)), contentType: "application/json" });
+      }
+      ids.push(editionId);
+      return stories;
+    };
+    const original = await addEdition("daily-2026-10-13", 60, 0);
+    const library = createStoryLibrary({ artifacts, publicAssets: artifacts, configuration, listEditions: async () => ids });
+    const load = () => library.load(new Date("2026-10-14T14:30:00Z"), "daily-2026-10-14");
+    assert.deepEqual((await load()).entries.map(({ candidate }) => candidate.id), original.slice(10).reverse().map(({ id }) => id));
+    const newer = await addEdition("daily-2026-10-13-later", 5, 60);
+    assert.deepEqual((await load()).entries.map(({ candidate }) => candidate.id), [...original.slice(15), ...newer].reverse().map(({ id }) => id));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
 test("library retains unused eligible stories, expires old stories and excludes removed sources", async () => {
   const dir = await mkdtemp(join(tmpdir(), "story-library-"));
   try {

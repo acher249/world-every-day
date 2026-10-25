@@ -11,6 +11,7 @@ import { sha256 } from "../panorama/hash.js";
 import type { ArtifactStore } from "../storage/artifact-store.js";
 
 export const STORY_LIBRARY_DAYS = 14;
+export const STORY_LIBRARY_LIMIT = 50;
 export const librarySnapshotSchema = z.object({
   version: z.literal(1),
   entries: z.array(z.object({
@@ -87,7 +88,7 @@ export function createStoryLibrary({ artifacts, publicAssets, listEditions, conf
     }
     return librarySnapshotSchema.parse({ version: 1,
       entries: [...entries.values()].filter(({ candidate, evaluation }) => !usedUrls.has(candidate.canonicalUrl) && !usedEventKeys.has(evaluation.eventKey))
-        .sort((a, b) => b.candidate.publishedAt.localeCompare(a.candidate.publishedAt) || a.candidate.id.localeCompare(b.candidate.id)).slice(0, 100),
+        .sort((a, b) => b.candidate.publishedAt.localeCompare(a.candidate.publishedAt) || a.candidate.id.localeCompare(b.candidate.id)).slice(0, STORY_LIBRARY_LIMIT),
       usedUrls: [...usedUrls].sort(), usedEventKeys: [...usedEventKeys].sort(),
     });
   } };
