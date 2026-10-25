@@ -54,11 +54,15 @@ export function createEditorialShortlist({
   createdAt = new Date(),
   evaluations,
   sourcePolicy,
+  newestFirst = false,
+  usedEventKeys = new Set<string>(),
 }: {
   candidateSet: CandidateSet;
   configuration?: EditorialSelectionConfiguration;
   createdAt?: Date;
   evaluations: CandidateEvaluationSet;
+  newestFirst?: boolean;
+  usedEventKeys?: ReadonlySet<string>;
   sourcePolicy?: {
     approvedSourceIds: ReadonlySet<string>;
     configurationSha256: string;
@@ -87,6 +91,7 @@ export function createEditorialShortlist({
   const ranked = [...validatedEvaluations.evaluations]
     .map((evaluation) => ({ evaluation, score: editorialScore(evaluation, validatedConfiguration) }))
     .sort((left, right) =>
+      (newestFirst ? candidatesById.get(right.evaluation.storyId)!.publishedAt.localeCompare(candidatesById.get(left.evaluation.storyId)!.publishedAt) : 0) ||
       right.score - left.score ||
       left.evaluation.storyId.localeCompare(right.evaluation.storyId),
     );
@@ -102,7 +107,8 @@ export function createEditorialShortlist({
     let reason: EditorialShortlist["excluded"][number]["reason"] | undefined;
     if (sourcePolicy && !sourcePolicy.approvedSourceIds.has(candidate.source.adapterId)) {
       reason = "source-not-approved-for-analysis";
-    } else if (!evaluation.eligibility.eligible) reason = "ineligible";
+    } else if (usedEventKeys.has(evaluation.eventKey)) reason = "previously-published-event";
+    else if (!evaluation.eligibility.eligible) reason = "ineligible";
     else if (evaluation.scores.credibility < validatedConfiguration.minimumCredibility) {
       reason = "credibility-below-threshold";
     } else if (eventKeys.has(evaluation.eventKey)) reason = "duplicate-event";

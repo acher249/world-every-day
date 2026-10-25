@@ -255,7 +255,7 @@ export class WorldEveryDayStack extends Stack {
       },
       depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
       entry: resolve(pipelineRoot, "src/cloud/collect-candidates-handler.ts"),
-      environment: { ARTIFACT_BUCKET: artifacts.bucketName, EDITION_TABLE: editions.tableName },
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName, EDITION_TABLE: editions.tableName, PUBLIC_ASSET_BUCKET: publicAssets.bucketName },
       handler: "main",
       memorySize: 512,
       projectRoot: pipelineRoot,
@@ -274,6 +274,14 @@ export class WorldEveryDayStack extends Stack {
     collectCandidatesHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["dynamodb:GetItem", "dynamodb:UpdateItem"],
       resources: [editions.tableArn],
+    }));
+    collectCandidatesHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:GetObject"],
+      resources: [publicAssets.arnForObjects("generated/current.json"), publicAssets.arnForObjects("generated/editions/*/publication*.json")],
+    }));
+    collectCandidatesHandler.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["s3:ListBucket"], resources: [publicAssets.bucketArn],
+      conditions: { StringLike: { "s3:prefix": ["generated/current.json", "generated/editions/*"] } },
     }));
     const collectCandidates = new tasks.LambdaInvoke(this, "CollectLiveCandidates", {
       lambdaFunction: collectCandidatesHandler,
@@ -321,7 +329,7 @@ export class WorldEveryDayStack extends Stack {
       memorySize: 512,
       projectRoot: pipelineRoot,
       runtime: lambda.Runtime.NODEJS_24_X,
-      timeout: Duration.seconds(300),
+      timeout: Duration.seconds(600),
     });
     editorialShortlistHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["s3:GetObject", "s3:PutObject"],

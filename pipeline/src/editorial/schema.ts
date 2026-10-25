@@ -84,6 +84,7 @@ export const editorialSelectionConfigurationSchema = z.object({
 
 const exclusionReasonSchema = z.enum([
   "ineligible",
+  "previously-published-event",
   "source-not-approved-for-analysis",
   "credibility-below-threshold",
   "duplicate-event",

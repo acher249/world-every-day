@@ -34,11 +34,34 @@ flowchart TD
   J -->|Disabled| N[Done]
 ```
 
+## Story library and quiet days
+
+The collector reads up to 72 hours of feed metadata in one pass. Selection
+prioritizes the newest eligible stories, so 48–72-hour candidates fill gaps
+when the last day is quiet. Unused eligible stories from the previous 14 days
+are also available, newest first. The target remains ten; one to nine usable
+stories can still generate a world. Zero usable stories stops the run.
+
+The library reuses immutable candidate metadata and evaluations already in
+private S3; it does not store article text or need another database. It admits
+up to 100 cached stories alongside up to 100 newly discovered candidates.
+Each edition records a checksum-bound `sources/library-snapshot.json`, so retries
+reuse the same inputs. Matching model/prompt evaluations are reused, with recency
+recalculated; changed evaluators assess the candidates again.
+
+Published source URLs and recorded event keys prevent reuse. Publication history
+is authoritative: a failed or merely staged edition does not consume stories.
+Current source permissions and editorial quality/diversity rules still apply,
+and selected articles are fetched and analyzed again before publication. Stories
+older than 14 days remain in audit artifacts but are not eligible for reuse.
+Run one live daily edition at a time; a collection snapshot does not reserve
+stories against another concurrently running edition.
+
 ## Schedule and authorization
 
 The schedule uses `cron(30 7 * * ? *)` and `America/Los_Angeles`, so it follows
 Pacific daylight-saving changes. The scheduled timestamp determines
-`daily-YYYY-MM-DD` and the previous 24-hour discovery window. A stable execution
+`daily-YYYY-MM-DD` and the preferred previous 24-hour story window. A stable execution
 name prevents scheduler retries from intentionally creating another edition.
 7:30 AM is the start time, not the publication time.
 

@@ -34,6 +34,8 @@ export const candidateSetSchema = z.object({
     start: z.iso.datetime({ offset: true }),
     end: z.iso.datetime({ offset: true }),
   }),
+  collectionWindow: z.object({ start: z.iso.datetime({ offset: true }), end: z.iso.datetime({ offset: true }) }).optional(),
+  librarySnapshotSha256: sha256Schema.optional(),
   sourceRuns: z.array(z.object({
     adapterId: z.string().min(1).max(100),
     feedUrl: httpsUrlSchema,

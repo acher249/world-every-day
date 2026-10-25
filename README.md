@@ -63,6 +63,9 @@ completed stages; it does not publish a website or post to X.
 | Infrastructure, domains, and secrets | [Deployment](infra/aws/README.md) |
 | Daily operating estimates and cost drivers | [Costs](docs/COSTS.md) |
 
+Quiet days can draw from a private library of recent, unused eligible stories,
+newest first. The pipeline targets ten stories and can publish with just one.
+
 The optional video/X branch runs after successful world publication. It archives
 a ten-second tour with music and attaches it to the daily post. Both features
 are disabled by default for new deployments. See the [docs index](docs/README.md)
