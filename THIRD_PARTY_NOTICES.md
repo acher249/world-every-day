@@ -46,10 +46,23 @@ The marketing site's GitHub link uses the [Primer Octicons GitHub mark](https://
 
 ## Reviewed transitive exceptions
 
-The serverless Chromium package includes a Chromium binary and its component
-notices. The binary is not relicensed under this repository's MIT license;
-retain its bundled notices when distributing the Lambda artifact. The browser
-runs only against a loopback server for the private interaction-baking stage.
+The serverless Chromium package's MIT license covers its packaging code.
+The browser and its bundled components retain their respective licenses.
+Preserve applicable notices when distributing Lambda artifacts. Chromium is
+used for private interaction baking and video capture.
+
+### Video container operating system
+
+The encoder uses AWS's Node.js 24 Lambda base image. Its Amazon Linux packages
+include GPL utilities (such as Bash and coreutils), LGPL system libraries, and
+MPL-2.0 data, alongside permissively licensed components. These are separate
+system components, not MIT-licensed project code. The image retains system
+notices under `/usr/share/licenses` and runtime notices under
+`/var/runtime/THIRD-PARTY-LICENSES.txt`.
+
+The npm checks do not scan the base image. Before distributing a container,
+inventory its exact OS packages and preserve their notices and any required
+corresponding source. Updating the base-image tag can change that inventory.
 
 ### libvips binaries used by Sharp
 

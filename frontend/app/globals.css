@@ -305,3 +305,10 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Clickable desktop controls retain the keyboard-key artwork. */
+.movement-keys button, .story-cycle-keys button { padding: 0; border: 0; border-radius: 7px; background: transparent; pointer-events: auto; cursor: pointer; touch-action: none; user-select: none; }
+.movement-keys button kbd, .story-cycle-keys button kbd { pointer-events: none; }
+.movement-keys button:hover kbd, .movement-keys button[data-held="true"] kbd, .story-cycle-keys button:hover kbd { border-color: var(--cyan); color: var(--cyan); }
+.movement-keys button:focus-visible, .story-cycle-keys button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.movement-keys button:disabled, .story-cycle-keys button:disabled { opacity: .45; cursor: default; }

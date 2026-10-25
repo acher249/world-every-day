@@ -56,6 +56,20 @@ modules inside their own package. Their included license files remain
 authoritative; the package-lock check does not replace a release-time
 bundled-code notice audit.
 
+### What a passing check means
+
+The stack is **not exclusively MIT/Apache**. Approved dependencies also include
+BSD/ISC libraries, LGPL native libraries (FFmpeg and libvips), OFL fonts,
+CC-BY-4.0 browser-support data, and Blue Oak tooling. The Linux container also
+contains GPL/LGPL system components. These licenses have different notice and,
+where applicable, source-distribution requirements; they do not relicense all
+project code under those terms merely by being installed together.
+
+The automated checks cover npm lockfile metadata and the encoder's build flags,
+not every bundled browser component or OS package. The encoder retains its
+codec sources and notices; see [Third-Party Notices](../THIRD_PARTY_NOTICES.md).
+Do not describe a passing npm check as a complete container compliance audit.
+
 ## Hosted services are not open-source dependencies
 
 The reference pipeline integrates with commercial services through replaceable

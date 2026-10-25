@@ -408,6 +408,9 @@ export function SparkWorld({
         let pitch = tour ? -0.18 : 0;
         if (tour) camera.rotation.x = pitch;
         let lookPointerId: number | null = null;
+        let pointerMode: "look" | "pan" = "look";
+        const panRight = new Vector3();
+        const panUp = new Vector3();
         let lastPointerX = 0;
         let lastPointerY = 0;
         const pressedKeys = new Set<string>();
@@ -474,7 +477,9 @@ export function SparkWorld({
         };
         const onKeyUp = (event: KeyboardEvent) => pressedKeys.delete(event.code);
         const onPointerDown = (event: PointerEvent) => {
-          if (event.button !== 0 || lookPointerId !== null) return;
+          if (![0, 1, 2].includes(event.button) || lookPointerId !== null) return;
+          event.preventDefault();
+          pointerMode = event.button === 0 ? "look" : "pan";
           cancelCameraFocus();
           canvas.focus();
           lookPointerId = event.pointerId;
@@ -484,9 +489,22 @@ export function SparkWorld({
         };
         const onPointerMove = (event: PointerEvent) => {
           if (lookPointerId !== event.pointerId) return;
-          yaw -= (event.clientX - lastPointerX) * 0.0025;
-          pitch -= (event.clientY - lastPointerY) * 0.0025;
-          pitch = Math.max(-Math.PI / 2 + 0.02, Math.min(Math.PI / 2 - 0.02, pitch));
+          const dx = event.clientX - lastPointerX;
+          const dy = event.clientY - lastPointerY;
+          if (pointerMode === "pan" && camera) {
+            // Right-click drag includes macOS two-finger secondary-click dragging.
+            // Translate in the camera plane without changing its heading or roll.
+            const speed = maxDimension * 0.0000275;
+            panRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+            panUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+            camera.position.addScaledVector(panRight, -dx * speed);
+            camera.position.addScaledVector(panUp, dy * speed);
+            clampToNavigationBounds(camera.position, navigationRadius, navigationFloor);
+          } else {
+            yaw -= dx * 0.0025;
+            pitch -= dy * 0.0025;
+            pitch = Math.max(-Math.PI / 2 + 0.02, Math.min(Math.PI / 2 - 0.02, pitch));
+          }
           lastPointerX = event.clientX;
           lastPointerY = event.clientY;
           updateCameraRotation();
@@ -503,11 +521,30 @@ export function SparkWorld({
           if (!camera) return;
           event.preventDefault();
           cancelCameraFocus();
-          const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-          camera.position.addScaledVector(forward, event.deltaY * -maxDimension * 0.00022);
+          // Browsers expose two-finger scrolling as wheel events and pinch as
+          // ctrl+wheel. Avoid guessing which physical mouse or trackpad is used.
+          const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1;
+          const dx = Math.max(-240, Math.min(240, event.deltaX * unit));
+          const dy = Math.max(-240, Math.min(240, event.deltaY * unit));
+          const speed = maxDimension * 0.00022;
+          if (event.ctrlKey) {
+            panRight.set(0, 0, -1).applyQuaternion(camera.quaternion);
+            camera.position.addScaledVector(panRight, -dy * speed);
+          } else {
+            panRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+            panUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+            camera.position.addScaledVector(panRight, dx * speed * 0.125);
+            camera.position.addScaledVector(panUp, -dy * speed * 0.125);
+          }
           clampToNavigationBounds(camera.position, navigationRadius, navigationFloor);
         };
-        const onBlur = () => pressedKeys.clear();
+        const onContextMenu = (event: Event) => event.preventDefault();
+        const onBlur = () => {
+          pressedKeys.clear();
+          const pointerId = lookPointerId;
+          lookPointerId = null;
+          if (pointerId !== null && canvas.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
+        };
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
@@ -518,6 +555,8 @@ export function SparkWorld({
         canvas.addEventListener("pointercancel", onPointerUp);
         canvas.addEventListener("lostpointercapture", onLostPointerCapture);
         canvas.addEventListener("wheel", onWheel, { passive: false });
+        canvas.addEventListener("contextmenu", onContextMenu);
+        canvas.addEventListener("auxclick", onContextMenu);
         removeInputListeners.push(
           () => window.removeEventListener("keydown", onKeyDown),
           () => window.removeEventListener("keyup", onKeyUp),
@@ -528,6 +567,8 @@ export function SparkWorld({
           () => canvas.removeEventListener("pointercancel", onPointerUp),
           () => canvas.removeEventListener("lostpointercapture", onLostPointerCapture),
           () => canvas.removeEventListener("wheel", onWheel),
+          () => canvas.removeEventListener("contextmenu", onContextMenu),
+          () => canvas.removeEventListener("auxclick", onContextMenu),
         );
 
         const projectedAnchor = new Vector3();

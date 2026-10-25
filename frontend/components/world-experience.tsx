@@ -7,6 +7,7 @@ import {
   type ViewerState,
   type WorldAnchor,
 } from "@/components/spark-world";
+import { MovementButtons } from "@/components/movement-buttons";
 import { MobileJoystick } from "@/components/mobile-joystick";
 import { FullscreenButton } from "@/components/fullscreen-button";
 import { WelcomeOverlay } from "@/components/welcome-overlay";
@@ -43,11 +44,13 @@ function conciseSummary(value: string, maximumLength = 150): string {
 }
 
 const controls = [
-  { action: "Look around", keys: ["Mouse drag"] },
+  { action: "Look around", keys: ["Left-click drag"] },
+  { action: "Pan", keys: ["Middle / right-click drag"] },
+  { action: "Pan on Mac trackpad", keys: ["Two-finger scroll"] },
   { action: "Move", keys: ["W", "A", "S", "D"] },
   { action: "Move vertically", keys: ["Q", "E"] },
   { action: "Move faster", keys: ["Shift"] },
-  { action: "Move forward or back", keys: ["Scroll"] },
+  { action: "Move forward or back", keys: ["Pinch / Ctrl + scroll"] },
   { action: "Cycle stories", keys: ["←", "→"] },
   { action: "Close a panel", keys: ["Esc"] },
 ] as const;
@@ -787,17 +790,13 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       <motion.div
         className="movement-keys"
         data-shifted={indexOpen}
-        aria-hidden="true"
+        role="group"
+        aria-label="Move through the world"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.32, ease }}
       >
-        <span />
-        <kbd>W</kbd>
-        <span />
-        <kbd>A</kbd>
-        <kbd>S</kbd>
-        <kbd>D</kbd>
+        <MovementButtons movementRef={mobileMovementRef} disabled={viewerState !== "ready"} />
       </motion.div>
 
       <motion.div
@@ -809,9 +808,9 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         transition={{ duration: 0.45, delay: 0.36, ease }}
       >
         <span>Navigate through stories</span>
-        <span className="story-cycle-keys" aria-hidden="true">
-          <kbd>←</kbd>
-          <kbd>→</kbd>
+        <span className="story-cycle-keys">
+          <button type="button" aria-label="Previous story" disabled={!stories.length} onClick={() => focusNextStory(-1, true)}><kbd aria-hidden="true">←</kbd></button>
+          <button type="button" aria-label="Next story" disabled={!stories.length} onClick={() => focusNextStory(1, true)}><kbd aria-hidden="true">→</kbd></button>
         </span>
       </motion.div>
 
