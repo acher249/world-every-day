@@ -44,6 +44,7 @@ button, a { font: inherit; }
 .project-follow { margin-top: 24px; display: inline-flex; gap: 12px; }
 
 @media (max-width: 760px), (pointer: coarse) {
+  .header-follow { display: none; }
   .hero-project-link, .github-cta-arrow { display: none; }
   .hero-mobile-github { display: inline-flex; }
 }
