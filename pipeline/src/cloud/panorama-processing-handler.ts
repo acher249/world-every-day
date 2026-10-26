@@ -2,6 +2,12 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { z } from "zod";
+import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { NanoBananaGenerator, type PanoramaGenerator } from "../panorama/generator.js";
+import { createPoleRepair } from "../panorama/repair-job.js";
+import type { GenerationClaimStore } from "./raw-panorama-handler.js";
+import { parseGoogleKey } from "./google-secret.js";
 import { buildScenePrompt } from "../art-direction/prompt.js";
 import { artDirectionSchema } from "../art-direction/schema.js";
 import { artifactSha256 } from "../editorial/select.js";
@@ -16,6 +22,7 @@ import { sourceImageSchema } from "./raw-panorama-handler.js";
 
 const inputSchema = z.object({
   editionId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
+  confirmPaidGeneration: z.boolean().optional(),
 });
 
 async function readJson(artifacts: ArtifactStore, key: string): Promise<unknown> {
@@ -27,12 +34,15 @@ async function readJson(artifacts: ArtifactStore, key: string): Promise<unknown>
 export function createPanoramaProcessingHandler({
   artifacts,
   processingConfig,
+  poleRepair,
 }: {
   artifacts: ArtifactStore;
   processingConfig?: PanoramaProcessingConfig;
+  poleRepair?: { generator: PanoramaGenerator; claims: GenerationClaimStore; model: string };
 }) {
   return async (rawInput: unknown) => {
-    const { editionId } = inputSchema.parse(rawInput);
+    const { editionId, confirmPaidGeneration } = inputSchema.parse(rawInput);
+    if (poleRepair && confirmPaidGeneration !== true) throw new Error("Pole repair requires confirmPaidGeneration=true");
     const root = `editions/${editionId}`;
     const source = sourceImageSchema.parse(await readJson(artifacts, `${root}/panorama/source-image.json`));
     const direction = artDirectionSchema.parse(await readJson(artifacts, `${root}/art-direction/art-direction.json`));
@@ -74,6 +84,7 @@ export function createPanoramaProcessingHandler({
         outputDirectory,
         provider: source.provider,
         processingConfig,
+        repairPoles: poleRepair ? createPoleRepair({ ...poleRepair, artifacts, editionId, scenePrompt }) : undefined,
         generator: {
           async generate() {
             return {
@@ -87,6 +98,7 @@ export function createPanoramaProcessingHandler({
       });
       const manifest = editionPanoramaManifestSchema.parse(JSON.parse(await readFile(manifestPath, "utf8")));
       for (const file of Object.values(manifest.files)) {
+        if (!file) continue;
         const bytes = await readFile(resolve(outputDirectory, file));
         await artifacts.putImmutable({
           key: `${root}/panorama/${file}`,
@@ -109,5 +121,28 @@ export function createPanoramaProcessingHandler({
 export async function main(event: unknown) {
   const bucket = process.env.ARTIFACT_BUCKET?.trim();
   if (!bucket) throw new Error("Missing required environment variable: ARTIFACT_BUCKET");
-  return createPanoramaProcessingHandler({ artifacts: new S3ArtifactStore({ bucket }) })(event);
+  const secretId = process.env.GOOGLE_SECRET_NAME?.trim();
+  const model = process.env.NANO_BANANA_MODEL?.trim();
+  if (!secretId || !model) throw new Error("Pole repair requires GOOGLE_SECRET_NAME and NANO_BANANA_MODEL");
+  const client = new S3Client({});
+  const secrets = new SecretsManagerClient({});
+  return createPanoramaProcessingHandler({
+    artifacts: new S3ArtifactStore({ bucket, client }),
+    poleRepair: { model,
+      generator: { async generate(prompt, reference) {
+        const result = await secrets.send(new GetSecretValueCommand({ SecretId: secretId }));
+        if (!result.SecretString) throw new Error("Google secret must contain a string value");
+        return new NanoBananaGenerator({ apiKey: parseGoogleKey(result.SecretString), model }).generate(prompt, reference);
+      } },
+      claims: { async claimOnce(key, bytes) {
+        try {
+          await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: "application/json", IfNoneMatch: "*" }));
+          return true;
+        } catch (error) {
+          if (error instanceof Error && error.name === "PreconditionFailed") return false;
+          throw error;
+        }
+      } },
+    },
+  })(event);
 }

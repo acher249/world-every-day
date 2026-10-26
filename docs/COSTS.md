@@ -2,6 +2,11 @@
 
 Pricing checked October 23, 2026. USD; estimates exclude taxes.
 
+The baseline estimates below predate the two-call panorama workflow. Pole repair
+adds one 4K image request, image-input tokens, and Lambda processing per world;
+add those charges to the totals below. The 8K enlargement itself is still local.
+Repair receipts record usage so this increment can be reconciled after a live run.
+
 **With the optional video and X post enabled, budget about $2.40–$3.10 per
 day ($72–$93 per 30 days).** With prepaid World Labs credits, the corresponding
 additional spend is about **$1.20–$1.90 per day ($36–$57 per 30 days)**.

@@ -61,7 +61,7 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
     artifacts,
     baker: {
       method: "spherical-raycast",
-      algorithmVersion: "surface-grid-v1",
+      algorithmVersion: "surface-grid-v2",
       async bake({ landmarks, sourceSplatSha256 }) {
         calls += 1;
         assert.equal(sourceSplatSha256, worldHash);

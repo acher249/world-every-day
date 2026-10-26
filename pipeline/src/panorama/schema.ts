@@ -31,6 +31,7 @@ export const panoramaManifestSchema = z.object({
       height: z.number().int().positive(),
     }),
     longitudeRepair: z.object({ method: z.string().min(1), width: z.number().int().positive() }),
+    poleRepair: z.object({ method: z.string().min(1), inputSha256: sha256Schema, responseSha256: sha256Schema }).optional(),
     deliveryResize: z.object({
       width: z.number().int().positive(),
       height: z.number().int().positive(),
@@ -52,6 +53,8 @@ export const panoramaManifestSchema = z.object({
     nativeEquirectangular: z.string().min(1),
     seamRepairedEquirectangular: z.string().min(1),
     delivery8k: z.string().min(1),
+    poleRepairInput: z.string().min(1).optional(),
+    poleRepairResponse: z.string().min(1).optional(),
   }),
 });
 

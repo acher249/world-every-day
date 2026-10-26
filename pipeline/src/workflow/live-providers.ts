@@ -65,11 +65,11 @@ function lazyArtDirectionProvider(environment: NodeJS.ProcessEnv): ArtDirectionP
 
 function lazyPanoramaGenerator(environment: NodeJS.ProcessEnv): PanoramaGenerator {
   return {
-    generate(prompt) {
+    generate(prompt, reference) {
       return new NanoBananaGenerator({
         apiKey: environment.GOOGLE_AI_API_KEY ?? "",
         model: environment.NANO_BANANA_MODEL?.trim() ?? "",
-      }).generate(prompt);
+      }).generate(prompt, reference);
     },
   };
 }

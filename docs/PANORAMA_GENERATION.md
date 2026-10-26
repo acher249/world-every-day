@@ -14,14 +14,21 @@ original visual prompt, not article bodies. Local experiments can instead use
 a plain-text scene prompt.
 
 ```text
-Art direction → scene prompt + projection instructions → one image request
+Art direction → scene prompt + projection instructions → initial image request
   → preserve provider response → normalize → centered 2:1 crop
-  → narrow longitude-seam feather → 8192 × 4096 delivery image + manifest
+  → exposure balance + longitude-seam feather
+  → extract upward/downward views → masked pole-repair image request
+  → color-match and blend repaired poles → stabilize pole convergence
+  → final seam feather → 8192 × 4096 delivery image + manifest
 ```
 
 The request uses a 4K `16:9` canvas with polar overscan. Processing extracts the
-centered `2:1` full-sphere panorama, applies a 64-pixel periodic linear-light
-seam feather, and enlarges it for delivery. The 8K output is upscaled; it is
+centered `2:1` full-sphere panorama, balances exposure across the wrap, and applies
+a 64-pixel periodic linear-light seam feather. A second image request repairs
+both poles in one masked sheet. The repaired upward and downward views are
+color-matched to their surroundings and blended into the panorama, leaving the
+equatorial region intact during pole repair. A narrow convergence pass softens
+the exact poles before the final seam feather and enlargement. The 8K output is upscaled; it is
 not native 8K generated detail.
 
 The prompt starts and ends with a critical instruction to keep the geometric
@@ -68,13 +75,26 @@ Inspect the resulting images and manifest before generating a world.
 
 `CreateApprovedRawPanoramaSource` checks the selected edition and its
 checksum-bound approval, writes an attempt marker, and requests the image.
-`ProcessPrivatePanorama` performs the deterministic image processing separately.
+`ProcessPrivatePanorama` performs image processing and one paid pole-repair call,
+using the same configured image model and Google secret. The daily workflow
+passes explicit paid-generation authorization to this stage too.
 Both write to the private artifact bucket under `editions/<editionId>/panorama/`.
 
 `source-image.json` identifies the original provider image. `manifest.json`
 records the prompt, model, usage when supplied, processing transforms, hashes,
 and image filenames. Downstream stages use the same delivery image checksum
 for world generation and landmark detection.
+
+`pole-repair/` retains the masked input, original repair response, and a receipt
+with model, prompt/input/output hashes, timing, and usage. Completed repairs are
+reused after processing interruptions. A changed input or an uncertain paid
+attempt stops rather than silently charging again. The final manifest also
+includes normalized repair images and hashes. Wrong-layout responses or visibly
+unfilled magenta masks fail processing; they never reach world generation.
+
+Live CLI and AWS runs use two image calls in total. Fictional fixture runs use
+synthetic images and do not contact the provider. Pole repair does not guarantee
+correct horizon geometry or perfect generated content; review real outputs.
 
 An uncertain paid attempt stops for inspection instead of silently requesting
 another image. Preserve attempt records and completed artifacts when recovering.
@@ -88,6 +108,8 @@ See [workflow recovery](AWS_WORKFLOW.md#failures-and-recovery).
 | [`panorama/prompt.ts`](../pipeline/src/panorama/prompt.ts) | Projection, horizon, and final-check instructions |
 | [`panorama/config.ts`](../pipeline/src/panorama/config.ts) | Request dimensions and delivery processing settings |
 | [`panorama/run.ts`](../pipeline/src/panorama/run.ts) | Processing and manifest creation |
+| [`panorama/poles.ts`](../pipeline/src/panorama/poles.ts) | Pole projection, masking, color matching, and convergence |
+| [`panorama/repair-job.ts`](../pipeline/src/panorama/repair-job.ts) | Durable paid-repair checkpoint and retry protection |
 | [`panorama/generator.ts`](../pipeline/src/panorama/generator.ts) | Optional image-provider adapter |
 
 Run the [pipeline checks](../CONTRIBUTING.md#development) after code changes.

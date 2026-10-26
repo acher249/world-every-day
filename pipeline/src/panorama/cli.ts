@@ -7,6 +7,7 @@ import { buildScenePrompt } from "../art-direction/prompt.js";
 import { parseArtDirection } from "../art-direction/schema.js";
 import { artifactSha256 } from "../editorial/select.js";
 import { buildPanoramaPrompt } from "./prompt.js";
+import { buildPoleRepairPrompt } from "./poles.js";
 import { sha256 } from "./hash.js";
 import { NanoBananaGenerator } from "./generator.js";
 import { runPanorama } from "./run.js";
@@ -129,6 +130,7 @@ async function main(): Promise<void> {
     model,
     outputDirectory,
     generator,
+    repairPoles: async (sheet) => (await generator.generate(buildPoleRepairPrompt(promptInput.scenePrompt), { bytes: sheet, mimeType: "image/png" })).bytes,
   });
   console.log(JSON.stringify({ status: "complete", manifestPath }, null, 2));
 }

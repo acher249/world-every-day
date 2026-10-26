@@ -17,7 +17,7 @@ import {
   smootherstep,
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
-import { landmarkRayTargets, selectLandmarkSurface, type SurfaceSample } from "@/lib/landmark-raycast";
+import { landmarkRayTargets, landmarkExclusionBounds, selectLandmarkSurface, type LandmarkRayTarget, type SurfaceSample } from "@/lib/landmark-raycast";
 import { cameraRelativeFocusCenter, defaultFocusRadius, focusShapeForLandmark, focusSweepWeight, shouldTravelFocus, type ImageBoundingBox } from "@/lib/focus-region";
 import { withFocusSplatShader } from "@/lib/splat-focus-shader";
 import { observeViewerVisibility } from "@/lib/viewer-visibility";
@@ -313,30 +313,22 @@ export function SparkWorld({
               sourceSplatSha256?: string;
               splatUrl: string;
             };
-            __WORLD_EVERY_DAY_BAKE__?: (targets: Array<{
-              boundingBox?: { xMin: number; yMin: number; xMax: number; yMax: number };
-              id: string;
-              x: number;
-              y: number;
-            }>) => Array<{
+            __WORLD_EVERY_DAY_BAKE__?: (targets: LandmarkRayTarget[]) => Array<{
               id: string;
               imageTarget: { x: number; y: number };
               worldPosition: { x: number; y: number; z: number } | null;
             }>;
           };
-          const bakeInteractions = (targets: Array<{
-            boundingBox?: { xMin: number; yMin: number; xMax: number; yMax: number };
-            id: string;
-            x: number;
-            y: number;
-          }>) => {
+          const bakeInteractions = (targets: LandmarkRayTarget[]) => {
             scene?.updateMatrixWorld(true);
             const raycaster = new Raycaster();
             raycaster.near = Math.max(maxDimension / 10000, 0.001);
             raycaster.far = Math.max(maxDimension * 100, 100);
 
-            return targets.map(({ boundingBox, id, x, y }) => {
-              const candidates = landmarkRayTargets({ x, y }, boundingBox);
+            return targets.map((target) => {
+              const { boundingBox, id, x, y } = target;
+              const excluded = landmarkExclusionBounds(target, targets);
+              const candidates = landmarkRayTargets({ x, y }, boundingBox, excluded);
               const samples: SurfaceSample[] = [];
               for (const candidate of candidates) {
                 const direction = equirectangularTargetToDirection(candidate);
@@ -355,7 +347,7 @@ export function SparkWorld({
                   samples.push({ imageTarget: candidate, point: intersections[0].point, distance: intersections[0].distance });
                 }
               }
-              const hit = selectLandmarkSurface(samples, { x, y }, boundingBox);
+              const hit = selectLandmarkSurface(samples, { x, y }, boundingBox, excluded);
               return {
                 id,
                 imageTarget: hit?.imageTarget ?? { x, y },
@@ -366,7 +358,7 @@ export function SparkWorld({
             });
           };
           developmentWindow.__WORLD_EVERY_DAY_BAKE_INFO__ = {
-            algorithmVersion: "surface-grid-v1",
+            algorithmVersion: "surface-grid-v2",
             sourceSplatSha256: splatSha256,
             splatUrl: sourceSplatUrl,
           };

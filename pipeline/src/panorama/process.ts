@@ -1,7 +1,10 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import sharp from "sharp";
 import type { PanoramaProcessingConfig } from "./config.js";
+import { harmonizePeriodicExposure, extractPolePatch, createMaskedPoleRepairSheet, extractRepairedPoleSheet, compositePolePatch, stabilizePoleConvergence } from "./poles.js";
+
+export type PoleRepair = (sheet: Buffer) => Promise<Buffer>;
 
 export type SeamMetrics = {
   wrapMeanAbsoluteDifference: number;
@@ -17,6 +20,7 @@ export type PanoramaArtifacts = {
   nativeWidth: number;
   nativeHeight: number;
   metrics: SeamMetrics;
+  poleRepair?: { inputPath: string; responsePath: string };
 };
 
 function srgbToLinear(value: number): number {
@@ -118,6 +122,7 @@ export async function createPanoramaAssets(
   sourcePath: string,
   outputDirectory: string,
   config: PanoramaProcessingConfig,
+  repairPoles?: PoleRepair,
 ): Promise<PanoramaArtifacts> {
   if (config.deliveryWidth !== config.deliveryHeight * 2) {
     throw new Error("Delivery dimensions must use a 2:1 equirectangular ratio");
@@ -165,11 +170,31 @@ export async function createPanoramaAssets(
     .png()
     .toFile(nativePath);
 
+  const harmonizedPath = resolve(outputDirectory, "equirectangular-exposure-balanced.png");
+  await writeFile(harmonizedPath, await harmonizePeriodicExposure(await readFile(nativePath)));
   await featherLongitudeBoundary(
-    nativePath,
+    harmonizedPath,
     repairedPath,
     config.seamFeatherWidth,
   );
+
+  let poleRepair: PanoramaArtifacts["poleRepair"];
+  if (repairPoles) {
+    let panorama = await readFile(repairedPath);
+    const zenith = await extractPolePatch(panorama, "zenith");
+    const nadir = await extractPolePatch(panorama, "nadir");
+    const sheet = await createMaskedPoleRepairSheet(zenith, nadir);
+    const response = await repairPoles(sheet);
+    const patches = await extractRepairedPoleSheet(response);
+    panorama = await compositePolePatch(panorama, patches.zenith, "zenith");
+    panorama = await compositePolePatch(panorama, patches.nadir, "nadir");
+    panorama = await stabilizePoleConvergence(panorama);
+    await writeFile(repairedPath, panorama);
+    await featherLongitudeBoundary(repairedPath, repairedPath, config.seamFeatherWidth);
+    poleRepair = { inputPath: resolve(outputDirectory, "pole-repair-input.png"), responsePath: resolve(outputDirectory, "pole-repair-response.png") };
+    await writeFile(poleRepair.inputPath, sheet);
+    await sharp(response).png().toFile(poleRepair.responsePath);
+  }
 
   await sharp(repairedPath)
     .resize({
@@ -188,6 +213,7 @@ export async function createPanoramaAssets(
     cropTop,
     nativeWidth,
     nativeHeight,
+    poleRepair,
     metrics: await measureSeam(repairedPath, config.seamFeatherWidth),
   };
 }

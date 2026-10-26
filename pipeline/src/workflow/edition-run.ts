@@ -14,6 +14,7 @@ import type { PanoramaProcessingConfig } from "../panorama/config.js";
 import type { PanoramaGenerator } from "../panorama/generator.js";
 import { sha256 } from "../panorama/hash.js";
 import { runPanorama } from "../panorama/run.js";
+import { buildPoleRepairPrompt } from "../panorama/poles.js";
 import { createPublicationManifest } from "../publication/create.js";
 import type { WorldGenerator } from "../world/provider.js";
 import { refreshWorldGeneration, startWorldGeneration } from "../world/run.js";
@@ -143,6 +144,9 @@ async function runGenerationStage({
       processingConfig: providers.panorama.processingConfig,
       provider: providers.panorama.provider,
       scenePrompt: buildScenePrompt(artDirection),
+      repairPoles: fictional ? undefined : async (sheet) => (await providers.panorama.generator.generate(
+        buildPoleRepairPrompt(buildScenePrompt(artDirection)), { bytes: sheet, mimeType: "image/png" },
+      )).bytes,
     });
     await rename(stagingDirectory, panoramaDirectory);
     return;

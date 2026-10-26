@@ -201,6 +201,12 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /confirmUnattendedRun/);
   assert.match(body, /CreateApprovedRawPanoramaSource/);
   assert.match(body, /ProcessPrivatePanorama/);
+  const poleWorker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
+    .find(([id]) => id.startsWith("PanoramaProcessingHandler"))?.[1];
+  assert.ok(poleWorker?.Properties?.Environment?.Variables?.GOOGLE_SECRET_NAME);
+  assert.equal(poleWorker?.Properties?.Environment?.Variables?.NANO_BANANA_MODEL, "gemini-nano-banana-2.1");
+  assert.equal(poleWorker?.Properties?.Timeout, 900);
+  assert.match(body, /ProcessPrivatePanorama.{0,600}confirmPaidGeneration/);
   assert.match(body, /ConfirmPaidWorldGeneration/);
   assert.match(body, /StartApprovedWorldGeneration/);
   assert.match(body, /PollWorldGeneration/);

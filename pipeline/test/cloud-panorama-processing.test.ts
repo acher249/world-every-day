@@ -58,8 +58,20 @@ test("cloud panorama processing reuses one raw image and writes immutable 2:1 ou
     elapsedMs: 10,
     usage: null,
   })));
+  let calls = 0;
+  const claims = new Set<string>();
   const handler = createPanoramaProcessingHandler({
     artifacts,
+    poleRepair: { model: "test-image-model",
+      claims: { async claimOnce(key) { if (claims.has(key)) return false; claims.add(key); return true; } },
+      generator: { async generate(prompt, reference) {
+        calls++;
+        assert.match(prompt, /masked zenith and nadir/);
+        assert.equal(reference?.mimeType, "image/png");
+        assert.ok(reference!.bytes.length > 0);
+        return { bytes: await sharp({ create: { width: 160, height: 90, channels: 3, background: "#5078a0" } }).png().toBuffer(), mimeType: "image/png", elapsedMs: 1, usage: null };
+      } },
+    },
     processingConfig: {
       sourceWidth: 16,
       sourceHeight: 10,
@@ -68,10 +80,20 @@ test("cloud panorama processing reuses one raw image and writes immutable 2:1 ou
       seamFeatherWidth: 2,
     },
   });
-  const first = await handler({ editionId });
+  await assert.rejects(handler({ editionId }), /confirmPaidGeneration/);
+  assert.equal(calls, 0);
+  const first = await handler({ editionId, confirmPaidGeneration: true });
   assert.equal(first.status, "created");
   assert.deepEqual(await sharp(Buffer.from(records.get(first.deliveryKey)!)).metadata().then(
     ({ width, height }) => ({ width, height }),
   ), { width: 32, height: 16 });
-  assert.equal((await handler({ editionId })).status, "reused");
+  const manifest = JSON.parse(Buffer.from(records.get(first.key)!).toString());
+  assert.ok(manifest.transforms.poleRepair);
+  assert.ok(records.has(`${root}/panorama/${manifest.files.poleRepairInput}`));
+  assert.equal((await handler({ editionId, confirmPaidGeneration: true })).status, "reused");
+  assert.equal(calls, 1);
+  // A downstream interruption can resume from the paid repair receipt.
+  records.delete(first.key);
+  assert.equal((await handler({ editionId, confirmPaidGeneration: true })).status, "created");
+  assert.equal(calls, 1);
 });

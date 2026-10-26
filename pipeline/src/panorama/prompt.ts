@@ -68,6 +68,11 @@ Place the complete 2:1 spherical panorama inside the center of the requested
 above the zenith and below the nadir. The centered 2:1 crop must retain the full
 sphere. Make the zenith and nadir converge coherently, and keep prominent
 landmarks away from the longitude boundary.
+Keep strong lines away from the exact poles. The surface supporting the camera
+must continue naturally beneath it at the nadir, not taper toward a distant
+vanishing point. Both poles are directions immediately above and below the same
+camera. Put the wrap meridian through simple background, without duplicated or
+mirrored subjects, panels, stitched bands, or horizontal overscan.
 
 Return only the panoramic image. Do not create a conventional wide-angle photo,
 fisheye circle, frame, border, split panel, duplicated landmark, visible seam,

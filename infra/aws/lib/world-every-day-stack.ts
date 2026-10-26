@@ -543,7 +543,7 @@ export class WorldEveryDayStack extends Stack {
       },
       depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
       entry: resolve(pipelineRoot, "src/cloud/panorama-processing-handler.ts"),
-      environment: { ARTIFACT_BUCKET: artifacts.bucketName },
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName, GOOGLE_SECRET_NAME: googleSecret.secretName, NANO_BANANA_MODEL: config.nanoBananaModel },
       ephemeralStorageSize: Size.gibibytes(4),
       handler: "main",
       memorySize: 3008,
@@ -560,9 +560,10 @@ export class WorldEveryDayStack extends Stack {
       conditions: { StringLike: { "s3:prefix": "editions/*" } },
       resources: [artifacts.bucketArn],
     }));
+    googleSecret.grantRead(panoramaProcessingHandler);
     const processPanorama = new tasks.LambdaInvoke(this, "ProcessPrivatePanorama", {
       lambdaFunction: panoramaProcessingHandler,
-      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId" }),
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId", confirmPaidGeneration: true }),
       payloadResponseOnly: true,
       resultPath: "$.panorama",
       retryOnServiceExceptions: false,

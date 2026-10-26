@@ -15,7 +15,7 @@ This is the current roadmap for A World Every Day, not a deployment log.
   ephemeral article analysis, and original summaries with source links.
 - Paid Gemini editorial analysis, with Amazon Bedrock Nova as an optional
   adapter. Neither route is self-hosted; see the [data boundary](DATA_BOUNDARY.md).
-- Nano Banana panorama generation and 8K delivery enlargement, followed by
+- Nano Banana panorama generation, masked pole repair, and 8K delivery enlargement, followed by
   Marble 1.1 world generation.
 - Gemini landmark detection, image-space bounding boxes, checksum-bound
   Spark.js raycast baking, and bounds-driven viewer focus effects.

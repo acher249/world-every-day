@@ -325,8 +325,13 @@ npm run edition -- \
 ```
 
 Interaction baking samples multiple rays across each landmark's bounding box
-and selects a supported foreground surface rather than blindly using the center
-ray, which can pass through arches or rings. New bakes record their algorithm
+and selects a supported surface nearest the intended image target rather than blindly using the center
+ray, which can pass through arches or rings. Sampling excludes neighboring story
+bounding boxes so a foreground landmark cannot steal a background landmark's
+anchor. Story echoes may share their own parent's region. If too few independent
+surface hits remain, baking stops for review rather than guessing. These checks
+reduce placement errors; image bounds and generated geometry still need visual
+review. New bakes record their algorithm
 version; outdated browser bakers and cached bakes require an explicit rebuild or
 rebake. Deploy the rebuilt explorer before deploying a baker-version change.
 Restoring an old world must preserve its corrected interaction metadata as well
@@ -391,7 +396,8 @@ npm run panorama -- \
   --confirm-paid-generation
 ```
 
-Live generation requires deliberate `--confirm-paid-generation` approval. Every
+Live generation makes two image requests: the panorama and a masked repair of
+both poles. It requires deliberate `--confirm-paid-generation` approval. Every
 output directory must be new, and the command creates it before calling the
 provider so an existing run cannot trigger a duplicate paid request.
 

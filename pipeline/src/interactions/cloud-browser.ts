@@ -21,6 +21,7 @@ function browserTargets(landmarks: Parameters<InteractionBaker["bake"]>[0]["land
     ...landmarks.contextMarkers.map((marker) => ({
       boundingBox: marker.boundingBox,
       id: marker.id,
+      storyId: marker.storyId,
       x: marker.target.x,
       y: marker.target.y,
     })),
@@ -38,7 +39,7 @@ function siteKey(pathname: string): string | null {
 
 export class CloudBrowserInteractionBaker implements InteractionBaker {
   readonly method = "spherical-raycast" as const;
-  readonly algorithmVersion = "surface-grid-v1";
+  readonly algorithmVersion = "surface-grid-v2";
   readonly #client: S3Client;
   readonly #siteBucket: string;
 

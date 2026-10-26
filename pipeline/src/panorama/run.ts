@@ -8,7 +8,8 @@ import {
 } from "./config.js";
 import type { PanoramaGenerator } from "./generator.js";
 import { sha256 } from "./hash.js";
-import { createPanoramaAssets } from "./process.js";
+import { createPanoramaAssets, type PoleRepair } from "./process.js";
+import { POLE_REPAIR_VERSION } from "./poles.js";
 import { buildPanoramaPrompt } from "./prompt.js";
 import { panoramaManifestSchema } from "./schema.js";
 
@@ -21,6 +22,7 @@ type RunPanoramaOptions = {
   provider?: string;
   generator: PanoramaGenerator;
   processingConfig?: PanoramaProcessingConfig;
+  repairPoles?: PoleRepair;
 };
 
 function extensionForMimeType(mimeType: string): string {
@@ -44,6 +46,7 @@ export async function runPanorama({
   provider = "google",
   generator,
   processingConfig = defaultProcessingConfig(),
+  repairPoles,
 }: RunPanoramaOptions): Promise<string> {
   const outputRoot = resolve(outputDirectory);
   await mkdir(dirname(outputRoot), { recursive: true });
@@ -61,6 +64,7 @@ export async function runPanorama({
     normalizedPath,
     outputRoot,
     processingConfig,
+    repairPoles,
   );
 
   const deliveryBytes = await readFile(artifacts.deliveryPath);
@@ -94,9 +98,14 @@ export async function runPanorama({
         height: artifacts.nativeHeight,
       },
       longitudeRepair: {
-        method: "periodic cosine feather in linear-light RGB",
-        width: DEFAULT_PANORAMA_CONFIG.seamFeatherWidth,
+        method: "periodic exposure harmonization and cosine feather in linear-light RGB",
+        width: processingConfig.seamFeatherWidth,
       },
+      poleRepair: artifacts.poleRepair ? {
+        method: POLE_REPAIR_VERSION,
+        inputSha256: sha256(await readFile(artifacts.poleRepair.inputPath)),
+        responseSha256: sha256(await readFile(artifacts.poleRepair.responsePath)),
+      } : undefined,
       deliveryResize: {
         width: processingConfig.deliveryWidth,
         height: processingConfig.deliveryHeight,
@@ -119,6 +128,10 @@ export async function runPanorama({
         artifacts.repairedPath,
       ),
       delivery8k: artifactPath(outputRoot, artifacts.deliveryPath),
+      ...(artifacts.poleRepair ? {
+        poleRepairInput: artifactPath(outputRoot, artifacts.poleRepair.inputPath),
+        poleRepairResponse: artifactPath(outputRoot, artifacts.poleRepair.responsePath),
+      } : {}),
     },
   });
 

@@ -111,7 +111,7 @@ function evaluationValue(response: Record<string, unknown>): unknown {
 
 export class BrowserInteractionBaker implements InteractionBaker {
   readonly method = "spherical-raycast" as const;
-  readonly algorithmVersion = "surface-grid-v1";
+  readonly algorithmVersion = "surface-grid-v2";
   readonly #browserUrl: URL;
   readonly #frontendDirectory: string;
   readonly #pageUrl: URL;
@@ -220,6 +220,7 @@ export class BrowserInteractionBaker implements InteractionBaker {
         ...landmarks.contextMarkers.map((marker) => ({
           boundingBox: marker.boundingBox,
           id: marker.id,
+      storyId: marker.storyId,
           x: marker.target.x,
           y: marker.target.y,
         })),
