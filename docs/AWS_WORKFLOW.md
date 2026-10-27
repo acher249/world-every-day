@@ -125,6 +125,7 @@ delivery receipts as well as the overall status.
 | --- | --- |
 | Discovery or model stage | Inspect inputs and immutable artifacts; reuse completed stages |
 | Uncertain image/world request | Inspect the attempt marker and provider outcome before another paid request |
+| Explicit transient World Labs generation failure | Cloud worker retries up to four total submissions (three retries) using the same approved panorama; inspect all attempt records if exhausted |
 | Video batch | Resume the same job; saved frames and batch receipts are reused |
 | Encoding | Reuse completed frames; do not regenerate the world |
 | X upload | Fix access or media failure; upload occurs before the post claim |
@@ -132,6 +133,23 @@ delivery receipts as well as the overall status.
 
 Never edit the current-world pointer to reference incomplete assets. Avoid
 concurrent duplicate video jobs: renderers share the account's Lambda quota.
+
+The cloud world worker retries explicit terminal errors with codes 500, 502,
+503, 504, INTERNAL, UNAVAILABLE, or DEADLINE_EXCEEDED, plus the legacy generic
+“An error has happened, please retry it.” record. Numeric codes are preserved.
+Retries wait at least one, two, and three minutes after successive
+failures, using the existing wait/poll loop and its overall poll budget. The first
+attempt keeps `world/operation.json` and `world/operation-failed.json`; subsequent
+attempts use `world/attempts/2/` through `world/attempts/4/`, with separate immutable
+submission claims and idempotency keys. Successful assets retain their usual
+paths. Invalid-input, authorization, unknown failures, and ambiguous submissions
+do not automatically generate another world. Poll HTTP throttling/server errors
+continue polling the same operation rather than submitting a new one.
+
+Deploy the updated worker before relying on this policy. It does not restart
+already-failed executions automatically; those need an operator recovery run.
+Retries may incur additional provider charges; do not assume failed attempts
+are free. Local CLI generation retains its manual recovery behavior.
 
 CloudWatch alarms cover workflow, scheduler, video, and X failures. Set
 `WORLD_EVERY_DAY_ALARM_EMAIL`, deploy, and confirm the SNS subscription to receive

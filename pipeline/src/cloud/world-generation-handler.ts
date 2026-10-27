@@ -17,6 +17,7 @@ import {
   worldGenerationRequestSchema,
   worldOperationRecordSchema,
 } from "../world/schema.js";
+import { MAX_WORLD_ATTEMPTS, retryableWorldFailure } from "../world/retry-policy.js";
 import { WorldLabsGenerator } from "../world/world-labs.js";
 
 const inputSchema = z.object({
@@ -58,7 +59,7 @@ export function createCloudWorldHandler({
     const { editionId, mode, pollCount = 0 } = inputSchema.parse(rawInput);
     const root = `editions/${editionId}`;
     const requestKey = `${root}/world/request.json`;
-    const operationKey = `${root}/world/operation.json`;
+
     const manifestKey = `${root}/world/generated-world.json`;
     const existingManifest = await artifacts.read(manifestKey);
     if (existingManifest) {
@@ -70,7 +71,38 @@ export function createCloudWorldHandler({
       return { editionId, status: "completed" as const, manifestKey, pollCount };
     }
 
-    if (mode === "start") {
+    // Attempt one retains its historical keys. Later attempts never overwrite it.
+    let attempt = 1;
+    let attemptRoot = `${root}/world`;
+    const attemptIdempotencyKey = (request: Parameters<typeof createWorldIdempotencyKey>[0], number: number) => {
+      const base = createWorldIdempotencyKey(request, generator);
+      return number === 1 ? base : sha256(`${base}:attempt:${number}`);
+    };
+    while (true) {
+      const failureBytes = await artifacts.read(`${attemptRoot}/operation-failed.json`);
+      if (!failureBytes) break;
+      const failed = worldOperationRecordSchema.parse(JSON.parse(Buffer.from(failureBytes).toString("utf8")));
+      const storedRequest = worldGenerationRequestSchema.parse(await readJson(artifacts, requestKey));
+      const storedOperation = worldOperationRecordSchema.parse(await readJson(artifacts, `${attemptRoot}/operation.json`));
+      if (storedRequest.editionId !== editionId || failed.editionId !== editionId || failed.status !== "failed" ||
+          failed.providerOperationId !== storedOperation.providerOperationId ||
+          storedOperation.idempotencyKey !== attemptIdempotencyKey(storedRequest, attempt) ||
+          failed.idempotencyKey !== storedOperation.idempotencyKey ||
+          failed.sourceImageSha256 !== storedRequest.sourceImage.sha256) {
+        throw new Error("Stored world failure does not match the operation");
+      }
+      if (!failed.error || !retryableWorldFailure(failed.error) || attempt >= MAX_WORLD_ATTEMPTS) {
+        return { editionId, status: "failed" as const, operationKey: `${attemptRoot}/operation.json`, pollCount, attempt, error: failed.error };
+      }
+      // Reuse the state machine's wait/poll loop; no Lambda sleeps or reset of its poll budget.
+      if (now().getTime() < Date.parse(failed.updatedAt) + attempt * 60_000) {
+        return { editionId, status: "running" as const, operationKey: `${attemptRoot}/operation.json`, pollCount: pollCount + 1, attempt };
+      }
+      attempt += 1;
+      attemptRoot = `${root}/world/attempts/${attempt}`;
+    }
+    const operationKey = `${attemptRoot}/operation.json`;
+    if (mode === "start" || (attempt > 1 && !(await artifacts.read(operationKey)))) {
       const panorama = editionPanoramaManifestSchema.parse(
         await readJson(artifacts, `${root}/panorama/manifest.json`),
       );
@@ -99,10 +131,10 @@ export function createCloudWorldHandler({
       if (operationBytes) {
         const operation = worldOperationRecordSchema.parse(JSON.parse(Buffer.from(operationBytes).toString("utf8")));
         if (operation.editionId !== editionId ||
-            operation.idempotencyKey !== createWorldIdempotencyKey(request, generator)) {
+            operation.idempotencyKey !== attemptIdempotencyKey(request, attempt)) {
           throw new Error("Existing world operation does not match the approved panorama");
         }
-        return { editionId, status: "running" as const, operationKey, pollCount: 0 };
+        return { editionId, status: "running" as const, operationKey, pollCount, attempt };
       }
       await artifacts.putImmutable({ key: requestKey, bytes: requestBytes, contentType: "application/json" });
       const source = await artifacts.read(deliveryKey);
@@ -110,7 +142,7 @@ export function createCloudWorldHandler({
         throw new Error("Approved panorama is missing or has changed");
       }
       const claimed = await claims.claimOnce(
-        `${root}/world/submission-attempt.json`,
+        `${attemptRoot}/submission-attempt.json`,
         Buffer.from(`${JSON.stringify({
           editionId,
           requestSha256: sha256(requestBytes),
@@ -122,7 +154,7 @@ export function createCloudWorldHandler({
       try {
         const sourcePath = join(directory, "panorama.png");
         await writeFile(sourcePath, source);
-        const submitted = await generator.submit(request, sourcePath, createWorldIdempotencyKey(request, generator));
+        const submitted = await generator.submit(request, sourcePath, attemptIdempotencyKey(request, attempt));
         const timestamp = now().toISOString();
         const operation = worldOperationRecordSchema.parse({
           schemaVersion: "1.0.0",
@@ -130,7 +162,7 @@ export function createCloudWorldHandler({
           editionId,
           provider: generator.provider,
           adapterVersion: generator.adapterVersion,
-          idempotencyKey: createWorldIdempotencyKey(request, generator),
+          idempotencyKey: attemptIdempotencyKey(request, attempt),
           providerOperationId: submitted.operationId,
           status: "submitted",
           createdAt: timestamp,
@@ -142,7 +174,7 @@ export function createCloudWorldHandler({
           bytes: Buffer.from(`${JSON.stringify(operation, null, 2)}\n`),
           contentType: "application/json",
         });
-        return { editionId, status: "running" as const, operationKey, pollCount: 0 };
+        return { editionId, status: "running" as const, operationKey, pollCount, attempt };
       } finally {
         await rm(directory, { recursive: true, force: true });
       }
@@ -151,26 +183,18 @@ export function createCloudWorldHandler({
     const request = worldGenerationRequestSchema.parse(await readJson(artifacts, requestKey));
     const operation = worldOperationRecordSchema.parse(await readJson(artifacts, operationKey));
     if (request.editionId !== editionId || operation.editionId !== editionId ||
-        operation.idempotencyKey !== createWorldIdempotencyKey(request, generator)) {
+        operation.idempotencyKey !== attemptIdempotencyKey(request, attempt)) {
       throw new Error("Stored world request and operation do not match");
-    }
-    const failedBytes = await artifacts.read(`${root}/world/operation-failed.json`);
-    if (failedBytes) {
-      const failed = worldOperationRecordSchema.parse(JSON.parse(Buffer.from(failedBytes).toString("utf8")));
-      if (failed.idempotencyKey !== operation.idempotencyKey || failed.status !== "failed") {
-        throw new Error("Stored world failure does not match the operation");
-      }
-      return { editionId, status: "failed" as const, operationKey, pollCount };
     }
     const providerResult = await generator.getOperation(operation.providerOperationId, request);
     if (!providerResult.done) return { editionId, status: "running" as const, operationKey, pollCount: pollCount + 1 };
     if ("error" in providerResult) {
       await artifacts.putImmutable({
-        key: `${root}/world/operation-failed.json`,
+        key: `${attemptRoot}/operation-failed.json`,
         bytes: Buffer.from(`${JSON.stringify({ ...operation, status: "failed", error: providerResult.error, updatedAt: now().toISOString() }, null, 2)}\n`),
         contentType: "application/json",
       });
-      return { editionId, status: "failed" as const, operationKey, pollCount: pollCount + 1 };
+      return { editionId, status: retryableWorldFailure(providerResult.error) && attempt < MAX_WORLD_ATTEMPTS ? "running" as const : "failed" as const, operationKey, pollCount: pollCount + 1, attempt, error: providerResult.error };
     }
     const downloaded = await generator.downloadAsset(providerResult.response);
     if (downloaded.format !== providerResult.response.format ||

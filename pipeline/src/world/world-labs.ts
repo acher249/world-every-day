@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { retryableWorldFailure } from "./retry-policy.js";
 
 import type {
   DownloadedWorldAsset,
@@ -272,14 +273,13 @@ export class WorldLabsGenerator implements WorldGenerator {
       operation.error !== undefined &&
       operation.error !== null
     ) {
-      return {
-        done: true,
-        error: {
-          code: stringAt(operation, "error", "code") ?? "WORLD_LABS_GENERATION_FAILED",
-          message: providerMessage(operation, "World Labs generation failed"),
-          retryable: false,
-        },
+      const rawCode = isRecord(operation.error) ? operation.error.code : undefined;
+      const error = {
+        code: typeof rawCode === "number" ? String(rawCode) :
+          stringAt(operation, "error", "code") ?? "WORLD_LABS_GENERATION_FAILED",
+        message: providerMessage(operation, "World Labs generation failed"),
       };
+      return { done: true, error: { ...error, retryable: retryableWorldFailure(error) } };
     }
 
     const model = request.generation.model ?? DEFAULT_MODEL;

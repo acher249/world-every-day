@@ -21,7 +21,7 @@ function memoryStore() {
   return { artifacts, records };
 }
 
-test("cloud world generation requires image approval, submits once, polls, and reuses the durable asset", async () => {
+function worldFixture() {
   const editionId = "selection-2026-10-15-0900";
   const root = `editions/${editionId}`;
   const source = Buffer.from("panorama-test-bytes");
@@ -56,6 +56,11 @@ test("cloud world generation requires image approval, submits once, polls, and r
   };
   records.set(`${root}/panorama/manifest.json`, Buffer.from(JSON.stringify(panorama)));
   records.set(`${root}/panorama/delivery.png`, source);
+  return { editionId, root, source, sourceHash, artHash, artifacts, records };
+}
+
+test("cloud world generation requires image approval, submits once, polls, and reuses the durable asset", async () => {
+  const { editionId, root, source, sourceHash, artHash, artifacts, records } = worldFixture();
   const claims = new Set<string>();
   let submits = 0;
   let polls = 0;
@@ -120,4 +125,98 @@ test("an uncertain world submission cannot silently submit a second paid world",
     model: "marble-1.1",
   });
   await assert.rejects(handler({ editionId: "test-edition", mode: "start" }), /confirmPaidWorld/);
+});
+
+function retryFixture(error = { code: "500", message: "An error has happened, please retry it.", retryable: true }) {
+  const fixture = worldFixture();
+  const { editionId, root, sourceHash, artHash, artifacts, records } = fixture;
+  records.set(`${root}/review/image-approval.json`, Buffer.from(JSON.stringify({
+    schemaVersion: "1.0.0", artifactType: "image-review", editionId,
+    approvedAt: "2026-10-15T18:00:00.000Z", approvedBy: "test-operator",
+    decision: "approved-for-world-generation", inputs: { artDirectionSha256: artHash, panoramaSha256: sourceHash },
+  })));
+  let time = Date.parse("2026-10-15T18:00:00.000Z");
+  let success = false;
+  let uncertain = false;
+  const keys: string[] = [];
+  const claims = new Set<string>();
+  const handler = createCloudWorldHandler({
+    artifacts, model: "marble-1.1", now: () => new Date(time),
+    claims: { async claimOnce(key) { if (claims.has(key)) return false; claims.add(key); return true; } },
+    generator: {
+      provider: "world-labs", adapterVersion: "test-v1",
+      async submit(_request, _path, key) { keys.push(key); if (uncertain) throw new Error("connection lost"); return { operationId: `operation-${keys.length}` }; },
+      async getOperation() {
+        return success ? { done: true, response: { assetReference: "https://example.com/a.spz", format: "spz", mediaType: "application/octet-stream", model: "marble-1.1" } } : { done: true, error };
+      },
+      async downloadAsset() { return { bytes: Buffer.from("world"), format: "spz", mediaType: "application/octet-stream" }; },
+    },
+  });
+  return { ...fixture, keys, handler, advance: (ms: number) => { time += ms; }, succeed: () => { success = true; }, disconnect: () => { uncertain = true; },
+    start: { editionId, mode: "start", confirmPaidWorld: true }, poll: { editionId, mode: "poll", confirmPaidWorld: true, pollCount: 7 } };
+}
+
+test("confirmed transient failure retries after backoff, preserves prior records and completes once", async () => {
+  const f = retryFixture();
+  await f.handler(f.start);
+  assert.equal((await f.handler(f.poll)).status, "running");
+  const original = f.records.get(`${f.root}/world/operation-failed.json`);
+  await f.handler(f.poll);
+  assert.equal(f.keys.length, 1);
+  f.advance(60_000);
+  const retry = await f.handler(f.poll);
+  assert.equal(retry.pollCount, 7);
+  assert.equal(f.keys.length, 2);
+  assert.notEqual(f.keys[0], f.keys[1]);
+  await f.handler(f.start);
+  assert.equal(f.keys.length, 2);
+  f.succeed();
+  assert.equal((await f.handler(f.poll)).status, "completed");
+  assert.equal((await f.handler(f.start)).status, "completed");
+  assert.deepEqual(f.records.get(`${f.root}/world/operation-failed.json`), original);
+});
+
+test("retries stop after four submissions and retain each terminal failure", async () => {
+  const f = retryFixture();
+  await f.handler(f.start);
+  await f.handler(f.poll);
+  f.advance(60_000); await f.handler(f.poll); await f.handler(f.poll);
+  f.advance(60_000); await f.handler(f.poll);
+  assert.equal(f.keys.length, 2);
+  f.advance(60_000); await f.handler(f.poll);
+  assert.equal((await f.handler(f.poll)).status, "running");
+  f.advance(120_000); await f.handler(f.poll);
+  assert.equal(f.keys.length, 3);
+  f.advance(60_000); await f.handler(f.poll);
+  assert.equal((await f.handler(f.poll)).status, "failed");
+  f.advance(600_000);
+  assert.equal((await f.handler(f.start)).status, "failed");
+  assert.equal(f.keys.length, 4);
+  assert.ok(f.records.has(`${f.root}/world/attempts/4/operation-failed.json`));
+});
+
+test("authorization and unknown failures never trigger new generation", async () => {
+  for (const code of ["401", "403", "INVALID_ARGUMENT", "UNKNOWN"]) {
+    const f = retryFixture({ code, message: "failure", retryable: false });
+    await f.handler(f.start);
+    assert.equal((await f.handler(f.poll)).status, "failed");
+    f.advance(600_000);
+    assert.equal((await f.handler(f.start)).status, "failed");
+    assert.equal(f.keys.length, 1);
+  }
+});
+
+test("a retry submission with an uncertain response is never repeated", async () => {
+  const f = retryFixture();
+  await f.handler(f.start); await f.handler(f.poll); f.advance(60_000); f.disconnect();
+  await assert.rejects(f.handler(f.poll), /connection lost/);
+  await assert.rejects(f.handler(f.poll), /submission attempt already exists/);
+  assert.equal(f.keys.length, 2);
+});
+
+test("historical generic retry-request failures can recover without changing their records", async () => {
+  const f = retryFixture({ code: "WORLD_LABS_GENERATION_FAILED", message: "An error has happened, please retry it.", retryable: false });
+  await f.handler(f.start); await f.handler(f.poll); f.advance(60_000);
+  await f.handler(f.poll);
+  assert.equal(f.keys.length, 2);
 });

@@ -97,6 +97,11 @@ publication. **There is no automatic spending cutoff.** The reference stack has
 no AWS Budget or alarm email configured; operators should watch AWS, Google,
 and World Labs billing. Budget alerts can be configured but do not stop a run.
 
+The cloud World Labs stage can make up to four paid submissions (three retries) for an edition
+after explicit transient generation failures. The normal daily estimate assumes
+one submission; failed-attempt charges or refunds depend on provider billing.
+See [retry behavior](AWS_WORKFLOW.md#failures-and-recovery).
+
 The pipeline records request and usage data where providers return it, but
 per-edition charges have not yet been reconciled against invoices. Fixture
 tests and dry runs do not call paid services. Prices and free allowances may

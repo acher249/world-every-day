@@ -209,3 +209,12 @@ test("World Labs adapter rejects non-HTTPS asset URLs", async () => {
     /must use HTTPS/,
   );
 });
+
+test("numeric terminal error codes survive normalization and govern retry eligibility", async () => {
+  for (const [code, retryable] of [[500, true], [503, true], [400, false], [403, false]] as const) {
+    const generator = new WorldLabsGenerator({ apiKey: "test-key", fetchImpl: async () => Response.json({ done: true, error: { code, message: "provider failure" } }) });
+    assert.deepEqual(await generator.getOperation("operation-1", requestFor(Buffer.from("image"))), {
+      done: true, error: { code: String(code), message: "provider failure", retryable },
+    });
+  }
+});
