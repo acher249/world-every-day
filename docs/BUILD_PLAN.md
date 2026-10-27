@@ -60,6 +60,10 @@ incomplete assets to the current-world pointer.
 
 ## Next phases
 
+The optional [World Guide phase plan](WORLD_GUIDE.md) covers natural-language
+voice navigation, ephemeral research, privacy configuration, and a disabled
+public UI. It is planned work, separate from daily generation and publication.
+
 ### 1. Establish reliable daily editions
 
 - Monitor scheduled runs, feed failures, story yield, retries, and provider cost.
