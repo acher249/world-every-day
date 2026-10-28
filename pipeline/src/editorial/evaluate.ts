@@ -8,7 +8,7 @@ import {
 } from "./schema.js";
 import { candidateSetSha256 } from "./select.js";
 
-export const EDITORIAL_EVALUATION_PROMPT_VERSION = "editorial-evaluation-v3";
+export const EDITORIAL_EVALUATION_PROMPT_VERSION = "editorial-evaluation-v4";
 
 export type CandidateAssessment = Omit<CandidateEvaluation, "scores"> & {
   scores: Omit<CandidateEvaluation["scores"], "recency">;

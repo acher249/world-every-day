@@ -1,8 +1,9 @@
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { AMAZON_NOVA_TEXT_MODEL, assertAmazonNovaTextModel } from "../bedrock/model.js";
-import { providerUsageSchema } from "../provider-usage.js";
+import { providerUsageSchema, type ProviderUsage } from "../provider-usage.js";
 import type { DiscoveredStory } from "../sources/schema.js";
 import { candidateEvaluationSchema } from "./schema.js";
+import { ZodError } from "zod";
 import {
   EDITORIAL_EVALUATION_PROMPT_VERSION,
   type CandidateAssessment,
@@ -38,9 +39,65 @@ export function buildCandidateEvaluationPrompt(candidates: DiscoveredStory[]): s
   ].join("\n\n");
 }
 
+export function candidateEvaluationResponseSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      // Gemini's structured-output schema supports the structural JSON Schema
+      // subset used here, but not array-length or numeric range constraints.
+      // Keep those invariants in the local Zod and exact-coverage validators.
+      assessments: { type: "array", items: {
+        type: "object", additionalProperties: false,
+        properties: {
+          storyId: { type: "string" },
+          eventKey: { type: "string" },
+          classification: { type: "object", additionalProperties: false, properties: {
+            topic: { type: "string" }, geography: { type: "string" }, organization: { type: "string" },
+          }, required: ["topic", "geography", "organization"] },
+          eligibility: { type: "object", additionalProperties: false, properties: {
+            eligible: { type: "boolean" }, reasons: { type: "array", items: { type: "string" } },
+          }, required: ["eligible", "reasons"] },
+          scores: { type: "object", additionalProperties: false, properties: {
+            credibility: { type: "number" },
+            constructiveSignificance: { type: "number" },
+            publicRelevance: { type: "number" },
+            novelty: { type: "number" },
+            visualPotential: { type: "number" },
+          }, required: ["credibility", "constructiveSignificance", "publicRelevance", "novelty", "visualPotential"] },
+          rationales: { type: "object", additionalProperties: false, properties: {
+            credibility: { type: "string" }, constructiveSignificance: { type: "string" },
+            publicRelevance: { type: "string" }, novelty: { type: "string" }, visualPotential: { type: "string" },
+          }, required: ["credibility", "constructiveSignificance", "publicRelevance", "novelty", "visualPotential"] },
+        }, required: ["storyId", "eventKey", "classification", "eligibility", "scores", "rationales"],
+      } },
+    }, required: ["assessments"],
+  };
+}
+
+function parseAssessmentBatch(value: unknown, candidates: DiscoveredStory[]): CandidateAssessment[] {
+  const parsed = value as { assessments?: unknown[] };
+  if (!Array.isArray(parsed?.assessments)) throw new Error("missing-assessments-array");
+  const assessments = parsed.assessments.map(parseAssessment);
+  const expectedIds = new Set(candidates.map(({ id }) => id));
+  if (assessments.length !== candidates.length ||
+      assessments.some(({ storyId }) => !expectedIds.delete(storyId)) || expectedIds.size) {
+    throw new Error("candidate-coverage-mismatch");
+  }
+  return assessments;
+}
+
+function validationIssues(error: unknown): Array<{ path: string; code: string }> {
+  if (error instanceof ZodError) return error.issues.slice(0, 8).map(({ path, code }) => ({ path: path.join("."), code }));
+  return [{ path: "assessments", code: "invalid-json-or-coverage" }];
+}
+
 export function parseAssessment(value: unknown): CandidateAssessment {
   const input = value as Record<string, unknown>;
-  const scores = input.scores as Record<string, unknown> | undefined;
+  const inputScores = input.scores as Record<string, unknown> | undefined;
+  // Recency is derived from publication time after model evaluation. Ignore it
+  // if a provider returns it anyway; never let model output override the value.
+  const { recency: _recency, ...scores } = inputScores ?? {};
   return candidateEvaluationSchema.omit({ scores: true }).extend({
     scores: candidateEvaluationSchema.shape.scores.omit({ recency: true }),
   }).parse({ ...input, scores });
@@ -78,29 +135,40 @@ export class BedrockCandidateEvaluator implements CandidateEvaluator {
       if (prompt.length > MAX_PROMPT_CHARACTERS) {
         throw new Error(`Candidate evaluation prompt exceeds ${MAX_PROMPT_CHARACTERS} characters`);
       }
-      const response = await this.#client.send(new ConverseCommand({
-        modelId: this.model,
-        messages: [{ role: "user", content: [{ text: prompt }] }],
-        inferenceConfig: { maxTokens: 6000, temperature: 0 },
-      }));
-      requestCount += 1;
-      const content = response.output?.message?.content?.find((part) => typeof part.text === "string")?.text;
-      if (!content) throw new Error("Bedrock candidate evaluator returned no text response");
-      const parsed = JSON.parse(content) as { assessments?: unknown[] };
-      if (!Array.isArray(parsed.assessments)) {
-        throw new Error("Bedrock candidate evaluator returned an invalid response");
+      let batchAssessments: CandidateAssessment[] | undefined;
+      const attempts: (ProviderUsage | undefined)[] = [];
+      let lastIssues: Array<{ path: string; code: string }> = [];
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const correction = attempt === 1 ? "" : `\n\nYour previous response failed validation (${JSON.stringify(lastIssues)}). Correct the output and return the complete assessment array for every requested story. Do not omit or add stories.`;
+        const response = await this.#client.send(new ConverseCommand({
+          modelId: this.model,
+          messages: [{ role: "user", content: [{ text: `${prompt}${correction}` }] }],
+          inferenceConfig: { maxTokens: 6000, temperature: 0 },
+        }));
+        requestCount += 1;
+        if (!response.usage) providerReported = false;
+        attempts.push(response.usage ? providerUsageSchema.parse({ requestCount: 1, unit: "tokens", providerReported: true,
+          inputUnits: response.usage.inputTokens, outputUnits: response.usage.outputTokens, totalUnits: response.usage.totalTokens }) : undefined);
+        try {
+          const content = response.output?.message?.content?.find((part) => typeof part.text === "string")?.text;
+          if (!content) throw new Error("missing-json-text");
+          batchAssessments = parseAssessmentBatch(JSON.parse(content), batch);
+          inputUnits += attempts.reduce((sum, item) => sum + (item?.inputUnits ?? 0), 0);
+          outputUnits += attempts.reduce((sum, item) => sum + (item?.outputUnits ?? 0), 0);
+          totalUnits += attempts.reduce((sum, item) => sum + (item?.totalUnits ?? 0), 0);
+          break;
+        } catch (error) {
+          const issues = validationIssues(error);
+          if (attempt === 3) {
+            throw new Error(`Candidate evaluator returned invalid structured assessments after 3 attempts for batch ${Math.floor(start / EVALUATION_BATCH_SIZE) + 1}`);
+          }
+          console.warn(JSON.stringify({ event: "candidate-evaluation-retry", batch: Math.floor(start / EVALUATION_BATCH_SIZE) + 1,
+            attempt, issues, usage: response.usage }));
+          lastIssues = issues;
+        }
       }
-      const batchAssessments = parsed.assessments.map(parseAssessment);
-      const expectedIds = new Set(batch.map(({ id }) => id));
-      if (batchAssessments.length !== batch.length ||
-          batchAssessments.some(({ storyId }) => !expectedIds.delete(storyId)) || expectedIds.size > 0) {
-        throw new Error("Bedrock candidate evaluator did not cover its complete batch");
-      }
+      if (!batchAssessments) throw new Error("Candidate evaluator returned no assessments");
       assessments.push(...batchAssessments);
-      if (!response.usage) providerReported = false;
-      inputUnits += response.usage?.inputTokens ?? 0;
-      outputUnits += response.usage?.outputTokens ?? 0;
-      totalUnits += response.usage?.totalTokens ?? 0;
     }
 
     return {

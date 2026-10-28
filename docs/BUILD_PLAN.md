@@ -18,7 +18,9 @@ This is the current roadmap for A World Every Day, not a deployment log.
 - Nano Banana panorama generation, masked pole repair, and 8K delivery enlargement, followed by
   Marble 1.1 world generation.
 - Gemini landmark detection, image-space bounding boxes, checksum-bound
-  Spark.js raycast baking, and bounds-driven viewer focus effects.
+  Spark.js raycast baking, and bounds-driven viewer focus effects. Unlocated
+  stories are omitted from the public story list; the world can publish with
+  any positive number of validated story anchors.
 - An opt-in AWS workflow through public publication, with manual review or
   recorded automated decisions, immutable artifacts, and resumable stages.
 - A 7:30 AM Pacific schedule in the reference development deployment. Fresh

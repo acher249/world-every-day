@@ -12,11 +12,11 @@ export const candidateEvaluationSchema = z.object({
     topic: idSchema,
     geography: idSchema,
     organization: z.string().min(1).max(160),
-  }),
+  }).strict(),
   eligibility: z.object({
     eligible: z.boolean(),
     reasons: z.array(z.string().min(1).max(240)).max(8),
-  }),
+  }).strict(),
   scores: z.object({
     credibility: scoreSchema,
     constructiveSignificance: scoreSchema,
@@ -24,15 +24,15 @@ export const candidateEvaluationSchema = z.object({
     novelty: scoreSchema,
     recency: scoreSchema,
     visualPotential: scoreSchema,
-  }),
+  }).strict(),
   rationales: z.object({
     credibility: z.string().min(1).max(300),
     constructiveSignificance: z.string().min(1).max(300),
     publicRelevance: z.string().min(1).max(300),
     novelty: z.string().min(1).max(300),
     visualPotential: z.string().min(1).max(300),
-  }),
-});
+  }).strict(),
+}).strict();
 
 export const candidateEvaluationSetSchema = z.object({
   schemaVersion: z.literal("1.0.0"),

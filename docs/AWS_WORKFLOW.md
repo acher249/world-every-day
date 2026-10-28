@@ -42,6 +42,24 @@ when the last day is quiet. Unused eligible stories from the previous 14 days
 are also available, newest first. The target remains ten; one to nine usable
 stories can still generate a world. Zero usable stories stops the run.
 
+Candidate assessments use Gemini's constrained JSON output when that provider is
+selected, followed by strict local schema, score-range, and story-coverage
+validation. Malformed batches get up to three model attempts with concise
+validation feedback; they never enter the final evaluation artifact. Each valid
+ten-story batch is saved as an immutable checkpoint, so a retried shortlist
+resumes completed batches. Shortlist Lambda timeouts are retried against those
+checkpoints, with a 15-minute invocation limit.
+
+Landmark detection treats `not-found` as a recoverable model result: it asks the
+vision model to re-scan the panorama with the missing subject descriptions, up
+to three paid attempts total. If a subject is still not located, it is excluded
+from raycasting and the public story list; located stories still publish when
+at least one has a validated world-space anchor. The complete landmark artifact
+remains private for diagnosis. The run stops before publication only when no
+selected story can be anchored, or when another required asset fails
+validation. This avoids inventing hotspot positions and avoids discarding an
+otherwise usable world because one detector result was incomplete.
+
 The library reuses immutable candidate metadata and evaluations already in
 private S3; it does not store article text or need another database. It admits
 only the 50 newest unused eligible stories alongside up to 100 newly discovered
@@ -124,6 +142,8 @@ delivery receipts as well as the overall status.
 | Failure | Recovery boundary |
 | --- | --- |
 | Discovery or model stage | Inspect inputs and immutable artifacts; reuse completed stages |
+| Shortlist Lambda timeout | Rerun the same edition; completed ten-story assessment checkpoints are reused |
+| Landmark marked not found or raycast miss | Detection retries missing subjects up to three times; then the unlocated story is omitted from the public edition. Inspect its private detection record and panorama |
 | Uncertain image/world request | Inspect the attempt marker and provider outcome before another paid request |
 | Explicit transient World Labs generation failure | Cloud worker retries up to four total submissions (three retries) using the same approved panorama; inspect all attempt records if exhausted |
 | Video batch | Resume the same job; saved frames and batch receipts are reused |

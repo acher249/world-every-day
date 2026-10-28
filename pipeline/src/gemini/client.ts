@@ -17,17 +17,31 @@ export class GeminiJsonClient implements JsonCompletionClient {
     this.#client = options.client ?? new GoogleGenAI({ apiKey }).models;
   }
 
-  async completeJson(prompt: string, maxTokens: number, temperature: number) {
-    const response = await this.#client.generateContent({
-      model: this.model,
-      contents: prompt,
-      config: {
-        maxOutputTokens: maxTokens,
-        temperature,
-        responseMimeType: "application/json",
-        httpOptions: { timeout: 120_000, retryOptions: { attempts: 1 } },
-      },
-    });
+  async completeJson(prompt: string, maxTokens: number, temperature: number, responseSchema?: Record<string, unknown>) {
+    let response;
+    try {
+      response = await this.#client.generateContent({
+        model: this.model,
+        contents: prompt,
+        config: {
+          maxOutputTokens: maxTokens,
+          temperature,
+          responseMimeType: "application/json",
+          ...(responseSchema ? { responseSchema } : {}),
+          httpOptions: { timeout: 120_000, retryOptions: { attempts: 1 } },
+        },
+      });
+    } catch (error) {
+      const details = error && typeof error === "object" ? error as { status?: unknown; code?: unknown; $metadata?: { httpStatusCode?: number } } : {};
+      const status = Number(details.status ?? details.$metadata?.httpStatusCode);
+      const code = String(details.code ?? "");
+      if (status === 429 || status >= 500 || ["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT"].includes(code)) {
+        const transient = new Error("Gemini editorial provider temporarily unavailable");
+        transient.name = "EditorialProviderTransientError";
+        throw transient;
+      }
+      throw error;
+    }
     const text = response.text;
     if (!text) throw new Error("Gemini editorial model returned no JSON response");
     const reported = response.usageMetadata;

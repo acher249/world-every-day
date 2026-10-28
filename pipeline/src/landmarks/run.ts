@@ -24,6 +24,7 @@ export async function detectLandmarks({
   artDirection,
   detector,
   createdAt = new Date(),
+  claimAttempt,
 }: {
   editionId: string;
   imageBytes: Buffer;
@@ -32,6 +33,7 @@ export async function detectLandmarks({
   artDirection: ArtDirection;
   detector: LandmarkDetector;
   createdAt?: Date;
+  claimAttempt?: (attempt: number) => Promise<boolean>;
 }): Promise<LandmarkArtifact> {
   const metadata = await sharp(sourceImageBytes).metadata();
   const analysisMetadata = await sharp(imageBytes).metadata();
@@ -43,17 +45,45 @@ export async function detectLandmarks({
     throw new Error(`Landmark detection requires an exact 2:1 equirectangular image; received ${metadata.width}x${metadata.height}`);
   }
 
-  const result = await detector.detect({ imageBytes, mimeType, artDirection });
   const expectedIds = new Set(artDirection.subjects.map((subject) => subject.storyId));
-  const returnedIds = result.landmarks.map((landmark) => landmark.storyId);
-  if (new Set(returnedIds).size !== returnedIds.length) {
-    throw new Error("Landmark provider returned duplicate story ids");
+  let result: Awaited<ReturnType<LandmarkDetector["detect"]>> | undefined;
+  let degradedResult: Awaited<ReturnType<LandmarkDetector["detect"]>> | undefined;
+  let retryInstructions: string | undefined;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    if (claimAttempt && !(await claimAttempt(attempt))) continue;
+    try {
+      const response = await detector.detect({ imageBytes, mimeType, artDirection, retryInstructions });
+      const returnedIds = response.landmarks.map((landmark) => landmark.storyId);
+      if (new Set(returnedIds).size !== returnedIds.length) {
+        throw new Error("Landmark provider returned duplicate story ids");
+      }
+      const missing = [...expectedIds].filter((id) => !returnedIds.includes(id));
+      const unexpected = returnedIds.filter((id) => !expectedIds.has(id));
+      if (missing.length || unexpected.length) {
+        throw new Error(`Landmark response did not match requested stories; missing=${missing.join(",") || "none"}; unexpected=${unexpected.join(",") || "none"}`);
+      }
+      const notFound = response.landmarks.filter(({ visibility }) => visibility === "not-found");
+      if (notFound.length) {
+        degradedResult = response;
+        const labels = notFound.map(({ storyId }) => {
+          const subject = artDirection.subjects.find(({ storyId: id }) => id === storyId);
+          return `${storyId}${subject ? ` (${subject.subject})` : ""}`;
+        });
+        throw new Error(`Requested subjects were marked not-found: ${labels.join(", ")}. Re-scan the entire panorama, checking the supplied subject descriptions and visual cues. Do not infer absence from a difficult viewpoint; return a tight box and visible surface target if any matching object is present. Use not-found only after checking the full image.`);
+      }
+      result = response;
+      break;
+    } catch (error) {
+      lastError = error;
+      retryInstructions = error instanceof Error ? error.message.slice(0, 1_000) : "The previous response failed validation.";
+      if (attempt < 3) {
+        console.warn(JSON.stringify({ event: "landmark-detection-retry", attempt, reason: retryInstructions }));
+      }
+    }
   }
-  const missing = [...expectedIds].filter((id) => !returnedIds.includes(id));
-  const unexpected = returnedIds.filter((id) => !expectedIds.has(id));
-  if (missing.length || unexpected.length) {
-    throw new Error(`Landmark response did not match requested stories; missing=${missing.join(",") || "none"}; unexpected=${unexpected.join(",") || "none"}`);
-  }
+  result ??= degradedResult;
+  if (!result) throw lastError instanceof Error ? lastError : new Error("No valid landmark response after three attempts");
   const acceptedContextStoryIds = new Set<string>();
   const acceptedContextMarkers = [...result.contextMarkers]
     .sort((first, second) => second.confidence - first.confidence)

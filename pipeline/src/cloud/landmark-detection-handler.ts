@@ -71,15 +71,6 @@ export function createCloudLandmarkHandler({
       .resize(2048, 1024, { fit: "fill" })
       .jpeg({ quality: 88, mozjpeg: true })
       .toBuffer();
-    const claimed = await claims.claimOnce(
-      `${root}/landmarks/detection-attempt.json`,
-      Buffer.from(`${JSON.stringify({
-        editionId,
-        panoramaSha256: panorama.outputs.delivery8kSha256,
-        detector: { id: detector.id, model: detector.model },
-      })}\n`),
-    );
-    if (!claimed) throw new Error("A paid landmark-detection attempt already exists; inspect it before retrying");
     const artifact = await detectLandmarks({
       editionId,
       imageBytes: analysisBytes,
@@ -88,6 +79,17 @@ export function createCloudLandmarkHandler({
       artDirection: direction,
       detector,
       createdAt: now(),
+      claimAttempt: async (attempt) => claims.claimOnce(
+        attempt === 1
+          ? `${root}/landmarks/detection-attempt.json`
+          : `${root}/landmarks/detection-attempt-${attempt}.json`,
+        Buffer.from(`${JSON.stringify({
+          editionId,
+          attempt,
+          panoramaSha256: panorama.outputs.delivery8kSha256,
+          detector: { id: detector.id, model: detector.model },
+        })}\n`),
+      ),
     });
     await artifacts.putImmutable({
       key: `${root}/landmarks/analysis-image.jpg`,

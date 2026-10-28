@@ -1,7 +1,7 @@
 import { constants } from "node:fs";
 import { copyFile, mkdir, open, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { InteractionBaker } from "./run.js";
+import { renderableLandmarkArtifact, type InteractionBaker } from "./run.js";
 import { interactionAnchorSchema, type InteractionAnchor } from "./schema.js";
 
 type CdpResponse = {
@@ -135,6 +135,7 @@ export class BrowserInteractionBaker implements InteractionBaker {
     sourceSplatPath,
     sourceSplatSha256,
   }: Parameters<InteractionBaker["bake"]>[0]): Promise<InteractionAnchor[]> {
+    landmarks = renderableLandmarkArtifact(landmarks);
     await assertSpz(sourceSplatPath);
     const filename = `${landmarks.editionId}-${sourceSplatSha256.slice(0, 12)}.spz`;
     const generatedDirectory = resolve(this.#frontendDirectory, "public", "generated");

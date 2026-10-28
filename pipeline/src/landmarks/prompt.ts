@@ -1,6 +1,6 @@
 import type { ArtDirection } from "../art-direction/schema.js";
 
-export function buildLandmarkDetectionPrompt(artDirection: ArtDirection): string {
+export function buildLandmarkDetectionPrompt(artDirection: ArtDirection, retryInstructions?: string): string {
   const subjects = artDirection.subjects.map((subject) => ({
     storyId: subject.storyId,
     subject: subject.subject,
@@ -19,6 +19,7 @@ export function buildLandmarkDetectionPrompt(artDirection: ArtDirection): string
     "Keep explanations literal and easy to understand: identify the visible feature and explain its connection to the supplied story cues. The viewer adds the associated article title. Distinguish artistic interpretation from details actually reported in the article.",
     "The viewer automatically adds one companion echo beside each primary hotspot using that landmark's existing anchor and bounds. Do not generate contextMarkers for those companions.",
     "Context markers must be distinct from every primary landmark: never place one inside or immediately beside any primary bounding box, and do not reuse the primary subject under another name.",
+    ...(retryInstructions ? [`CORRECTION REQUIRED: ${retryInstructions} Return the full response again, including exactly one landmark for every requested storyId.`] : []),
     "Return only one JSON object with this exact shape: {\"landmarks\":[{\"storyId\":\"...\",\"label\":\"...\",\"boundingBox\":{\"xMin\":0,\"yMin\":0,\"xMax\":1,\"yMax\":1},\"target\":{\"x\":0.5,\"y\":0.5},\"confidence\":0.9,\"visibility\":\"clear\"}],\"contextMarkers\":[{\"storyId\":\"...\",\"label\":\"...\",\"explanation\":\"...\",\"boundingBox\":{\"xMin\":0,\"yMin\":0,\"xMax\":1,\"yMax\":1},\"target\":{\"x\":0.5,\"y\":0.5},\"confidence\":0.9}]}. Always include contextMarkers, using an empty array when no secondary feature qualifies.",
     `Requested landmarks: ${JSON.stringify(subjects)}`,
   ].join("\n\n");

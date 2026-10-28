@@ -166,6 +166,11 @@ test("foundation creates on-demand state, observability, and disabled automation
     .find(([id]) => id.startsWith("ArticleAnalysisHandler"))?.[1] as {
       Properties?: { Environment?: { Variables?: Record<string, string> } };
     } | undefined;
+  const shortlistWorker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
+    .find(([id]) => id.startsWith("EditorialShortlistHandler"))?.[1] as {
+      Properties?: { Timeout?: number };
+    } | undefined;
+  assert.equal(shortlistWorker?.Properties?.Timeout, 900);
   assert.equal(articleWorker?.Properties?.Environment?.Variables?.ARTICLE_ANALYSIS_MODEL, "amazon.nova-lite-v1:0");
   assert.equal(articleWorker?.Properties?.Environment?.Variables?.GOOGLE_SECRET_NAME, undefined);
   for (const prefix of ["EditorialShortlistHandler", "ArtDirectionHandler"]) {
@@ -185,6 +190,7 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /CollectLiveCandidates/);
   assert.match(body, /ConfirmPaidEditorialAnalysis/);
   assert.match(body, /CreateLiveEditorialShortlist/);
+  assert.match(body, /Sandbox\.Timedout/);
   assert.match(body, /ConfirmPaidArticleAnalysis/);
   assert.match(body, /PrepareLiveArticleAnalysis/);
   assert.match(body, /AnalyzeLiveArticles/);
@@ -227,6 +233,8 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /confirmPaidArticleAnalysis/);
   assert.match(body, /confirmPaidArtDirection/);
   assert.match(body, /confirmPaidPanorama/);
+  assert.match(body, /EditorialProviderTransientError/);
+  assert.match(body, /ModelTimeoutException/);
   assert.match(body, /MaxConcurrency\\?":2/);
   assert.match(body, /IsPresent/);
   assert.match(body, /fixtures\/\*/);

@@ -329,7 +329,7 @@ export class WorldEveryDayStack extends Stack {
       memorySize: 512,
       projectRoot: pipelineRoot,
       runtime: lambda.Runtime.NODEJS_24_X,
-      timeout: Duration.seconds(600),
+      timeout: Duration.seconds(900),
     });
     editorialShortlistHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["s3:GetObject", "s3:PutObject"],
@@ -351,6 +351,24 @@ export class WorldEveryDayStack extends Stack {
       payloadResponseOnly: true,
       resultPath: "$.editorial",
       retryOnServiceExceptions: false,
+    });
+    createShortlist.addRetry({
+      backoffRate: 2,
+      errors: [
+        "EditorialProviderTransientError",
+        "ThrottlingException",
+        "ServiceUnavailableException",
+        "InternalServerException",
+        "ModelTimeoutException",
+        "Sandbox.Timedout",
+        "States.Timeout",
+        "Lambda.ServiceException",
+        "Lambda.AWSLambdaException",
+        "Lambda.ClientExecutionTimeoutException",
+        "Lambda.SdkClientException",
+      ],
+      interval: Duration.seconds(10),
+      maxAttempts: 3,
     });
     const prepareArticleAnalysisHandler = new lambdaNodejs.NodejsFunction(this, "PrepareArticleAnalysisHandler", {
       architecture: lambda.Architecture.ARM_64,

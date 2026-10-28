@@ -40,7 +40,15 @@ export function createPublicationManifest({
   const anchors = new Map(interactions.anchors.map((anchor) => [anchor.id, anchor]));
   const detectedLandmarks = new Map(landmarks.landmarks.map((landmark) => [landmark.storyId, landmark]));
   const tones = ["cyan", "amber", "green"] as const;
-  const stories = edition.stories.map((story, index) => {
+  // Keep the edition publishable when a few story subjects are absent from the
+  // generated scene. Only stories with a validated world-space anchor appear
+  // in the public story list; the full selection remains in private artifacts.
+  const renderableStories = edition.stories.filter((story) => anchors.has(story.storyId));
+  if (renderableStories.length === 0) {
+    throw new Error("No selected stories have a validated landmark; refusing to publish a zero-story world");
+  }
+  const renderableStoryIds = new Set(renderableStories.map(({ storyId }) => storyId));
+  const stories = renderableStories.map((story, index) => {
     const subject = subjects.get(story.storyId);
     const anchor = anchors.get(story.storyId);
     const landmark = detectedLandmarks.get(story.storyId);
@@ -61,7 +69,8 @@ export function createPublicationManifest({
       },
     };
   });
-  const storyEchoes = landmarks.contextMarkers.map((marker) => {
+  const storyEchoes = landmarks.contextMarkers.filter((marker) => renderableStoryIds.has(marker.storyId))
+    .filter((marker) => anchors.has(marker.id)).map((marker) => {
     const anchor = anchors.get(marker.id);
     if (!anchor) throw new Error(`Missing story echo mapping for ${marker.id}`);
     return {

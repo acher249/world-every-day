@@ -1,6 +1,6 @@
 import { buildArtDirectionPrompt } from "../art-direction/bedrock.js";
 import { ART_DIRECTION_GENERATION_PROMPT_VERSION, parseArtDirectionProposal, type ArtDirectionProvider } from "../art-direction/generate.js";
-import { buildCandidateEvaluationPrompt, EVALUATION_BATCH_SIZE, MAX_EVALUATION_CANDIDATES, parseAssessment } from "./bedrock-evaluator.js";
+import { buildCandidateEvaluationPrompt, candidateEvaluationResponseSchema, EVALUATION_BATCH_SIZE, MAX_EVALUATION_CANDIDATES, parseAssessment } from "./bedrock-evaluator.js";
 import { EDITORIAL_EVALUATION_PROMPT_VERSION, type CandidateAssessment, type CandidateEvaluator } from "./evaluate.js";
 import { providerUsageSchema, type ProviderUsage } from "../provider-usage.js";
 import { ZodError } from "zod";
@@ -10,7 +10,7 @@ import { analyzedArticleClaimSchema, analyzedVisualDetailSchema, type Discovered
 
 export type JsonCompletionClient = {
   model: string;
-  completeJson(prompt: string, maxTokens: number, temperature: number): Promise<{
+  completeJson(prompt: string, maxTokens: number, temperature: number, responseSchema?: Record<string, unknown>): Promise<{
     text: string;
     usage?: ProviderUsage;
   }>;
@@ -54,8 +54,13 @@ export class JsonCandidateEvaluator implements CandidateEvaluator {
       const prompt = buildCandidateEvaluationPrompt(batch);
       if (prompt.length > 80_000) throw new Error("Candidate evaluation prompt exceeds 80000 characters");
       let batchAssessments: CandidateAssessment[] | undefined;
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
-        const response = await this.client.completeJson(prompt, 8000, 0);
+      let lastIssues: Array<{ path: string; code: string }> = [];
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const retryPrompt = attempt === 1 ? prompt : [
+          `Your previous response failed local validation (${JSON.stringify(lastIssues)}). Correct the output and return the complete assessments array for every requested story. Do not omit, duplicate, or add stories.`,
+          prompt,
+        ].join("\n\n");
+        const response = await this.client.completeJson(retryPrompt, 8000, 0, candidateEvaluationResponseSchema());
         usage.push(response.usage);
         try {
           const parsed = parseModelJson(response.text, "Candidate evaluator") as { assessments?: unknown[] };
@@ -68,14 +73,19 @@ export class JsonCandidateEvaluator implements CandidateEvaluator {
           }
           batchAssessments = parsedAssessments;
           break;
-        } catch {
-          if (attempt === 2) {
-            throw new Error(`Candidate evaluator returned invalid structured assessments after 2 attempts for batch ${Math.floor(start / EVALUATION_BATCH_SIZE) + 1}; requests=${usage.length}`);
+        } catch (error) {
+          if (attempt === 3) {
+            throw new Error(`Candidate evaluator returned invalid structured assessments after 3 attempts for batch ${Math.floor(start / EVALUATION_BATCH_SIZE) + 1}; requests=${usage.length}`);
           }
+          const issues = error instanceof ZodError
+            ? error.issues.slice(0, 8).map(({ path, code }) => ({ path: path.join("."), code }))
+            : [{ path: "assessments", code: "invalid-json-or-coverage" }];
+          lastIssues = issues;
           console.warn(JSON.stringify({
             event: "candidate-evaluation-retry",
             batch: Math.floor(start / EVALUATION_BATCH_SIZE) + 1,
             attempt,
+            issues,
             usage: response.usage,
           }));
         }

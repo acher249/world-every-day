@@ -5,6 +5,7 @@ export type LandmarkDetectionInput = {
   imageBytes: Buffer;
   mimeType: string;
   artDirection: ArtDirection;
+  retryInstructions?: string;
 };
 
 export interface LandmarkDetector {

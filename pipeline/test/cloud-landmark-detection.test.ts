@@ -8,7 +8,7 @@ import { artifactSha256 } from "../src/editorial/select.js";
 import { sha256 } from "../src/panorama/hash.js";
 import type { ArtifactStore } from "../src/storage/artifact-store.js";
 
-test("cloud landmarks are checksum-bound and make one paid detector call", async () => {
+test("cloud landmarks retry an incomplete story map once and reuse the valid immutable result", async () => {
   const direction = artDirectionSchema.parse(JSON.parse(await readFile(
     new URL("../fixtures/demo-art-direction.v1.json", import.meta.url), "utf8",
   )) as unknown);
@@ -57,10 +57,12 @@ test("cloud landmarks are checksum-bound and make one paid detector call", async
     detector: {
       id: "mock-detector",
       model: "mock-model",
-      async detect() {
+      async detect(input) {
         calls += 1;
+        if (calls === 2) assert.match(input.retryInstructions ?? "", /missing=/);
+        const subjects = calls === 1 ? direction.subjects.slice(0, -2) : direction.subjects;
         return {
-          landmarks: direction.subjects.map((subject, index) => ({
+          landmarks: subjects.map((subject, index) => ({
             storyId: subject.storyId,
             label: subject.subject,
             confidence: 0.9,
@@ -76,7 +78,9 @@ test("cloud landmarks are checksum-bound and make one paid detector call", async
   const input = { editionId, confirmPaidLandmarks: true };
   assert.equal((await handler(input)).status, "created");
   assert.equal((await handler(input)).status, "reused");
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
+  assert.ok(claims.has(`${root}/landmarks/detection-attempt.json`));
+  assert.ok(claims.has(`${root}/landmarks/detection-attempt-2.json`));
   assert.ok(records.has(`${root}/landmarks/analysis-image.jpg`));
   await assert.rejects(handler({ editionId }), /confirmPaidLandmarks/);
 });

@@ -79,6 +79,85 @@ test("landmark detection creates a provenance-bearing 2:1 artifact", async () =>
   assert.equal(artifact.contextMarkers[0].id, `${artDirection.subjects[0].storyId}-echo`);
 });
 
+test("not-found detections trigger a bounded correction retry and recover visible subjects", async () => {
+  const artDirection = await readArtDirection();
+  const imageBytes = await sharp({
+    create: { width: 16, height: 8, channels: 3, background: "#234b4b" },
+  }).png().toBuffer();
+  let calls = 0;
+  let claims = 0;
+  const retryPrompts: string[] = [];
+  const detector: LandmarkDetector = {
+    id: "mock-vision",
+    model: "mock-v1",
+    async detect({ retryInstructions }) {
+      calls += 1;
+      if (retryInstructions) retryPrompts.push(retryInstructions);
+      return {
+        landmarks: artDirection.subjects.map((subject) => ({
+          storyId: subject.storyId,
+          label: subject.subject,
+          boundingBox: calls === 1 ? { xMin: 0, yMin: 0, xMax: 0, yMax: 0 } : { xMin: 0.2, yMin: 0.2, xMax: 0.4, yMax: 0.4 },
+          target: calls === 1 ? { x: 0, y: 0 } : { x: 0.3, y: 0.3 },
+          confidence: calls === 1 ? 0 : 0.9,
+          visibility: calls === 1 ? "not-found" as const : "clear" as const,
+        })),
+        contextMarkers: [],
+      };
+    },
+  };
+  const artifact = await detectLandmarks({
+    editionId: artDirection.editionId,
+    imageBytes,
+    mimeType: "image/png",
+    artDirection,
+    detector,
+    claimAttempt: async () => { claims += 1; return true; },
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(claims, 2);
+  assert.ok(retryPrompts[0]?.includes("not-found"));
+  assert.ok(artifact.landmarks.every(({ visibility }) => visibility === "clear"));
+});
+
+test("after three valid not-found responses, preserves diagnostics for graceful degradation", async () => {
+  const artDirection = await readArtDirection();
+  const imageBytes = await sharp({
+    create: { width: 16, height: 8, channels: 3, background: "#234b4b" },
+  }).png().toBuffer();
+  let calls = 0;
+  const detector: LandmarkDetector = {
+    id: "mock-vision",
+    model: "mock-v1",
+    async detect() {
+      calls += 1;
+      return {
+        landmarks: artDirection.subjects.map((subject) => ({
+          storyId: subject.storyId,
+          label: subject.subject,
+          boundingBox: { xMin: 0, yMin: 0, xMax: 0, yMax: 0 },
+          target: { x: 0, y: 0 },
+          confidence: 0,
+          visibility: "not-found" as const,
+        })),
+        contextMarkers: [],
+      };
+    },
+  };
+  const artifact = await detectLandmarks({
+    editionId: artDirection.editionId,
+    imageBytes,
+    mimeType: "image/png",
+    artDirection,
+    detector,
+    claimAttempt: async () => true,
+  });
+
+  assert.equal(calls, 3);
+  assert.ok(artifact.landmarks.every(({ visibility }) => visibility === "not-found"));
+});
+
 test("a visible landmark target must be inside its bounding box", () => {
   assert.throws(() => parseLandmarkDetectionResponse({
     landmarks: [{

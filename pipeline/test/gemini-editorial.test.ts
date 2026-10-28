@@ -67,6 +67,39 @@ test("Gemini JSON requests use bounded output and do not enable tools or caching
   }]);
 });
 
+test("Gemini maps provider 5xx responses to a retryable pipeline error", async () => {
+  const client = new GeminiJsonClient({ apiKey: "test-key", model: "gemini-3.8-flash" }, {
+    client: {
+      async generateContent() { throw Object.assign(new Error("provider detail"), { status: 503 }); },
+    } as unknown as Pick<GoogleGenAI["models"], "generateContent">,
+  });
+  await assert.rejects(client.completeJson("input", 100, 0), (error: unknown) =>
+    error instanceof Error && error.name === "EditorialProviderTransientError" && !error.message.includes("provider detail"));
+});
+
+test("Gemini candidate evaluation supplies a structural response schema and validates exact coverage locally", async () => {
+  const requests: unknown[] = [];
+  const fixture = candidateSetSchema.parse(JSON.parse(await readFile(
+    new URL("../fixtures/candidate-set.v1.json", import.meta.url), "utf8",
+  )));
+  await new GeminiCandidateEvaluator(clientReturning({ assessments: [
+    {
+      storyId: fixture.candidates[0]!.id,
+      eventKey: "farm-trial",
+      classification: { topic: "climate", geography: "global", organization: "Example" },
+      eligibility: { eligible: true, reasons: [] },
+      scores: { credibility: 0.9, constructiveSignificance: 0.8, publicRelevance: 0.7, novelty: 0.6, visualPotential: 0.8 },
+      rationales: { credibility: "Clear source.", constructiveSignificance: "Useful progress.", publicRelevance: "Broad relevance.", novelty: "New result.", visualPotential: "Visible subject." },
+    },
+  ] }, requests)).evaluate([fixture.candidates[0]!]);
+  const config = (requests[0] as { config: Record<string, unknown> }).config;
+  const responseSchema = config.responseSchema as { properties: { assessments: { type: string; items: { required: string[]; properties: Record<string, unknown> } } } };
+  assert.equal(responseSchema.properties.assessments.type, "array");
+  assert.ok(responseSchema.properties.assessments.items.required.includes("storyId"));
+  assert.equal("minItems" in responseSchema.properties.assessments, false);
+  assert.equal("minimum" in (responseSchema.properties.assessments.items.properties.scores as object), false);
+});
+
 test("cloud editorial key is read from Secrets Manager only for Gemini", async () => {
   const secrets = { send: async () => ({ SecretString: '{"GOOGLE_AI_API_KEY":"test-key"}' }) } as never;
   const result = await cloudTextEnvironment({ EDITORIAL_PROVIDER: "google-gemini", GOOGLE_SECRET_NAME: "test-secret" }, secrets);
@@ -95,7 +128,7 @@ test("Gemini editorial adapters validate assessments, article evidence and art d
   const evaluated = await new GeminiCandidateEvaluator(clientReturning({ assessments: [assessment] })).evaluate([story]);
   assert.equal(evaluated.assessments[0]?.storyId, story.id);
   assert.equal(evaluated.usage?.totalUnits, 30);
-  await assert.rejects(new GeminiCandidateEvaluator(clientReturning({ assessments: [] })).evaluate([story]), /invalid structured assessments after 2 attempts/);
+  await assert.rejects(new GeminiCandidateEvaluator(clientReturning({ assessments: [] })).evaluate([story]), /invalid structured assessments after 3 attempts/);
 
   let attempts = 0;
   const recovered = await new GeminiCandidateEvaluator(new GeminiJsonClient({

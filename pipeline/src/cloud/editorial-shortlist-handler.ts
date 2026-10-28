@@ -12,6 +12,8 @@ import {
   createEditorialShortlist,
 } from "../editorial/select.js";
 import { candidateEvaluationSetSchema, editorialShortlistSchema } from "../editorial/schema.js";
+import { parseAssessment } from "../editorial/bedrock-evaluator.js";
+import { providerUsageSchema, type ProviderUsage } from "../provider-usage.js";
 import { candidateSetSchema } from "../sources/schema.js";
 import { assertConfiguredCandidates, parseSourceConfiguration, type SourceConfiguration } from "../sources/config.js";
 import type { ArtifactStore } from "../storage/artifact-store.js";
@@ -66,17 +68,79 @@ export function createEditorialShortlistHandler({
       });
       const ids = new Set(reusable.map(({ id }) => id));
       const pending = stories.filter(({ id }) => !ids.has(id));
-      const assessments = reusable.map(({ id }) => cached.get(id)!.evaluation);
+      const assessments = reusable.map(({ id }) => {
+        const { scores, ...assessment } = cached.get(id)!.evaluation;
+        const { recency: _recency, ...modelScores } = scores;
+        return { ...assessment, scores: modelScores };
+      });
       let usage: Awaited<ReturnType<CandidateEvaluator["evaluate"]>>["usage"];
       for (let offset = 0; offset < pending.length; offset += MAX_EVALUATION_CANDIDATES) {
         const result = await evaluator.evaluate(pending.slice(offset, offset + MAX_EVALUATION_CANDIDATES));
-        assessments.push(...result.assessments.map((assessment) => ({ ...assessment, scores: { ...assessment.scores, recency: 0 } })));
+        assessments.push(...result.assessments);
         if (result.usage) usage = usage ? { ...result.usage, requestCount: usage.requestCount + result.usage.requestCount,
           inputUnits: usage.inputUnits === undefined || result.usage.inputUnits === undefined ? undefined : usage.inputUnits + result.usage.inputUnits, outputUnits: usage.outputUnits === undefined || result.usage.outputUnits === undefined ? undefined : usage.outputUnits + result.usage.outputUnits,
           totalUnits: usage.totalUnits === undefined || result.usage.totalUnits === undefined ? undefined : usage.totalUnits + result.usage.totalUnits } : result.usage;
       }
       return { assessments, usage };
     } } : evaluator;
+    const runSignature = artifactSha256({
+      candidateSetSha256: candidateSetSha256(candidates),
+      provider: evaluator.provider,
+      model: evaluator.model,
+      promptVersion: evaluator.promptVersion,
+    });
+    const checkpointedEvaluator: CandidateEvaluator = {
+      ...effectiveEvaluator,
+      async evaluate(stories) {
+        const assessments: Awaited<ReturnType<CandidateEvaluator["evaluate"]>>["assessments"] = [];
+        const usageParts: ProviderUsage[] = [];
+        for (let offset = 0; offset < stories.length; offset += 10) {
+          const batch = stories.slice(offset, offset + 10);
+          const storyIds = batch.map(({ id }) => id);
+          const batchHash = artifactSha256({ runSignature, storyIds });
+          const key = `${root}/editorial/evaluation-batches/${runSignature}/${batchHash}.json`;
+          const existing = await artifacts.read(key);
+          if (existing) {
+            const checkpoint = JSON.parse(Buffer.from(existing).toString("utf8")) as Record<string, unknown>;
+            if (checkpoint.schemaVersion !== "1.0.0" || checkpoint.artifactType !== "candidate-evaluation-batch" ||
+                checkpoint.runSignature !== runSignature || checkpoint.provider !== evaluator.provider ||
+                checkpoint.model !== evaluator.model || checkpoint.promptVersion !== evaluator.promptVersion ||
+                JSON.stringify(checkpoint.storyIds) !== JSON.stringify(storyIds) || !Array.isArray(checkpoint.assessments)) {
+              throw new Error("Editorial assessment checkpoint is invalid; start a new edition");
+            }
+            const restored = checkpoint.assessments.map(parseAssessment);
+            assertAssessmentCoverage(restored, batch);
+            assessments.push(...restored);
+            if (checkpoint.usage !== undefined) usageParts.push(providerUsageSchema.parse(checkpoint.usage));
+            continue;
+          }
+
+          const result = await effectiveEvaluator.evaluate(batch);
+          const validated = result.assessments.map(parseAssessment);
+          assertAssessmentCoverage(validated, batch);
+          const ordered = batch.map(({ id }) => validated.find(({ storyId }) => storyId === id)!);
+          await artifacts.putImmutable({
+            key,
+            contentType: "application/json",
+            bytes: Buffer.from(`${JSON.stringify({
+              schemaVersion: "1.0.0",
+              artifactType: "candidate-evaluation-batch",
+              runSignature,
+              provider: evaluator.provider,
+              model: evaluator.model,
+              promptVersion: evaluator.promptVersion,
+              storyIds,
+              assessments: ordered,
+              ...(result.usage ? { usage: result.usage } : {}),
+            }, null, 2)}\n`),
+            metadata: { editionId, runSignature },
+          });
+          assessments.push(...ordered);
+          if (result.usage) usageParts.push(result.usage);
+        }
+        return { assessments, usage: aggregateProviderUsage(usageParts) };
+      },
+    };
     onProgress("candidates-ready");
     if (candidates.candidates.length === 0 || candidates.candidates.length > (snapshot ? 200 : MAX_EVALUATION_CANDIDATES)) {
       throw new Error(`Editorial evaluation requires 1–${MAX_EVALUATION_CANDIDATES} candidates`);
@@ -89,7 +153,7 @@ export function createEditorialShortlistHandler({
           candidateSet: candidates,
           createdAt: now(),
           editionId,
-          evaluator: effectiveEvaluator,
+          evaluator: checkpointedEvaluator,
         });
     if (evaluations.editionId !== editionId ||
         evaluations.candidateSetSha256 !== candidateSetSha256(candidates) ||
@@ -148,6 +212,29 @@ export function createEditorialShortlistHandler({
       shortlistKey,
     };
   };
+}
+
+function assertAssessmentCoverage(
+  assessments: Awaited<ReturnType<CandidateEvaluator["evaluate"]>>["assessments"],
+  candidates: Array<{ id: string }>,
+): void {
+  const expected = new Set(candidates.map(({ id }) => id));
+  if (assessments.length !== candidates.length || assessments.some(({ storyId }) => !expected.delete(storyId)) || expected.size) {
+    throw new Error("Candidate evaluator did not return one valid assessment per story");
+  }
+}
+
+function aggregateProviderUsage(values: ProviderUsage[]): ProviderUsage | undefined {
+  if (values.length === 0) return undefined;
+  const reported = values.every(({ providerReported }) => providerReported);
+  return providerUsageSchema.parse({
+    requestCount: values.reduce((sum, value) => sum + value.requestCount, 0),
+    unit: "tokens",
+    providerReported: reported,
+    inputUnits: reported ? values.reduce((sum, value) => sum + (value.inputUnits ?? 0), 0) : undefined,
+    outputUnits: reported ? values.reduce((sum, value) => sum + (value.outputUnits ?? 0), 0) : undefined,
+    totalUnits: reported ? values.reduce((sum, value) => sum + (value.totalUnits ?? 0), 0) : undefined,
+  });
 }
 
 export async function main(event: unknown) {

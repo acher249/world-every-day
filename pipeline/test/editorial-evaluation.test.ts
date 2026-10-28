@@ -140,3 +140,22 @@ test("Bedrock candidate evaluation pins Amazon Nova, batches metadata, and recor
   assert.equal(result.usage.requestCount, 2);
   assert.equal(result.usage.totalUnits, 300);
 });
+
+test("Bedrock candidate evaluation retries a malformed batch and reports all attempts", async () => {
+  const candidate = candidates().candidates[0]!;
+  let calls = 0;
+  const client = {
+    async send(command: ConverseCommand) {
+      calls += 1;
+      return {
+        output: { message: { content: [{ text: calls === 1 ? "{broken" : JSON.stringify({ assessments: [assessment(candidate.id)] }) }] } },
+        usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+      };
+    },
+  } as unknown as BedrockRuntimeClient;
+  const result = await new BedrockCandidateEvaluator({ client }).evaluate([candidate]);
+  assert.equal(calls, 2);
+  assert.equal(result.assessments[0]?.storyId, candidate.id);
+  assert.equal(result.usage.requestCount, 2);
+  assert.equal(result.usage.totalUnits, 30);
+});

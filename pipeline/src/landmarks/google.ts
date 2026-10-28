@@ -21,7 +21,7 @@ export class GoogleLandmarkDetector implements LandmarkDetector {
       contents: [{
         role: "user",
         parts: [
-          { text: buildLandmarkDetectionPrompt(input.artDirection) },
+          { text: buildLandmarkDetectionPrompt(input.artDirection, input.retryInstructions) },
           { inlineData: { mimeType: input.mimeType, data: input.imageBytes.toString("base64") } },
         ],
       }],

@@ -5,20 +5,21 @@ import type { AddressInfo } from "node:net";
 import chromium from "@sparticuz/chromium";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
-import type { InteractionBaker } from "./run.js";
+import { renderableLandmarkArtifact, type InteractionBaker } from "./run.js";
 import { interactionAnchorSchema } from "./schema.js";
 
 const MAX_SPLAT_BYTES = 512 * 1024 * 1024;
 
 function browserTargets(landmarks: Parameters<InteractionBaker["bake"]>[0]["landmarks"]) {
+  const renderable = renderableLandmarkArtifact(landmarks);
   return [
-    ...landmarks.landmarks.map((landmark) => ({
+    ...renderable.landmarks.map((landmark) => ({
       boundingBox: landmark.boundingBox,
       id: landmark.storyId,
       x: landmark.target.x,
       y: landmark.target.y,
     })),
-    ...landmarks.contextMarkers.map((marker) => ({
+    ...renderable.contextMarkers.map((marker) => ({
       boundingBox: marker.boundingBox,
       id: marker.id,
       storyId: marker.storyId,

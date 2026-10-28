@@ -27,15 +27,28 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
     createdAt: "2026-10-15T17:00:00.000Z",
     sourceImage: { sha256: imageHash, width: 64, height: 32, projection: "equirectangular" },
     provider: { id: "mock", model: "mock" },
-    landmarks: [{
-      storyId: "story-one",
-      label: "Test landmark",
-      boundingBox: { xMin: 0.1, yMin: 0.4, xMax: 0.2, yMax: 0.5 },
-      target: { x: 0.15, y: 0.45 },
-      confidence: 0.9,
-      visibility: "clear",
-    }],
-    contextMarkers: [],
+    landmarks: [
+      {
+        storyId: "story-one",
+        label: "Test landmark",
+        boundingBox: { xMin: 0.1, yMin: 0.4, xMax: 0.2, yMax: 0.5 },
+        target: { x: 0.15, y: 0.45 },
+        confidence: 0.9,
+        visibility: "clear",
+      },
+      {
+        storyId: "story-two",
+        label: "Absent landmark",
+        boundingBox: { xMin: 0, yMin: 0, xMax: 0, yMax: 0 },
+        target: { x: 0, y: 0 },
+        confidence: 0,
+        visibility: "not-found",
+      },
+    ],
+    contextMarkers: [
+      { id: "story-one-echo", storyId: "story-one", label: "Path", explanation: "Visible path.", boundingBox: { xMin: 0.3, yMin: 0.4, xMax: 0.4, yMax: 0.5 }, target: { x: 0.35, y: 0.45 }, confidence: 0.9 },
+      { id: "story-two-echo", storyId: "story-two", label: "Marker", explanation: "Secondary feature.", boundingBox: { xMin: 0.5, yMin: 0.4, xMax: 0.6, yMax: 0.5 }, target: { x: 0.55, y: 0.45 }, confidence: 0.9 },
+    ],
   })));
   records.set(`${root}/world/generated-world.json`, Buffer.from(JSON.stringify({
     schemaVersion: "1.0.0",
@@ -65,11 +78,20 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
       async bake({ landmarks, sourceSplatSha256 }) {
         calls += 1;
         assert.equal(sourceSplatSha256, worldHash);
-        return landmarks.landmarks.map((landmark) => ({
-          id: landmark.storyId,
-          imageTarget: landmark.target,
-          worldPosition: { x: 1, y: 2, z: 3 },
-        }));
+        assert.deepEqual(landmarks.landmarks.map(({ storyId }) => storyId), ["story-one"]);
+        assert.deepEqual(landmarks.contextMarkers.map(({ id }) => id), ["story-one-echo"]);
+        return [
+          ...landmarks.landmarks.map((landmark) => ({
+            id: landmark.storyId,
+            imageTarget: landmark.target,
+            worldPosition: { x: 1, y: 2, z: 3 },
+          })),
+          ...landmarks.contextMarkers.map((marker) => ({
+            id: marker.id,
+            imageTarget: marker.target,
+            worldPosition: { x: 2, y: 3, z: 4 },
+          })),
+        ];
       },
     },
   });
@@ -77,6 +99,8 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
   assert.equal((await handler({ editionId })).status, "reused");
   assert.equal(calls, 1);
   assert.ok(records.has(`${root}/interactions/interaction-manifest.json`));
+  const manifest = JSON.parse(Buffer.from(records.get(`${root}/interactions/interaction-manifest.json`)!).toString("utf8"));
+  assert.deepEqual(manifest.anchors.map((anchor: { id: string }) => anchor.id), ["story-one", "story-one-echo"]);
   const key = `${root}/interactions/interaction-manifest.json`;
   const stale = JSON.parse(Buffer.from(records.get(key)!).toString("utf8"));
   delete stale.algorithmVersion;
