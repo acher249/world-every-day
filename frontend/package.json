@@ -17,12 +17,13 @@
     "world:local": "node scripts/sync-local-world.mjs"
   },
   "dependencies": {
+    "@sparkjsdev/radix": "^0.0.1",
     "@sparkjsdev/spark": "^2.3.1",
     "motion": "^12.23.24",
-    "next": "^16.0.0",
+    "next": "^16.4.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "three": "^0.180.0",
+    "three": "^0.186.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

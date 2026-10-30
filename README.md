@@ -193,8 +193,9 @@ The main building blocks are:
   creating a 360-degree equirectangular source image from the selected stories.
 - [World Labs Marble](https://www.worldlabs.ai/blog/marble-world-model) for
   turning that image into an explorable 3D world.
-- [Spark.js](https://sparkjs.dev/) and [Three.js](https://threejs.org/) for
-  rendering the generated Gaussian-splat world in the browser.
+- [Radix](https://sparkjs.dev/radix/) and [Three.js](https://threejs.org/) for
+  rendering the generated Gaussian-splat world in the browser. The previous
+  [Spark.js](https://sparkjs.dev/) renderer remains available at `/spark/`.
 - [Next.js](https://nextjs.org/) and [Motion](https://motion.dev/) for the public
   web experience, interactions, and interface animation.
 
@@ -255,12 +256,15 @@ around credentials, paid services, and deployment.
 ### Run the frontend
 
 The current frontend is a full-viewport world explorer built with Next.js,
-TypeScript, Motion, Three.js, and [Spark.js](https://sparkjs.dev/). Its fictional
-sample edition pairs selectable landmarks with slide-out story panels and
-requires no API keys. Without a splat asset, it displays the generated source
-image as a poster; set the optional public
+TypeScript, Motion, Three.js, and [Radix](https://sparkjs.dev/radix/). Its
+fictional sample edition pairs selectable landmarks with slide-out story panels
+and requires no API keys. Without a splat asset, it displays the generated
+source image as a poster; set the optional public
 `NEXT_PUBLIC_WORLD_SPLAT_URL` described in `frontend/.env.example` to activate
 the interactive Gaussian-splat viewer.
+
+Radix selects GPU sorting on WebGPU and CPU sorting on WebGL. The previous
+Spark.js viewer is still available at `/spark/` for comparison.
 
 The explorer's project-site link defaults to `https://aworldeveryday.com`.
 Forks can change it with the public `NEXT_PUBLIC_PROJECT_SITE_URL` build setting.

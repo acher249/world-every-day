@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
-export function FullscreenButton() {
+export function FullscreenButton({ children }: { children?: ReactNode }) {
   const [available, setAvailable] = useState(false);
   const [active, setActive] = useState(false);
   const [error, setError] = useState("");
@@ -13,11 +14,11 @@ export function FullscreenButton() {
     document.addEventListener("fullscreenchange", update);
     return () => document.removeEventListener("fullscreenchange", update);
   }, []);
-  if (!available) return null;
   return (
     <div className="fullscreen-control">
       {error && <span role="status">{error}</span>}
-      <button
+      {children}
+      {available && <button
         className="hud-button"
         type="button"
         aria-label={active ? "Exit fullscreen" : "Enter fullscreen"}
@@ -36,7 +37,7 @@ export function FullscreenButton() {
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d={active ? "M3 9h6V3m6 0v6h6M3 15h6v6m6 0v-6h6" : "M9 3H3v6m12-6h6v6M3 15v6h6m6 0h6v-6"} />
         </svg>
-      </button>
+      </button>}
     </div>
   );
 }

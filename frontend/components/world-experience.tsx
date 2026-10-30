@@ -7,6 +7,7 @@ import {
   type ViewerState,
   type WorldAnchor,
 } from "@/components/spark-world";
+import { RadixWorld } from "@/components/radix-world";
 import { MovementButtons } from "@/components/movement-buttons";
 import { MobileJoystick } from "@/components/mobile-joystick";
 import { FullscreenButton } from "@/components/fullscreen-button";
@@ -75,6 +76,49 @@ function LinkIcon() {
     <svg aria-hidden="true" viewBox="0 0 20 20" width="15" height="15">
       <path d="m8 12 4-4m-5.5 1.5-1 1a3 3 0 0 0 4.25 4.25l2-2a3 3 0 0 0 0-4.25m-3.5 3.5a3 3 0 0 1 0-4.25l2-2a3 3 0 0 1 4.25 4.25l-1 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function GitHubMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+      <path d="M12 .297a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.23c-3.34.73-4.04-1.42-4.04-1.42-.55-1.39-1.33-1.76-1.33-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.23 1.84 1.23 1.07 1.83 2.8 1.3 3.49.99.11-.77.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.62-2.8 5.64-5.48 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.57A12 12 0 0 0 12 .297z" />
+    </svg>
+  );
+}
+
+function XMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+      <path d="M18.901 1.153h3.68L14.54 10.45 24 22.847h-7.406l-5.8-7.584-6.64 7.584H.47l8.59-9.824L.006 1.153H7.6l5.243 6.932zM17.61 20.653h2.039L6.486 3.232H4.298z" />
+    </svg>
+  );
+}
+
+function ProjectSocialLinks({ className }: { className: string }) {
+  return (
+    <div className={className} role="group" aria-label="Project links">
+      <a
+        className="viewer-social-link hud-button"
+        href="https://github.com/acher249/world-every-day"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="A World Every Day on GitHub"
+        title="A World Every Day on GitHub"
+      >
+        <GitHubMark />
+      </a>
+      <a
+        className="viewer-social-link hud-button"
+        href="https://x.com/aworldeveryday"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="A World Every Day on X"
+        title="A World Every Day on X"
+      >
+        <XMark />
+      </a>
+    </div>
   );
 }
 
@@ -348,10 +392,11 @@ function viewerLabel(state: ViewerState) {
   return "Preview world";
 }
 
-export function WorldExperience({ publication, pastWorlds = [], currentEditionId = null }: {
+export function WorldExperience({ publication, pastWorlds = [], currentEditionId = null, renderer = "spark" }: {
   publication: PublicationManifest;
   pastWorlds?: PastWorld[];
   currentEditionId?: string | null;
+  renderer?: "spark" | "radix";
 }) {
   const projectSiteUrl = resolveProjectSiteUrl(process.env.NEXT_PUBLIC_PROJECT_SITE_URL);
   const localSplatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
@@ -575,7 +620,29 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           }
         }}
       >
-        <SparkWorld
+        {renderer === "radix" ? <RadixWorld
+          focusedAnchorId={focusedId}
+          focusCycleRevision={focusCycleRevision}
+          focusResetRevision={focusResetRevision}
+          storyPanelOpen={activeId !== null}
+          storyIndexOpen={indexOpen}
+          mobileMovementRef={mobileMovementRef}
+          posterSrc={publication.world.poster.src}
+          splatUrl={splatUrl}
+          anchors={anchors}
+          onAnchorHover={() => playSound("hover")}
+          onStoryNavigate={(id) => {
+            const story = stories.find((candidate) => candidate.id === id);
+            if (story) selectStory(story, false);
+          }}
+          onMovementChange={setMovementSound}
+          onAnchorSelect={(id) => {
+            const story = stories.find((candidate) => candidate.id === id);
+            if (story) selectStory(story, true);
+          }}
+          onViewerStateChange={setViewerState}
+          alt={publication.world.poster.alt}
+        /> : <SparkWorld
           focusedAnchorId={focusedId}
           focusCycleRevision={focusCycleRevision}
           focusResetRevision={focusResetRevision}
@@ -598,7 +665,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           }}
           onViewerStateChange={setViewerState}
           alt={publication.world.poster.alt}
-        />
+        />}
         <div className="world-wash" aria-hidden="true" />
       </div>
 
@@ -621,6 +688,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           <SoundIcon enabled={soundEnabled} />
           <span>Sound {soundEnabled ? "on" : "off"}</span>
         </button>
+        <ProjectSocialLinks className="viewer-social-links viewer-social-links-mobile" />
       </motion.div>
 
       <header className="viewer-header">
@@ -719,6 +787,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.45, delay: 0.16, ease }}
         >
+          <ProjectSocialLinks className="viewer-social-links viewer-social-links-desktop" />
           <div className="viewer-status" data-state={viewerState}>
             <span aria-hidden="true" />
             <AnimatePresence mode="wait" initial={false}>
@@ -828,7 +897,16 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         </motion.div>
       )}
 
-      <FullscreenButton />
+      <FullscreenButton>
+        <a
+          className="spark-credit"
+          href="https://github.com/sparkjsdev/spark"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Spark.js WebGPU
+        </a>
+      </FullscreenButton>
       {viewerState === "ready" && <MobileJoystick movementRef={mobileMovementRef} onMove={dismissPreviewTitle} />}
 
       {(indexOpen || activeStory) && (

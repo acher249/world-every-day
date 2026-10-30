@@ -14,6 +14,25 @@ const permissiveLicenses = new Set([
 
 const reviewedExceptions = [
   {
+    packagePattern: /^argparse$/,
+    version: "2.0.1",
+    licenses: new Set(["Python-2.0"]),
+    reason: "Permissive Python Software Foundation/BeOpen license; upstream license retained",
+  },
+  {
+    packagePattern: /^opener$/,
+    version: "1.5.2",
+    licenses: new Set(["(WTFPL OR MIT)"]),
+    reason: "Dual licensed; this project elects the included MIT option",
+  },
+  {
+    packagePattern: /^union$/,
+    version: "0.5.0",
+    licenseOverride: "MIT",
+    licenses: new Set(["MIT"]),
+    reason: "Package metadata omits a license; included LICENSE file is MIT",
+  },
+  {
     packagePattern: /^@img\/sharp-(libvips-.+|wasm32|win32-.+)$/,
     licenses: new Set([
       "LGPL-3.0-or-later",
@@ -37,10 +56,11 @@ function packageNameFromPath(packagePath) {
   return index === -1 ? packagePath : packagePath.slice(index + marker.length);
 }
 
-function isReviewedException(name, license) {
-  return reviewedExceptions.some(
-    (exception) =>
-      exception.packagePattern.test(name) && exception.licenses.has(license),
+function getReviewedException(name, metadata) {
+  return reviewedExceptions.find((exception) =>
+    exception.packagePattern.test(name)
+    && (!exception.version || exception.version === metadata.version)
+    && exception.licenses.has(metadata.license ?? exception.licenseOverride),
   );
 }
 
@@ -52,15 +72,16 @@ const packages = Object.entries(lockfile.packages ?? {}).filter(
 
 for (const [packagePath, metadata] of packages) {
   const name = packageNameFromPath(packagePath);
-  const license = metadata.license;
+  const exception = getReviewedException(name, metadata);
+  const license = metadata.license ?? exception?.licenseOverride;
 
   if (!license) {
     failures.push(`${name}@${metadata.version ?? "unknown"}: missing license metadata`);
     continue;
   }
 
-  if (isReviewedException(name, license)) {
-    exceptionsUsed.push(`${name}@${metadata.version}: ${license}`);
+  if (exception) {
+    exceptionsUsed.push(`${name}@${metadata.version}: ${license} (${exception.reason})`);
     continue;
   }
 

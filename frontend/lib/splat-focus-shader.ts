@@ -20,8 +20,8 @@ float focusBlobFalloff(vec3 point) {
   // Distort only the feathered boundary; avoid noise textures and extra passes.
   if (distanceFromCenter > 0.25 && distanceFromCenter < 2.1) {
     float phase = focusWaveTime * 0.32;
-    float wobble = 0.23 * sin(point.x * 2.3 + point.y * 1.4 + phase)
-      + 0.15 * sin(point.y * 2.7 - point.x * 1.1 - phase * 0.7);
+    float wobble = 0.115 * sin(point.x * 2.3 + point.y * 1.4 + phase)
+      + 0.075 * sin(point.y * 2.7 - point.x * 1.1 - phase * 0.7);
     distanceFromCenter /= 1.0 + wobble;
   }
   return smoothstep(0.48, 1.4, distanceFromCenter);

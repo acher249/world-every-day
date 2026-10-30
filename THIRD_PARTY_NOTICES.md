@@ -15,6 +15,7 @@ by its `npm run license:check` command.
 | Motion | Interface animation | MIT | <https://github.com/motiondivision/motion> |
 | Three.js | 3D engine | MIT | <https://github.com/mrdoob/three.js> |
 | Spark.js | Gaussian-splat renderer | MIT | <https://github.com/sparkjsdev/spark> |
+| Radix | Optional WebGPU Gaussian-splat renderer | MIT | <https://github.com/sparkjsdev/radix> |
 | Zod | Artifact validation | MIT | <https://github.com/colinhacks/zod> |
 | fast-xml-parser | RSS and Atom parsing | MIT | <https://github.com/NaturalIntelligence/fast-xml-parser> |
 | node-html-parser | Shortlisted article text extraction | MIT | <https://github.com/taoqf/node-fast-html-parser> |
@@ -45,6 +46,16 @@ receive a release-level notice audit in addition to the package-lock check.
 The marketing site's GitHub link uses the [Primer Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg), copyright GitHub, Inc. It links only to this project's GitHub repository. The mark remains a [GitHub trademark](https://brand.github.com/foundations/logo) and is not the project's logo.
 
 ## Reviewed transitive exceptions
+
+The optional Radix renderer's published dependency metadata includes these
+reviewed packages. The installed license metadata is checked by the frontend
+license script, with narrowly scoped exceptions for the exact versions below:
+
+- `argparse@2.0.1` uses Python-2.0, a permissive license. Retain its upstream
+  license and notices when redistributing the package.
+- `opener@1.5.2` offers WTFPL or MIT. This project elects the included MIT
+  license option.
+- `union@0.5.0` omits license metadata, but its included `LICENSE` file is MIT.
 
 The serverless Chromium package's MIT license covers its packaging code.
 The browser and its bundled components retain their respective licenses.

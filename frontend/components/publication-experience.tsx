@@ -6,7 +6,7 @@ import { WorldExperience } from "@/components/world-experience";
 import { currentEditionPointerSchema, editionDate, resolveEditionRequest, unpublishedCurrentSchema, type PastWorld } from "@/lib/publication-loader";
 import { parsePublicationManifest, type PublicationManifest } from "@/lib/publication-schema";
 
-export function PublicationExperience({ fallback }: { fallback: PublicationManifest }) {
+export function PublicationExperience({ fallback, renderer = "spark" }: { fallback: PublicationManifest; renderer?: "spark" | "radix" }) {
   const [publication, setPublication] = useState<PublicationManifest | null>(null);
   const [pastWorlds, setPastWorlds] = useState<PastWorld[]>([]);
   const [currentEditionId, setCurrentEditionId] = useState<string | null>(null);
@@ -83,5 +83,5 @@ export function PublicationExperience({ fallback }: { fallback: PublicationManif
       </div>
     </div>
   );
-  return <WorldExperience key={publication.edition.id} publication={publication} pastWorlds={pastWorlds} currentEditionId={currentEditionId} />;
+  return <WorldExperience key={`${publication.edition.id}:${renderer}`} publication={publication} pastWorlds={pastWorlds} currentEditionId={currentEditionId} renderer={renderer} />;
 }

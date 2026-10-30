@@ -18,7 +18,7 @@ import {
 } from "@/lib/spatial-navigation";
 import { equirectangularTargetToDirection } from "@/lib/equirectangular-ray";
 import { landmarkRayTargets, landmarkExclusionBounds, selectLandmarkSurface, type LandmarkRayTarget, type SurfaceSample } from "@/lib/landmark-raycast";
-import { cameraRelativeFocusCenter, defaultFocusRadius, focusShapeForLandmark, focusSweepWeight, shouldTravelFocus, type ImageBoundingBox } from "@/lib/focus-region";
+import { cameraRelativeFocusCenter, defaultFocusRadius, focusPositionForLandmark, focusShapeForLandmark, focusSweepWeight, shouldTravelFocus, type ImageBoundingBox } from "@/lib/focus-region";
 import { withFocusSplatShader } from "@/lib/splat-focus-shader";
 import { observeViewerVisibility } from "@/lib/viewer-visibility";
 import { companionOffset } from "@/lib/world-interactions";
@@ -415,6 +415,7 @@ export function SparkWorld({
         spark.apertureAngle = initialDepthOfField.apertureAngle;
         const defaultBubbleRadius = defaultFocusRadius(navigationRadius);
         const landmarkShapes = new Map<string, InstanceType<typeof Vector3>>();
+        const landmarkFocusPositions = new Map<string, InstanceType<typeof Vector3>>();
         const bubbleShape = new Vector3(defaultBubbleRadius * 1.3, defaultBubbleRadius, defaultBubbleRadius * 1.3);
         const bubbleCycleStartShape = bubbleShape.clone();
         let bubbleTargetId: string | null = null;
@@ -580,7 +581,7 @@ export function SparkWorld({
         const focusRotation = new Quaternion();
         const focusPositions = new Map<string, InstanceType<typeof Vector3>>();
         const floatedCameraPosition = new Vector3();
-        const flightSpeed = Math.max(maxDimension * 0.014, 0.08);
+        const flightSpeed = Math.max(maxDimension * 0.014, 0.08) * 0.65;
         const floatPositionAmplitude = Math.min(
           navigationRadius * 0.034,
           maxDimension * 0.0056,
@@ -623,7 +624,10 @@ export function SparkWorld({
               let destination: InstanceType<typeof Vector3> | null = null;
               let destinationRotation: InstanceType<typeof Quaternion> | null = null;
               if (anchor) {
-                focusTarget.set(anchor.worldPosition.x, anchor.worldPosition.y, anchor.worldPosition.z);
+                const targetPoint = anchor.kind === "story"
+                  ? focusPositionForLandmark(anchor.imageTarget, anchor.worldPosition, anchor.imageBoundingBox)
+                  : anchor.worldPosition;
+                focusTarget.set(targetPoint.x, targetPoint.y, targetPoint.z);
                 let focusPosition = focusPositions.get(anchor.id);
                 if (!focusPosition) {
                   try {
@@ -824,7 +828,13 @@ export function SparkWorld({
                 targetShape = new Vector3(shape.x, shape.y, shape.z);
                 landmarkShapes.set(effectAnchor.id, targetShape);
               }
-              bubblePoint.set(effectAnchor.worldPosition.x, effectAnchor.worldPosition.y, effectAnchor.worldPosition.z);
+              let targetFocus = landmarkFocusPositions.get(effectAnchor.id);
+              if (!targetFocus) {
+                const point = focusPositionForLandmark(effectAnchor.imageTarget, effectAnchor.worldPosition, effectAnchor.imageBoundingBox);
+                targetFocus = new Vector3(point.x, point.y, point.z);
+                landmarkFocusPositions.set(effectAnchor.id, targetFocus);
+              }
+              bubblePoint.copy(targetFocus);
               const activateDirectly = directHighlightId === effectAnchor.id;
               if (bubbleCycleActive && effectAnchor.id === bubbleCycleTargetId && focusTransition && !reducedMotionQuery.matches) {
                 const progress = smootherstep(focusTransition.elapsed / focusTransition.duration);
@@ -853,7 +863,7 @@ export function SparkWorld({
               const breathe = reducedMotionQuery.matches ? 1 : 1 + Math.sin(frameTime * 0.0017) * 0.045;
               focusRadiiUniform.value.set(bubbleShape.x * breathe, bubbleShape.y / breathe, bubbleShape.z / breathe);
               focusWaveTimeUniform.value = reducedMotionQuery.matches ? 0 : frameTime * 0.001;
-              focusWaveAmplitudeUniform.value = reducedMotionQuery.matches ? 0 : navigationRadius * 0.055;
+              focusWaveAmplitudeUniform.value = reducedMotionQuery.matches ? 0 : navigationRadius * 0.0275;
             } else {
               bubbleCycleActive = false;
               focusStrengthUniform.value *= reducedMotionQuery.matches ? 0 : Math.exp(-5 * deltaSeconds);
@@ -868,7 +878,7 @@ export function SparkWorld({
             if (focusSweepUniform.value < 0.0001) focusSweepUniform.value = 0;
             if (spark) {
               const anchorDistance = effectAnchor
-                ? camera.position.distanceTo(focalPoint.set(effectAnchor.worldPosition.x, effectAnchor.worldPosition.y, effectAnchor.worldPosition.z))
+                ? camera.position.distanceTo(focalPoint.copy(bubblePoint))
                 : null;
               const target = depthOfFieldTarget(navigationRadius, anchorDistance, !desktopEffects);
               const focusBlend = reducedMotionQuery.matches ? 1 : 1 - Math.exp(-6 * deltaSeconds);
