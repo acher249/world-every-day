@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { WorldExperience } from "@/components/world-experience";
+import { WorldLoadingIndicator } from "@/components/world-loading-indicator";
 import { currentEditionPointerSchema, editionDate, resolveEditionRequest, unpublishedCurrentSchema, type PastWorld } from "@/lib/publication-loader";
 import { parsePublicationManifest, type PublicationManifest } from "@/lib/publication-schema";
 
@@ -77,10 +78,7 @@ export function PublicationExperience({ fallback, renderer = "spark" }: { fallba
 
   if (!publication) return (
     <div className="world-app">
-      <div className="spark-loading" role="status">
-        <span className="spark-loading-dot" aria-hidden="true" />
-        <span>Loading world</span>
-      </div>
+      <WorldLoadingIndicator />
     </div>
   );
   return <WorldExperience key={`${publication.edition.id}:${renderer}`} publication={publication} pastWorlds={pastWorlds} currentEditionId={currentEditionId} renderer={renderer} />;

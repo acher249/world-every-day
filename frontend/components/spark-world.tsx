@@ -22,6 +22,7 @@ import { cameraRelativeFocusCenter, defaultFocusRadius, focusPositionForLandmark
 import { withFocusSplatShader } from "@/lib/splat-focus-shader";
 import { observeViewerVisibility } from "@/lib/viewer-visibility";
 import { companionOffset } from "@/lib/world-interactions";
+import { WorldLoadingIndicator } from "@/components/world-loading-indicator";
 import { depthOfFieldTarget, focusEffectId, focusPanelYaw, hotspotVisualScale, updateProjectionCamera, viewerPixelRatio } from "@/lib/viewer-presentation";
 import {
   boundaryFragmentShader,
@@ -1189,13 +1190,7 @@ export function SparkWorld({
           </span>
         </button>
       ))}
-      {splatUrl && viewerState === "loading" ? (
-        <div className="spark-loading" role="status">
-          <span className="spark-loading-dot" aria-hidden="true" />
-          <span>Loading world</span>
-          {progress === null ? null : <small>{progress}%</small>}
-        </div>
-      ) : null}
+      {splatUrl && <WorldLoadingIndicator progress={progress} visible={viewerState === "loading"} />}
       {viewerState === "error" ? (
         <p className="spark-fallback-note" role="status">
           Spatial view unavailable · Showing today&apos;s image

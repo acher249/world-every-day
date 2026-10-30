@@ -10,6 +10,7 @@ import { companionOffset } from "@/lib/world-interactions";
 import { depthOfFieldTarget, focusPanelYaw, hotspotVisualScale, viewerPixelRatio } from "@/lib/viewer-presentation";
 import { observeViewerVisibility } from "@/lib/viewer-visibility";
 import type { ViewerState, WorldAnchor } from "@/components/spark-world";
+import { WorldLoadingIndicator } from "@/components/world-loading-indicator";
 
 type Props = {
   focusedAnchorId?: string | null;
@@ -94,8 +95,19 @@ export function RadixWorld({
         renderer = await radix.createRenderer({ canvas: canvas!, antialias: false });
         if (cancelled) return;
         const caps = radix.getGpuCaps(renderer);
-        const data = await radix.loadSplats(splatUrl!, { name: splatUrl!.split("/").pop() ?? "world.spz" });
+        const data = await radix.loadSplats(splatUrl!, {
+          name: splatUrl!.split("/").pop() ?? "world.spz",
+          onProgress: (fraction, stage) => {
+            if (cancelled) return;
+            const normalized = Math.max(0, Math.min(1, fraction));
+            const percent = stage === "downloading"
+              ? Math.round(normalized * 70)
+              : Math.round(70 + normalized * 22);
+            setProgress((current) => current === percent ? current : percent);
+          },
+        });
         if (cancelled) return;
+        setProgress(94);
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1000);
@@ -195,6 +207,7 @@ export function RadixWorld({
         let lastFocusedId: string | null = null;
         let lastEffectId: string | null = null;
         let lastPanelSide: "left" | "right" | null = null;
+        let firstFrameRendered = false;
         let lastCycleRevision = cycleRevisionRef.current;
         let lastResetRevision = resetRevisionRef.current;
         let transition: { elapsed: number; duration: number; start: Vector3; end: Vector3; startYaw: number; endYaw: number; startPitch: number; endPitch: number } | null = null;
@@ -521,11 +534,14 @@ export function RadixWorld({
               }
             }
           }
+          if (!firstFrameRendered) {
+            firstFrameRendered = true;
+            setProgress(100);
+            setViewerState("ready");
+            console.info(capsInfo);
+          }
         };
         renderer.setAnimationLoop(renderFrame);
-        setProgress(100);
-        setViewerState("ready");
-        console.info(capsInfo);
         removeListeners.push(observeViewerVisibility(canvas!, (visible) => {
           previousTime = performance.now();
           stopMovement();
@@ -590,7 +606,7 @@ export function RadixWorld({
           <span className="hotspot-label story-echo-label"><small>{anchor.focusStoryId ? "Landmark Echo" : "Story Echo"} · Story {anchor.storyNumber}</small><strong>{anchor.label}</strong><span>{echoDescription(anchor)}</span>{!anchor.focusStoryId && <span className="echo-story-action">Go to story {anchor.storyNumber} →</span>}</span>
         </button>
       ))}
-      {splatUrl && viewerState === "loading" && <div className="spark-loading" role="status"><span className="spark-loading-dot" aria-hidden="true" /><span>Loading world</span>{progress === null ? null : <small>{progress}%</small>}</div>}
+      {splatUrl && <WorldLoadingIndicator progress={progress} visible={viewerState === "loading"} />}
       {viewerState === "error" && <p className="spark-fallback-note" role="status">Spatial view unavailable · Showing today&apos;s image</p>}
       {!splatUrl && <span className="poster-badge">Image preview · Radix ready</span>}
     </div>
