@@ -30,7 +30,7 @@ a { color: inherit; }
 .spark-loading small { min-height: 1em; color: rgba(244, 242, 234, .38); font-size: 8px; letter-spacing: .12em; }
 .spark-loading-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 14px rgba(145, 233, 228, .7); animation: loading-pulse 1.4s ease-in-out infinite; }
 .spark-loading-progress { position: relative; display: block; width: min(210px, calc(100vw - 48px)); height: 2px; overflow: hidden; background: rgba(244, 242, 234, .18); }
-.spark-loading-progress > span { display: block; width: 0; height: 100%; background: var(--cyan); box-shadow: 0 0 12px rgba(145, 233, 228, .65); transition: width .3s ease; }
+.spark-loading-progress > span { display: block; width: 0; height: 100%; background: var(--cyan); box-shadow: 0 0 12px rgba(145, 233, 228, .65); transition: width .65s cubic-bezier(.4, 0, .2, 1); }
 .spark-loading[data-indeterminate="true"] .spark-loading-progress > span { width: 36%; animation: loading-bar-sweep 1.5s ease-in-out infinite; }
 .spark-fallback-note, .poster-badge { position: absolute; z-index: 2; right: 30px; top: 88px; margin: 0; padding: 8px 10px; border: 1px solid var(--line); background: rgba(4, 12, 12, .58); color: var(--muted); backdrop-filter: blur(10px); font-size: 8px; text-transform: uppercase; letter-spacing: .15em; }
 .poster-badge { color: var(--cyan); }

@@ -62,9 +62,10 @@ export function RadixWorld({
   const cycleRevisionRef = useRef(focusCycleRevision);
   const resetRevisionRef = useRef(focusResetRevision);
   const hoveredIdRef = useRef<string | null>(null);
+  const reportedProgressRef = useRef(0);
   const cycleHoverLockedRef = useRef(false);
   const [viewerState, setViewerState] = useState<ViewerState>(splatUrl ? "loading" : "poster");
-  const [progress, setProgress] = useState<number | null>(null);
+  const [progress, setProgress] = useState<number | null>(splatUrl ? 0 : null);
   const [hoverSuppressed, setHoverSuppressed] = useState(false);
   anchorsRef.current = anchors;
   focusedAnchorRef.current = focusedAnchorId;
@@ -91,23 +92,32 @@ export function RadixWorld({
     async function initialize() {
       try {
         setViewerState("loading");
+        setProgress((current) => Math.max(current ?? 0, reportedProgressRef.current));
         const [THREE, TSL, radix] = await Promise.all([import("three"), import("three/tsl"), import("@sparkjsdev/radix")]);
         renderer = await radix.createRenderer({ canvas: canvas!, antialias: false });
         if (cancelled) return;
+        reportedProgressRef.current = Math.max(reportedProgressRef.current, 6);
+        setProgress(reportedProgressRef.current);
         const caps = radix.getGpuCaps(renderer);
         const data = await radix.loadSplats(splatUrl!, {
           name: splatUrl!.split("/").pop() ?? "world.spz",
           onProgress: (fraction, stage) => {
             if (cancelled) return;
             const normalized = Math.max(0, Math.min(1, fraction));
-            const percent = stage === "downloading"
-              ? Math.round(normalized * 70)
-              : Math.round(70 + normalized * 22);
-            setProgress((current) => current === percent ? current : percent);
+            const [start, end] = stage === "downloading" ? [6, 66]
+              : stage === "decoding" ? [66, 91]
+                : stage === "encoding" ? [91, 95]
+                  : [95, 97];
+            reportedProgressRef.current = Math.max(
+              reportedProgressRef.current,
+              Math.round(start + normalized * (end - start)),
+            );
+            setProgress((current) => Math.max(current ?? 0, reportedProgressRef.current));
           },
         });
         if (cancelled) return;
-        setProgress(94);
+        reportedProgressRef.current = Math.max(reportedProgressRef.current, 97);
+        setProgress(reportedProgressRef.current);
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1000);
@@ -475,8 +485,13 @@ export function RadixWorld({
           } else {
             focusTravel = null;
             focusStrengthNode.value *= reducedMotion.matches ? 0 : Math.exp(-5 * delta);
-            focusWaveAmplitudeNode.value = 0;
-            if (focusStrengthNode.value < 0.001) lastEffectId = null;
+            // Keep the wave amplitude active while focusStrength eases down;
+            // clearing it here would make the shader snap off on pointer leave.
+            if (focusStrengthNode.value < 0.001) {
+              focusStrengthNode.value = 0;
+              focusWaveAmplitudeNode.value = 0;
+              lastEffectId = null;
+            }
           }
           const focusDistance = focusedStory && landmarkFocus.has(focusedStory.id) ? camera.position.distanceTo(focusPoint) : null;
           const depth = depthOfFieldTarget(navigationRadius, focusDistance, mobileQuery.matches);
@@ -536,6 +551,7 @@ export function RadixWorld({
           }
           if (!firstFrameRendered) {
             firstFrameRendered = true;
+            reportedProgressRef.current = 100;
             setProgress(100);
             setViewerState("ready");
             console.info(capsInfo);

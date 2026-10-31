@@ -78,7 +78,7 @@ export function PublicationExperience({ fallback, renderer = "spark" }: { fallba
 
   if (!publication) return (
     <div className="world-app">
-      <WorldLoadingIndicator />
+      <WorldLoadingIndicator progress={0} />
     </div>
   );
   return <WorldExperience key={`${publication.edition.id}:${renderer}`} publication={publication} pastWorlds={pastWorlds} currentEditionId={currentEditionId} renderer={renderer} />;
