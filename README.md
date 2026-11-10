@@ -60,8 +60,14 @@ completed stages; it does not publish a website or post to X.
 | Daily schedule, state machines, and recovery | [AWS workflow](docs/AWS_WORKFLOW.md) |
 | Video rendering, music, and archival | [Video generation](docs/VIDEO_GENERATION.md) |
 | App authorization and automated video posts | [X posting](docs/DAILY_X_POSTS.md) |
+| Optional voice guide, local setup, and hosted AWS token broker | [World Guide](docs/WORLD_GUIDE.md) |
 | Infrastructure, domains, and secrets | [Deployment](infra/aws/README.md) |
 | Daily operating estimates and cost drivers | [Costs](docs/COSTS.md) |
+
+World Guide is optional and off by default. The repository includes a CDK
+hosted token broker with Secrets Manager key storage and bounded anonymous
+usage; deployment, provider setup, and the runtime enable switches are separate
+operator actions. See the dedicated [World Guide guide](docs/WORLD_GUIDE.md).
 
 Quiet days can draw from a private library of up to 50 recent, unused eligible stories,
 newest first. The pipeline targets ten stories and can publish with just one.
@@ -135,10 +141,12 @@ an interactive world + historical archive
 
 The reference implementation uses official RSS and Atom feeds for story
 discovery. It does not depend on social feeds or unbounded website collection.
-The default feeds are reviewed for the full pipeline: after shortlisting, a
-linked article may be read ephemerally for analysis. Feeds that cannot support
-that step are excluded from the default, not collected as unusable candidates.
-Source policies still require periodic review; inclusion is not legal clearance.
+Each feed has an explicit access policy. Only sources approved for ephemeral
+article analysis can be shortlisted; discovery-only feeds are excluded from the
+edition. Each selected article must also be successfully fetched and analyzed
+before it can appear in a world. A blocked article is omitted, while other
+accessible stories can continue through the edition. Source policies still
+require periodic review; inclusion is not legal clearance.
 
 Feeds are the starting point, not a limitation of the underlying pattern. Source
 adapters can be added for archives, datasets, APIs, private knowledge bases, or

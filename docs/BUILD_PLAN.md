@@ -11,7 +11,7 @@ This is the current roadmap for A World Every Day, not a deployment log.
 - A full-viewport desktop and mobile explorer with story landmarks, source
   links, past worlds, audio, and bounded camera navigation.
 - A separate static marketing site and a credential-free fictional demo.
-- RSS/Atom discovery from 32 reviewed feeds, bounded editorial selection,
+- RSS/Atom discovery from 31 reviewed feeds, bounded editorial selection,
   ephemeral article analysis, and original summaries with source links.
 - Paid Gemini editorial analysis, with Amazon Bedrock Nova as an optional
   adapter. Neither route is self-hosted; see the [data boundary](DATA_BOUNDARY.md).
@@ -62,9 +62,13 @@ incomplete assets to the current-world pointer.
 
 ## Next phases
 
-The optional [World Guide phase plan](WORLD_GUIDE.md) covers natural-language
-voice navigation, ephemeral research, privacy configuration, and a disabled
-public UI. It is planned work, separate from daily generation and publication.
+The optional [World Guide implementation guide](WORLD_GUIDE.md) documents local
+voice navigation, the CDK-hosted token broker, Secrets Manager setup, runtime
+switches, bounded anonymous usage, on-demand research, and privacy. Hosted
+resources are deployed to the development stack and remain disabled. Hosted
+status and session-token issuance are verified; the runtime switches remain
+off. Live conversation and browser navigation verification remain follow-up
+work.
 
 ### 1. Establish reliable daily editions
 

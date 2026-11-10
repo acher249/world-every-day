@@ -4,7 +4,7 @@ import { createSelectedEdition, selectedEditionSchema } from "../editorial/editi
 import { artifactSha256, candidateSetSha256 } from "../editorial/select.js";
 import { candidateEvaluationSetSchema, editorialShortlistSchema } from "../editorial/schema.js";
 import { parseSourceConfiguration, type SourceConfiguration } from "../sources/config.js";
-import { articleEvidenceSchema, candidateSetSchema } from "../sources/schema.js";
+import { articleEvidenceSchema, candidateSetSchema, type ArticleEvidence } from "../sources/schema.js";
 import type { ArtifactStore } from "../storage/artifact-store.js";
 import { S3ArtifactStore } from "../storage/s3-artifact-store.js";
 
@@ -44,11 +44,13 @@ export function createFinalizeEditionHandler({
       throw new Error("Finalization requires 1–15 shortlisted stories");
     }
 
-    const evidence = await Promise.all(shortlist.selected.map(async ({ storyId }) => {
-      const item = articleEvidenceSchema.parse(await readJson(artifacts, `${root}/editorial/article-evidence/${storyId}.json`));
+    const evidence = (await Promise.all(shortlist.selected.map(async ({ storyId }) => {
+      const bytes = await artifacts.read(`${root}/editorial/article-evidence/${storyId}.json`);
+      if (!bytes) return null;
+      const item = articleEvidenceSchema.parse(JSON.parse(Buffer.from(bytes).toString("utf8")));
       if (item.storyId !== storyId) throw new Error(`Article evidence does not match ${storyId}`);
       return item;
-    }));
+    }))).filter((item): item is ArticleEvidence => item !== null);
     const evidenceById = new Map(evidence.map((item) => [item.storyId, item]));
     const key = `${root}/editorial/selected-edition.json`;
     const existing = await artifacts.read(key);
@@ -74,6 +76,9 @@ export function createFinalizeEditionHandler({
       evaluations,
       shortlist,
     });
+    if (edition.stories.length === 0) {
+      throw new Error("No shortlisted stories had accessible, sufficient article evidence; refusing to generate a world");
+    }
     await artifacts.putImmutable({
       key,
       contentType: "application/json",

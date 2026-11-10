@@ -50,6 +50,7 @@ export class WorldAudio {
   private lastHoverAt = -Infinity;
   private effectsReadyAt = Infinity;
   private enabled = false;
+  private conversationDucked = false;
   private disposed = false;
 
   async enable(): Promise<boolean> {
@@ -65,13 +66,20 @@ export class WorldAudio {
       this.enabled = context.state === "running";
       if (this.enabled) {
         if (this.effectsReadyAt === Infinity) this.effectsReadyAt = context.currentTime + 1.4;
-        this.ambience?.gain.setTargetAtTime(1, context.currentTime, 0.7);
+        this.ambience?.gain.setTargetAtTime(this.conversationDucked ? 0.28 : 1, context.currentTime, 0.7);
         this.startMusic(context);
       }
       return this.enabled;
     } catch {
       return false;
     }
+  }
+
+  setConversationDucked(ducked: boolean): void {
+    this.conversationDucked = ducked;
+    const context = this.context;
+    if (!this.enabled || !context || context.state !== "running") return;
+    this.ambience?.gain.setTargetAtTime(ducked ? 0.28 : 1, context.currentTime, 0.45);
   }
 
   disable(): void {

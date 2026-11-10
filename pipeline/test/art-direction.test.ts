@@ -42,7 +42,7 @@ test("art direction produces a deterministic scene prompt", async () => {
   assert.match(first, /viewer should need to turn left, right, and behind/i);
   assert.match(first, /exclusive landmark bay/i);
   assert.match(first, /does not need to be circular/i);
-  assert.match(first, /two or three primary landmarks/i);
+  assert.match(first, /do not invent extra landmarks/i);
   assert.match(first, /azimuth 18°/i);
   assert.match(first, /azimuth 342°/i);
 });

@@ -1,3 +1,4 @@
+import { cleanSceneGeometry } from "../panorama/geometry.js";
 import { z } from "zod";
 import { selectedEditionSchema, type SelectedEdition } from "../editorial/edition.js";
 import { artifactSha256 } from "../editorial/select.js";
@@ -9,7 +10,7 @@ import {
   type ArtDirection,
 } from "./schema.js";
 
-export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v7";
+export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v8";
 
 export const defaultArtDirectionConstraints = {
   required: [
@@ -55,7 +56,11 @@ const artDirectionProposalSchema = z.object({
 export type ArtDirectionProposal = z.infer<typeof artDirectionProposalSchema>;
 
 export function parseArtDirectionProposal(input: unknown): ArtDirectionProposal {
-  return artDirectionProposalSchema.parse(input);
+  const proposal = artDirectionProposalSchema.parse(input);
+  const clean = (value: unknown): unknown => typeof value === "string" ? cleanSceneGeometry(value)
+    : Array.isArray(value) ? value.map(clean)
+    : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clean(item)])) : value;
+  return artDirectionProposalSchema.parse(clean(proposal));
 }
 
 export type ArtDirectionProvider = {
@@ -105,7 +110,7 @@ export async function generateArtDirection({
   }
   const storyInputs = assignCompositionRoles(validatedEdition);
   const { proposal: unparsedProposal, usage } = await provider.propose(storyInputs);
-  const proposal = artDirectionProposalSchema.parse(unparsedProposal);
+  const proposal = parseArtDirectionProposal(unparsedProposal);
   const proposalById = new Map(proposal.subjects.map((subject) => [subject.storyId, subject]));
   if (proposalById.size !== proposal.subjects.length) {
     throw new Error("Art-direction provider returned duplicate story ids");

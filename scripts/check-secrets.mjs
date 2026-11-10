@@ -19,6 +19,7 @@ const secretPatterns = [
   ["GitHub token", /\bgh[pousr]_[A-Za-z0-9]{36,255}\b/g],
   ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g],
   ["Stripe live secret", /\bsk_live_[A-Za-z0-9]{16,}\b/g],
+  ["provider API key or token assignment", /^[\t ]*[A-Z][A-Z0-9_]*(?:API_KEY|_TOKEN|_SECRET)[\t ]*[:=][\t ]*["']?[A-Za-z0-9._~+/=%-]{24,}["']?[\t ]*$/gm],
   ["provider credential assignment", /\b(?:GOOGLE_AI_API_KEY|WORLD_LABS_KEY|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN)\s*[:=]\s*["']?[A-Za-z0-9._-]{24,}\b/g],
   ["X credential literal", /\b(?:X_API_KEY(?:_SECRET)?|X_ACCESS_TOKEN(?:_SECRET)?|X_OAUTH2_ACCESS_TOKEN|X_REFRESH_TOKEN|X_CLIENT_SECRET)["']?\s*[:=]\s*["'][A-Za-z0-9._%+-]{24,}["']/g],
   ["X environment credential", /^\s*(?:X_API_KEY(?:_SECRET)?|X_ACCESS_TOKEN(?:_SECRET)?|X_OAUTH2_ACCESS_TOKEN|X_REFRESH_TOKEN|X_CLIENT_SECRET)\s*=\s*[A-Za-z0-9._%+-]{24,}\s*$/gm],

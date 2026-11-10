@@ -184,3 +184,18 @@ test("Bedrock art direction pins Amazon Nova and validates structured output", a
   assert.equal(result.proposal.subjects[0].storyId, stories[0].storyId);
   assert.equal(result.usage.totalUnits, 210);
 });
+
+test("generated art direction removes conflicting geometry before it becomes an artifact", async () => {
+  const provider = fixtureProvider();
+  const propose = provider.propose.bind(provider);
+  provider.propose = async (stories) => {
+    const result = await propose(stories);
+    result.proposal.world.setting = "Sandstone shelves, wetland pools, under a high horizon.";
+    return result;
+  };
+  const result = await generateArtDirection({ edition: edition(), provider });
+  assert.doesNotMatch(result.world.setting, /horizon/);
+  assert.match(result.world.setting, /Sandstone shelves/);
+  assert.match(result.world.setting, /wetland pools/);
+  assert.ok(result.subjects.some((subject) => subject.grounding?.sourceDetails.includes("Grounded physical detail 1")));
+});

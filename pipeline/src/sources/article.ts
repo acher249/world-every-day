@@ -15,6 +15,13 @@ import { canonicalizeSourceUrl } from "./url.js";
 
 export const MAX_ARTICLE_ANALYSIS_CHARACTERS = 40_000;
 
+export class ArticleUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ArticleUnavailableError";
+  }
+}
+
 export type ArticleAnalysis = {
   headline: string;
   summary: string;
@@ -80,9 +87,17 @@ export async function analyzeArticle({
 }): Promise<ArticleEvidence> {
   const resource = await fetcher.fetch(story.canonicalUrl);
   if (!resource.contentType.toLowerCase().includes("text/html")) {
-    throw new Error(`Expected an HTML article; received ${resource.contentType}`);
+    throw new ArticleUnavailableError(`Expected an HTML article; received ${resource.contentType}`);
   }
-  const articleText = extractArticleText(resource.body.toString("utf8"));
+  let articleText: string;
+  try {
+    articleText = extractArticleText(resource.body.toString("utf8"));
+  } catch (error) {
+    if (error instanceof Error && error.message === "No readable article text was found") {
+      throw new ArticleUnavailableError(error.message);
+    }
+    throw error;
+  }
   const analysis = await analyzer.analyze({ articleText, story });
   const claims = analysis.claims
     .map((claim) => analyzedArticleClaimSchema.parse(claim))

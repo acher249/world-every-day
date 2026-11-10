@@ -1,3 +1,5 @@
+import { cleanSceneGeometry } from "./geometry.js";
+
 const PROJECTION_INSTRUCTIONS = `
 CRITICAL: CENTER THE GEOMETRIC HORIZON VERTICALLY AT 50% OF IMAGE HEIGHT.
 Keep the camera level with zero pitch and roll. Check the pixel position of
@@ -20,8 +22,9 @@ The optical axis must be level.
 Place the geometric horizon on a straight
 horizontal line at exactly 50% of the image height. Do not use a high,
 overlooking, aerial, elevated, or downward-looking viewpoint. Do not place the
-horizon on a rule-of-thirds line. The upper half of the spherical panorama is
-the sky hemisphere and the lower half is the ground hemisphere.
+horizon on a rule-of-thirds line. The upper half contains directions above eye level and the lower half contains
+directions below eye level. Mountains, trees, architecture and terrain may cross
+the equator naturally; do not force half the image to be unobstructed sky.
 
 Treat the full panorama width as a circular plan around the standing viewer,
 not as one forward-facing composition. Distribute the story landmarks around
@@ -84,7 +87,7 @@ evenly paced sequence around the full sphere rather than a cluster.
 `.trim();
 
 export function buildPanoramaPrompt(scenePrompt: string): string {
-  const scene = scenePrompt.trim();
+  const scene = cleanSceneGeometry(scenePrompt);
   if (!scene) throw new Error("A non-empty scene prompt is required");
   return `${PROJECTION_INSTRUCTIONS}\n\nScene content:\n${scene}\n\nThe projection and level-horizon requirements above override any conflicting composition language in the scene content.\n\nCRITICAL: CHECK YOUR WORK BEFORE RETURNING THE IMAGE. Inspect the pixel positions: the geometric horizon must align with the horizontal middle row, y = image height / 2, as in a true 2:1 equirectangular panorama. The centered 2:1 crop and the overscan canvas share this same midpoint. Check visible distant level horizons around the full 360-degree view; do not mistake nearby shorelines or mountain ridges for the horizon. If the geometric horizon is clearly too high, too low, or tilted, consider the image a failure and correct it before returning. Preserve varied topography, and do not invent a horizon where it is hidden. Return only the clean panorama, with no guide lines or text.`;
 }

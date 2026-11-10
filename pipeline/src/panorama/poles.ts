@@ -1,3 +1,4 @@
+import { cleanSceneGeometry } from "./geometry.js";
 import sharp, { type OutputInfo } from "sharp";
 
 type Pole = "zenith" | "nadir";
@@ -154,7 +155,7 @@ function estimatePolePatchColorTransform(base: Pixels, patch: Pixels, pole: Pole
 export function buildPoleRepairPrompt(prompt: string) {
   return `Use case: precise-object-edit
 Asset type: masked zenith and nadir repair sheet for a photorealistic 360-degree panorama
-Scene description: ${prompt.trim()}
+Scene description: ${cleanSceneGeometry(prompt)}
 
 Image 1 is a 16:9 two-panel repair sheet with thin black letterbox bars. The left square panel is a rectilinear view looking straight up at the exact zenith. The right square panel is a rectilinear view looking straight down at the exact nadir. In each panel, the solid magenta circle is an explicit inpainting mask. Replace every magenta pixel completely; no magenta may remain. Preserve the exact canvas, panel positions, camera directions, perspective, exposure, color, and all unmasked pixels so both repaired squares can be extracted at their original coordinates.
 

@@ -12,6 +12,8 @@ by its `npm run license:check` command.
 | --- | --- | --- | --- |
 | Next.js | Web framework | MIT | <https://github.com/vercel/next.js> |
 | React / React DOM | UI runtime | MIT | <https://github.com/facebook/react> |
+| @elevenlabs/react | Optional World Guide voice conversation client | MIT | <https://github.com/elevenlabs/packages> |
+| @bufbuild/protobuf | Protobuf runtime used transitively by the ElevenLabs SDK | Apache-2.0 AND BSD-3-Clause | <https://github.com/bufbuild/protobuf-es> |
 | Motion | Interface animation | MIT | <https://github.com/motiondivision/motion> |
 | Three.js | 3D engine | MIT | <https://github.com/mrdoob/three.js> |
 | Spark.js | Gaussian-splat renderer | MIT | <https://github.com/sparkjsdev/spark> |
@@ -45,7 +47,18 @@ receive a release-level notice audit in addition to the package-lock check.
 
 The marketing site's GitHub link uses the [Primer Octicons GitHub mark](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg), copyright GitHub, Inc. It links only to this project's GitHub repository. The mark remains a [GitHub trademark](https://brand.github.com/foundations/logo) and is not the project's logo.
 
+## World Labs mark
+
+The viewer and marketing site use the World Labs vector mark supplied by the
+project maintainer to identify and link to [World Labs](https://www.worldlabs.ai/).
+It remains World Labs branding and is not part of this project's MIT-licensed
+identity.
+
 ## Reviewed transitive exceptions
+
+- `@bufbuild/protobuf@1.10.1` declares Apache-2.0 AND BSD-3-Clause. Both are
+  permissive licenses; the checker exception is limited to this exact package
+  version and expression.
 
 The optional Radix renderer's published dependency metadata includes these
 reviewed packages. The installed license metadata is checked by the frontend
@@ -153,3 +166,8 @@ from [Google Fonts](https://github.com/google/fonts), copyright 2022 The Noto
 Project Authors, under SIL Open Font License 1.1. These provide serif text and
 arrow symbols on Lambda. Their license texts and source/checksum provenance live
 in `frontend/public/capture/fonts/`. They are not fetched at runtime.
+
+The panorama composition reference in `pipeline/assets/panorama/` is original
+project-generated imagery made with Google Gemini/Nano Banana. Its provenance,
+transformation, and service-terms boundary are recorded in that directory's
+README; it is not third-party editorial material or MIT-licensed source code.

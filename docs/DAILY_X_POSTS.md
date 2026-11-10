@@ -104,6 +104,8 @@ Today’s World: <permanent edition URL>
 <one or two complete story headlines>
 
 Learn more: <project URL>
+
+@theworldlabs
 ```
 
 The worker checks public availability and the configured account, validates video

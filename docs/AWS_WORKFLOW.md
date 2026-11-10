@@ -77,6 +77,16 @@ older than 14 days remain in audit artifacts but are not eligible for reuse.
 Run one live daily edition at a time; a collection snapshot does not reserve
 stories against another concurrently running edition.
 
+The article shortlist allows up to 15 candidates for the ten-story edition.
+Fetch and extraction failures are isolated to each story: transient network,
+429, and server errors retry up to three times; permanent HTTP denials are not
+retried. A story without successfully fetched, sufficient article evidence is
+excluded, and the remaining candidates continue. If none have usable evidence,
+the run stops before panorama or world generation. The
+`https://www.noaa.gov/rss.xml` feed is excluded after its linked stories
+returned HTTP 403; NOAA Ocean Service uses a separate analysis-eligible feed
+and host.
+
 ## Schedule and authorization
 
 The schedule uses `cron(30 7 * * ? *)` and `America/Los_Angeles`, so it follows
@@ -142,6 +152,7 @@ delivery receipts as well as the overall status.
 | Failure | Recovery boundary |
 | --- | --- |
 | Discovery or model stage | Inspect inputs and immutable artifacts; reuse completed stages |
+| Article returns 403, is unreadable, or remains unavailable after retries | That story is excluded; other analyzed stories continue. If no story has usable article evidence, finalization stops before paid world generation |
 | Shortlist Lambda timeout | Rerun the same edition; completed ten-story assessment checkpoints are reused |
 | Landmark marked not found or raycast miss | Detection retries missing subjects up to three times; then the unlocated story is omitted from the public edition. Inspect its private detection record and panorama |
 | Uncertain image/world request | Inspect the attempt marker and provider outcome before another paid request |
@@ -186,3 +197,13 @@ See [costs](COSTS.md).
 
 Infrastructure tests and synthesis are local; Docker is required for native
 Lambda packaging. They do not deploy or generate a world.
+
+### Panorama quality retries
+
+`CreateApprovedRawPanoramaSource` generates one candidate per invocation. Only
+`PanoramaCandidateRejected` permits another candidate, with four retries (five
+images total). Each paid generation and assessment has a durable claim; an
+uncertain attempt or invalid review stops for inspection. `ProcessPrivatePanorama`
+checks the processed delivery image before writing its publication-ready manifest.
+See [panorama generation](PANORAMA_GENERATION.md) for thresholds, references,
+recovery artifacts, and cost limits. This is separate from World Labs retries.

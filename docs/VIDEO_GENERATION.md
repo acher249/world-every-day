@@ -30,7 +30,7 @@ See the [deployment guide](../infra/aws/README.md) for that separate operation.
 ```text
 Published world
   → checksum-bound video job
-  → 30 batches × 10 frames (up to 10 concurrent Lambda workers)
+  → 30 batches × 10 frames (up to 6 concurrent Lambda workers)
   → S3 frames and batch receipts
   → assembly Lambda: ambient audio + MP4/WebM + validation
   → archived files and completed video manifest
@@ -46,7 +46,10 @@ concurrent but not fire-and-forget. No fixed 23-minute delay is assumed.
 The production renderer captures the actual explorer at 1280 × 720, including
 hotspots, the story sidebar, focus shader, camera float, and adaptive depth of
 field. It verifies the SPZ checksum, uses pixel ratio one, and waits for sorting
-before reading each frame. CDK archives the static frontend privately; each job
+before reading each frame. Offline capture disables background CPU sorting and
+explicitly awaits and applies the current frame's CPU order on WebGL; WebGPU
+capture waits for its GPU sort. This prevents a delayed sort from changing the
+image partway through a batch. CDK archives the static frontend privately; each job
 pins its build hash so deployments cannot change an in-progress video.
 Bundled OFL-licensed Noto fonts provide serif and symbol fallbacks on Lambda.
 The separate UI-free `/capture/` route remains available for benchmarks.
@@ -80,8 +83,14 @@ The choice is pseudorandom from the edition ID and world checksum and is saved
 in the job and completed manifest. Retries keep the same score; consecutive
 worlds may occasionally choose the same one. Each score has opening/closing
 fades and uses original synthesis, with no third-party audio recordings.
-New jobs use `tour-v3`, including the frozen capture-build hash; archived
-`tour-v1` and `tour-v2` manifests remain readable.
+New jobs use `tour-v16`, including the frozen capture-build hash, a viewer-ready
+gate, and first-story focus before recording begins. Each fresh Chromium batch
+replays the same timeline, including the initial focus transition, before saving
+its frames. The first frame retries at the same camera pose if it is near-black;
+the capture never scans ahead or duplicates a later pose to mask a bad frame.
+The quality check uses Node's built-in PNG decoding and measures all pixels,
+so it also works in Lambda's Linux runtime without UI controls biasing the
+result. Archived `tour-v1` through `tour-v15` manifests remain readable.
 
 The assembly Lambda produces H.264/AAC MP4 for X, VP9/Opus WebM for the archive,
 and a PNG poster. It checks input frame hashes/order, output codecs, 1280 × 720

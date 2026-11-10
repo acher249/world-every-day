@@ -30,11 +30,21 @@ async function sendDailyPost(event: unknown) {
   const client = createXClient(credentials.data, fetch, async (updated) => {
     await secrets.send(new PutSecretValueCommand({ SecretId: process.env.X_SECRET_NAME, SecretString: JSON.stringify(updated) }));
   });
+  let stage = "publication-validation";
   const handler = createDailyPostHandler({
     enabled: true, origin, projectOrigin: process.env.PROJECT_ORIGIN!, expectedAccountId: process.env.X_EXPECTED_ACCOUNT_ID ?? "",
     ...client,
+    async accountId() {
+      stage = "account-validation";
+      return client.accountId();
+    },
+    async post(text, mediaId) {
+      stage = "publish-post";
+      return client.post(text, mediaId);
+    },
     ...(process.env.X_REQUIRE_VIDEO === "true" ? {
       async prepareMedia(editionId: string) {
+        stage = "prepare-video-media";
         const { video } = z.object({ video: jobRefSchema.extend({ status: z.literal("ready") }) }).parse(event);
         if (video.editionId !== editionId) throw new Error("Video edition mismatch");
         const bytes = await store.read(videoManifestKey(video));
@@ -60,6 +70,7 @@ async function sendDailyPost(event: unknown) {
       },
     } : {}),
     async verifyPublication(editionId, key) {
+      stage = "verify-public-publication";
       if (key !== `generated/editions/${editionId}/publication.json` &&
           key !== `generated/editions/${editionId}/publication-public.json`) throw new Error("Unexpected publication key");
       const publicStore = new S3ArtifactStore({ bucket: process.env.PUBLIC_ASSET_BUCKET!, client: s3 });
@@ -78,6 +89,7 @@ async function sendDailyPost(event: unknown) {
       return manifest;
     },
     async claim(editionId, text) {
+      stage = "claim-post-attempt";
       try {
         await s3.send(new PutObjectCommand({ Bucket: bucket, Key: `${recordPrefix}/attempt.json`,
           IfNoneMatch: "*", ContentType: "application/json",
@@ -89,6 +101,7 @@ async function sendDailyPost(event: unknown) {
       }
     },
     async receipt(editionId, postId) {
+      stage = "write-post-receipt";
       await store.putImmutable({ key: `${recordPrefix}/receipt.json`, contentType: "application/json",
         bytes: Buffer.from(JSON.stringify({ editionId, postId })) });
       if (!/^\d{1,30}$/.test(postId)) throw new Error("Invalid X post ID");
@@ -103,7 +116,10 @@ async function sendDailyPost(event: unknown) {
   catch (error) {
     // Preserve only our own sanitized HTTP status, never a provider response body.
     const status = error instanceof XRequestError ? ` (X HTTP ${error.status})` : "";
-    throw new Error(`Daily X post failed${status}; inspect social/x attempt and receipt before retrying`);
+    console.error(JSON.stringify({ event: "daily-x-post-failed", stage,
+      errorName: error instanceof Error ? error.name : "unknown",
+      ...(error instanceof XRequestError ? { xStatus: error.status } : {}) }));
+    throw new Error(`Daily X post failed during ${stage}${status}; inspect social/x attempt and receipt before retrying`);
   }
 }
 

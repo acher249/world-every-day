@@ -50,8 +50,10 @@ guaranteed outcomes.
 - Never commit API keys, credentials, signed URLs, private source content, or a
   populated `.env` file.
 - Never expose a secret through `NEXT_PUBLIC_*` or browser-delivered metadata.
-- Authenticate AWS tooling with a named IAM Identity Center or role-based CLI
-  profile. Never put AWS access keys in a repository environment file.
+- Authenticate AWS tooling with a named AWS CLI profile configured on the
+  operator's machine (for example, `audiobook`). Do not require IAM Identity
+  Center or a role-based profile. Never put AWS access keys in a repository
+  environment file.
 - Add documented placeholders to `.env.example` and validate server-side
   configuration with actionable errors.
 - Do not call paid generation services, publish content, post to social media,

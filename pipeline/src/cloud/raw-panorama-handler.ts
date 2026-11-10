@@ -6,6 +6,9 @@ import { artDirectionSchema } from "../art-direction/schema.js";
 import { selectedEditionSchema } from "../editorial/edition.js";
 import { artifactSha256 } from "../editorial/select.js";
 import { NanoBananaGenerator, type PanoramaGenerator } from "../panorama/generator.js";
+import { createQualityGenerator, loadPanoramaReferences } from "../panorama/quality-generator.js";
+import { createHorizonReviewer, HORIZON_POLICY_VERSION, type HorizonReviewer } from "../panorama/horizon.js";
+import type { ImageReference } from "../panorama/generator.js";
 import { sha256 } from "../panorama/hash.js";
 import { buildPanoramaPrompt } from "../panorama/prompt.js";
 import type { ArtifactStore } from "../storage/artifact-store.js";
@@ -29,6 +32,7 @@ export const sourceImageSchema = z.object({
     artDirectionSha256: z.string().regex(/^[a-f0-9]{64}$/),
     reviewSha256: z.string().regex(/^[a-f0-9]{64}$/),
     promptSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    qualitySha256: z.string().optional(),
   }),
   image: z.object({
     key: z.string().min(1),
@@ -55,11 +59,13 @@ export function createRawPanoramaHandler({
   claims,
   generator,
   model,
+  quality,
 }: {
   artifacts: ArtifactStore;
   claims: GenerationClaimStore;
   generator: PanoramaGenerator;
   model: string;
+  quality?: { reviewer: HorizonReviewer; reviewModel: string; references: ImageReference[] };
 }) {
   if (!model.trim()) throw new Error("NANO_BANANA_MODEL is required");
   return async (rawInput: unknown) => {
@@ -84,6 +90,7 @@ export function createRawPanoramaHandler({
       artDirectionSha256,
       reviewSha256: artifactSha256(review),
       promptSha256,
+      ...(quality ? { qualitySha256: sha256(JSON.stringify({ version: HORIZON_POLICY_VERSION, reviewModel: quality.reviewModel, references: quality.references.map((r) => sha256(r.bytes)) })) } : {}),
     };
     const manifestKey = `${root}/panorama/source-image.json`;
     const existing = await artifacts.read(manifestKey);
@@ -100,14 +107,15 @@ export function createRawPanoramaHandler({
       return { editionId, key: manifestKey, imageKey: manifest.image.key, status: "reused" };
     }
 
-    const claimed = await claims.claimOnce(
+    const claimed = quality || await claims.claimOnce(
       `${root}/panorama/generation-attempt.json`,
       Buffer.from(`${JSON.stringify({ editionId, model, inputs })}\n`),
     );
     if (!claimed) {
       throw new Error("A paid image-generation attempt already exists; inspect it before retrying");
     }
-    const generated = await generator.generate(buildPanoramaPrompt(buildScenePrompt(direction)));
+    const checkedGenerator = quality ? createQualityGenerator({ generator, ...quality, artifacts, claims, root: `${root}/panorama/quality`, model }) : generator;
+    const generated = await checkedGenerator.generate(buildPanoramaPrompt(buildScenePrompt(direction)));
     const mimeType = z.enum(["image/png", "image/jpeg", "image/webp"]).parse(generated.mimeType);
     if (generated.bytes.length === 0 || generated.bytes.length > 64 * 1024 * 1024) {
       throw new Error("Image provider returned an empty or oversized source image");
@@ -146,13 +154,11 @@ export async function main(event: unknown) {
   const model = requiredEnvironment("NANO_BANANA_MODEL");
   const secrets = new SecretsManagerClient({});
   const s3 = new S3Client({});
-  const generator: PanoramaGenerator = {
-    async generate(prompt) {
-      const response = await secrets.send(new GetSecretValueCommand({ SecretId: secretId }));
-      if (!response.SecretString) throw new Error("Google secret must contain a string value");
-      return new NanoBananaGenerator({ apiKey: parseGoogleKey(response.SecretString), model }).generate(prompt);
-    },
-  };
+  const response = await secrets.send(new GetSecretValueCommand({ SecretId: secretId }));
+  if (!response.SecretString) throw new Error("Google secret must contain a string value");
+  const apiKey = parseGoogleKey(response.SecretString);
+  const generator = new NanoBananaGenerator({ apiKey, model });
+  const reviewModel = requiredEnvironment("PANORAMA_REVIEW_MODEL");
   return createRawPanoramaHandler({
     artifacts: new S3ArtifactStore({ bucket, client: s3 }),
     claims: {
@@ -174,5 +180,6 @@ export async function main(event: unknown) {
     },
     generator,
     model,
+    quality: { reviewer: createHorizonReviewer(apiKey, reviewModel), reviewModel, references: await loadPanoramaReferences() },
   })(event);
 }

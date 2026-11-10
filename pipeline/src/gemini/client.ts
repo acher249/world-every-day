@@ -6,14 +6,16 @@ export const DEFAULT_GEMINI_EDITORIAL_MODEL = "gemini-3.8-flash";
 
 export class GeminiJsonClient implements JsonCompletionClient {
   readonly model: string;
+  readonly #timeoutMs: number;
   readonly #client: Pick<GoogleGenAI["models"], "generateContent">;
 
-  constructor({ apiKey, model }: { apiKey: string; model: string }, options: {
+  constructor({ apiKey, model, timeoutMs = 120_000 }: { apiKey: string; model: string; timeoutMs?: number }, options: {
     client?: Pick<GoogleGenAI["models"], "generateContent">;
   } = {}) {
     if (!apiKey.trim()) throw new Error("GOOGLE_AI_API_KEY is required for Gemini editorial analysis");
     if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new Error("GEMINI_EDITORIAL_MODEL must be a Gemini model ID");
     this.model = model;
+    this.#timeoutMs = timeoutMs;
     this.#client = options.client ?? new GoogleGenAI({ apiKey }).models;
   }
 
@@ -28,7 +30,7 @@ export class GeminiJsonClient implements JsonCompletionClient {
           temperature,
           responseMimeType: "application/json",
           ...(responseSchema ? { responseSchema } : {}),
-          httpOptions: { timeout: 120_000, retryOptions: { attempts: 1 } },
+          httpOptions: { timeout: this.#timeoutMs, retryOptions: { attempts: 1 } },
         },
       });
     } catch (error) {

@@ -102,7 +102,7 @@ test("copy fits conservative X length budget even with non-Latin titles", () => 
     .reduce((sum, char) => sum + (char.codePointAt(0)! < 128 ? 1 : 2), 0);
   assert.ok(weighted <= 280);
   assert.ok(text.startsWith(`${manifest.edition.displayDate}\n\nToday’s World: `));
-  assert.ok(text.endsWith("\n\nLearn more: https://example.com/"));
+  assert.ok(text.endsWith("\n\nLearn more: https://example.com/\n\n@theworldlabs"));
 });
 
 test("failed media preparation never claims or sends a post", async () => {

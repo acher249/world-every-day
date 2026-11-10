@@ -10,6 +10,7 @@ import {
   aws_certificatemanager as acm,
   aws_cloudfront as cloudfront,
   aws_cloudfront_origins as origins,
+  aws_apigateway as apigateway,
   aws_cloudwatch as cloudwatch,
   aws_cloudwatch_actions as cloudwatchActions,
   aws_dynamodb as dynamodb,
@@ -22,11 +23,13 @@ import {
   aws_scheduler as scheduler,
   aws_scheduler_targets as schedulerTargets,
   aws_secretsmanager as secretsmanager,
+  aws_ssm as ssm,
   aws_sns as sns,
   aws_sns_subscriptions as subscriptions,
   aws_sqs as sqs,
   aws_stepfunctions as stepfunctions,
   aws_stepfunctions_tasks as tasks,
+  aws_wafv2 as wafv2,
   type StackProps,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
@@ -206,6 +209,137 @@ export class WorldEveryDayStack extends Stack {
       timeout: Duration.seconds(15),
     });
     worldLabsSecret.grantRead(worldLabsAuthProbe);
+
+    const worldGuideTable = new dynamodb.Table(this, "WorldGuideSessionTable", {
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
+      // This table holds only short-lived session context and counters; do not
+      // preserve it in backups or retain it as a stack orphan.
+      removalPolicy: RemovalPolicy.DESTROY,
+      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
+      timeToLiveAttribute: "ttl",
+    });
+    const worldGuideEnabled = new ssm.StringParameter(this, "WorldGuideEnabled", {
+      parameterName: `/world-every-day/${config.environmentName}/world-guide-enabled`,
+      stringValue: "false",
+      description: "Operator kill switch for hosted World Guide sessions",
+    });
+    const worldGuideResearchEnabled = new ssm.StringParameter(this, "WorldGuideResearchEnabled", {
+      parameterName: `/world-every-day/${config.environmentName}/world-guide-research-enabled`,
+      stringValue: "false",
+      description: "Operator switch for on-demand World Guide article research",
+    });
+    const elevenLabsSecret = new secretsmanager.Secret(this, "WorldGuideElevenLabsSecret", {
+      description: "Server-side ElevenLabs API key for the optional World Guide",
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    const worldGuideOrigin = `https://${explorerDomain ?? explorerSite.distribution.domainName}`;
+    const worldGuideApi = new lambdaNodejs.NodejsFunction(this, "WorldGuideApi", {
+      // One small API serves status, session leasing, and bounded article research.
+      // Keep the public surface in one handler so the same validation applies to
+      // every route.
+      architecture: lambda.Architecture.ARM_64,
+      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
+      entry: resolve(pipelineRoot, "src/world-guide/hosted-lambda.ts"),
+      environment: {
+        WORLD_GUIDE_TABLE: worldGuideTable.tableName,
+        WORLD_GUIDE_ENABLED_PARAMETER: worldGuideEnabled.parameterName,
+        WORLD_GUIDE_RESEARCH_PARAMETER: worldGuideResearchEnabled.parameterName,
+        ELEVENLABS_SECRET_NAME: elevenLabsSecret.secretName,
+        GOOGLE_SECRET_NAME: googleSecret.secretName,
+        WORLD_GUIDE_AGENT_ID: config.worldGuideAgentId ?? "",
+        WORLD_GUIDE_DAILY_BUDGET_CENTS: String(config.worldGuideDailyBudgetCents ?? 500),
+        WORLD_GUIDE_SESSION_RESERVATION_CENTS: String(config.worldGuideSessionReservationCents ?? 0),
+        WORLD_GUIDE_ALLOWED_ORIGIN: worldGuideOrigin,
+      },
+      handler: "main",
+      logGroup: new logs.LogGroup(this, "WorldGuideApiLogs", {
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.RETAIN,
+      }),
+      memorySize: 512,
+      projectRoot: pipelineRoot,
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: Duration.seconds(25),
+    });
+    worldGuideApi.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["dynamodb:DeleteItem", "dynamodb:GetItem"],
+      resources: [worldGuideTable.tableArn],
+    }));
+    worldGuideApi.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["dynamodb:PutItem", "dynamodb:UpdateItem"],
+      conditions: {
+        "ForAnyValue:StringEquals": { "dynamodb:EnclosingOperation": ["TransactWriteItems"] },
+      },
+      resources: [worldGuideTable.tableArn],
+    }));
+    elevenLabsSecret.grantRead(worldGuideApi);
+    googleSecret.grantRead(worldGuideApi);
+    worldGuideApi.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["ssm:GetParameter"],
+      resources: [worldGuideEnabled.parameterArn, worldGuideResearchEnabled.parameterArn],
+    }));
+
+    const worldGuideRestApi = new apigateway.RestApi(this, "WorldGuideRestApi", {
+      deployOptions: {
+        methodOptions: {
+          "/status/GET": { throttlingBurstLimit: 20, throttlingRateLimit: 10 },
+          "/session/POST": { throttlingBurstLimit: 20, throttlingRateLimit: 10 },
+          "/session/end/POST": { throttlingBurstLimit: 20, throttlingRateLimit: 10 },
+          "/research/POST": { throttlingBurstLimit: 20, throttlingRateLimit: 10 },
+        },
+        stageName: "prod",
+      },
+      defaultCorsPreflightOptions: {
+        allowHeaders: ["Content-Type"],
+        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowOrigins: [worldGuideOrigin],
+        maxAge: Duration.minutes(10),
+      },
+      deploy: true,
+      endpointConfiguration: { types: [apigateway.EndpointType.REGIONAL] },
+      cloudWatchRole: false,
+    });
+    const worldGuideIntegration = new apigateway.LambdaIntegration(worldGuideApi, {
+      proxy: true,
+      allowTestInvoke: false,
+    });
+    worldGuideRestApi.root.addResource("status").addMethod("GET", worldGuideIntegration);
+    const worldGuideSessionResource = worldGuideRestApi.root.addResource("session");
+    worldGuideSessionResource.addMethod("POST", worldGuideIntegration);
+    worldGuideSessionResource.addResource("end").addMethod("POST", worldGuideIntegration);
+    worldGuideRestApi.root.addResource("research").addMethod("POST", worldGuideIntegration);
+
+    const worldGuideWebAcl = new wafv2.CfnWebACL(this, "WorldGuideWebAcl", {
+      defaultAction: { allow: {} },
+      description: "Rate limit the public World Guide API",
+      name: `world-every-day-${config.environmentName}-world-guide`,
+      rules: [{
+        action: { block: {} },
+        name: "WorldGuideIpRateLimit",
+        priority: 0,
+        statement: {
+          rateBasedStatement: { aggregateKeyType: "IP", limit: 300 },
+        },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: "WorldGuideIpRateLimit",
+          sampledRequestsEnabled: true,
+        },
+      }],
+      scope: "REGIONAL",
+      visibilityConfig: {
+        cloudWatchMetricsEnabled: true,
+        metricName: "WorldGuideWebAcl",
+        sampledRequestsEnabled: true,
+      },
+    });
+    new wafv2.CfnWebACLAssociation(this, "WorldGuideWebAclAssociation", {
+      resourceArn: worldGuideRestApi.deploymentStage.stageArn,
+      webAclArn: worldGuideWebAcl.attrArn,
+    });
     const mockWorkflowHandler = new lambdaNodejs.NodejsFunction(this, "MockWorkflowHandler", {
       architecture: lambda.Architecture.ARM_64,
       bundling: {
@@ -442,6 +576,10 @@ export class WorldEveryDayStack extends Stack {
       payloadResponseOnly: true,
       retryOnServiceExceptions: false,
     });
+    analyzeArticleTask.addCatch(new stepfunctions.Pass(this, "SkipUnavailableLiveArticle"), {
+      errors: ["SourceFetchError", "ArticleUnavailableError"],
+      resultPath: "$.articleAnalysisError",
+    });
     const analyzeArticles = new stepfunctions.Map(this, "AnalyzeLiveArticles", {
       itemsPath: stepfunctions.JsonPath.stringAt("$.articlePreparation.tasks"),
       maxConcurrency: 2,
@@ -514,20 +652,27 @@ export class WorldEveryDayStack extends Stack {
       retryOnServiceExceptions: false,
     });
     const rawPanoramaHandler = new lambdaNodejs.NodejsFunction(this, "RawPanoramaHandler", {
-      architecture: lambda.Architecture.ARM_64,
-      bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
+      architecture: lambda.Architecture.X86_64,
+      bundling: {
+        bundleAwsSDK: true, forceDockerBundling: true, nodeModules: ["sharp"], minify: true, sourceMap: true, target: "node24",
+        commandHooks: {
+          beforeBundling() { return []; }, beforeInstall() { return []; },
+          afterBundling(inputDir, outputDir) { return [`cp -R "${inputDir}/assets" "${outputDir}/assets"`]; },
+        },
+      },
       depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
       entry: resolve(pipelineRoot, "src/cloud/raw-panorama-handler.ts"),
       environment: {
         ARTIFACT_BUCKET: artifacts.bucketName,
         GOOGLE_SECRET_NAME: googleSecret.secretName,
         NANO_BANANA_MODEL: config.nanoBananaModel,
+        PANORAMA_REVIEW_MODEL: config.landmarkVisionModel,
       },
       handler: "main",
-      memorySize: 1024,
+      memorySize: 3008,
       projectRoot: pipelineRoot,
       runtime: lambda.Runtime.NODEJS_24_X,
-      timeout: Duration.minutes(10),
+      timeout: Duration.minutes(15),
     });
     rawPanoramaHandler.addToRolePolicy(new iam.PolicyStatement({
       actions: ["s3:GetObject", "s3:PutObject"],
@@ -549,6 +694,7 @@ export class WorldEveryDayStack extends Stack {
       resultPath: "$.rawPanorama",
       retryOnServiceExceptions: false,
     });
+    generateRawPanorama.addRetry({ errors: ["PanoramaCandidateRejected"], maxAttempts: 4, interval: Duration.seconds(2), backoffRate: 1 });
     const panoramaProcessingHandler = new lambdaNodejs.NodejsFunction(this, "PanoramaProcessingHandler", {
       architecture: lambda.Architecture.X86_64,
       bundling: {
@@ -561,7 +707,7 @@ export class WorldEveryDayStack extends Stack {
       },
       depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
       entry: resolve(pipelineRoot, "src/cloud/panorama-processing-handler.ts"),
-      environment: { ARTIFACT_BUCKET: artifacts.bucketName, GOOGLE_SECRET_NAME: googleSecret.secretName, NANO_BANANA_MODEL: config.nanoBananaModel },
+      environment: { ARTIFACT_BUCKET: artifacts.bucketName, GOOGLE_SECRET_NAME: googleSecret.secretName, NANO_BANANA_MODEL: config.nanoBananaModel, PANORAMA_REVIEW_MODEL: config.landmarkVisionModel },
       ephemeralStorageSize: Size.gibibytes(4),
       handler: "main",
       memorySize: 3008,
@@ -635,6 +781,18 @@ export class WorldEveryDayStack extends Stack {
       payloadResponseOnly: true,
       resultPath: "$.worldGeneration",
       retryOnServiceExceptions: false,
+    });
+    pollWorld.addRetry({
+      backoffRate: 2,
+      errors: [
+        "Lambda.TooManyRequestsException",
+        "Lambda.ServiceException",
+        "Lambda.AWSLambdaException",
+        "Lambda.ClientExecutionTimeoutException",
+        "Lambda.SdkClientException",
+      ],
+      interval: Duration.seconds(10),
+      maxAttempts: 5,
     });
     const waitForWorld = new stepfunctions.Wait(this, "WaitForWorldGeneration", {
       time: stepfunctions.WaitTime.duration(Duration.minutes(1)),
@@ -1349,6 +1507,11 @@ export class WorldEveryDayStack extends Stack {
     });
     new CfnOutput(this, "GoogleSecretName", { value: googleSecret.secretName });
     new CfnOutput(this, "WorldLabsSecretName", { value: worldLabsSecret.secretName });
+    new CfnOutput(this, "WorldGuideApiUrl", { value: worldGuideRestApi.url });
+    new CfnOutput(this, "WorldGuideElevenLabsSecretName", { value: elevenLabsSecret.secretName });
+    new CfnOutput(this, "WorldGuideEnabledParameter", { value: worldGuideEnabled.parameterName });
+    new CfnOutput(this, "WorldGuideResearchEnabledParameter", { value: worldGuideResearchEnabled.parameterName });
+    new CfnOutput(this, "WorldGuideAgentIdConfigured", { value: String(Boolean(config.worldGuideAgentId)) });
     new CfnOutput(this, "WorldLabsAuthProbeFunctionName", {
       value: worldLabsAuthProbe.functionName,
     });

@@ -4,9 +4,10 @@ The reference implementation uses a reviewed allowlist of RSS and Atom feeds.
 We make a good-faith effort to check each source's access and reuse terms,
 robots directives, and request limits before enabling it. A feed or public
 article URL is not blanket permission to use its content. The default list
-contains sources reviewed for bounded, ephemeral article analysis; source text
-is processed in memory and discarded. The pipeline keeps links, checksums, and
-original project summaries, not article copies or verbatim passages.
+contains feeds with explicit, source-specific access policies. Only sources
+approved for bounded, ephemeral article analysis can enter an edition; source
+text is processed in memory and discarded. The pipeline keeps links, checksums,
+and original project summaries, not article copies or verbatim passages.
 Source policies can change, so operators should recheck them periodically.
 
 The current repository code evaluates feed metadata, analyzes permitted article
@@ -17,8 +18,8 @@ still receives an authored visual prompt with story-derived physical details. Se
 
 ## Enabled reference feeds
 
-The reference configuration and AWS development deployment have 32 sources:
-31 RSS feeds and one Atom feed.
+The reference configuration and AWS development deployment have 31 sources:
+30 RSS feeds and one Atom feed.
 They span reporting, research journals, university newsrooms, and public
 institutions. The current mix often favors science, health, and technology;
 editions are curated perspectives, not comprehensive daily news digests.
@@ -31,7 +32,6 @@ editions are curated perspectives, not comprehensive daily news digests.
 | [National Cancer Institute](https://www.cancer.gov/syndication/rss) | Primary | Ephemeral analysis | Cancer research and public health |
 | [FDA press releases](https://www.fda.gov/about-fda/contact-fda/subscribe-podcasts-and-news-feeds) | Primary | Ephemeral analysis | Public health, medical products, and food safety |
 | [NOAA National Ocean Service](https://oceanservice.noaa.gov/rss.html) | Primary | Ephemeral analysis | Oceans, coasts, and conservation |
-| [NOAA News](https://www.noaa.gov/rss-feeds) | Primary | Ephemeral analysis | Climate, weather, oceans, and environmental research |
 | [Yale News](https://news.yale.edu/rss-feeds) | Institutional reporting | Ephemeral analysis, `news.yale.edu` only | Culture, environment, health, and research |
 | [Global Voices](https://globalvoices.org/feed/) | Reporting | Ephemeral analysis | Languages, culture, civic life, and communities |
 | [WHO News](https://www.who.int/rss-feeds/news-english.xml) | Primary | Ephemeral analysis | International public health |
@@ -39,6 +39,7 @@ editions are curated perspectives, not comprehensive daily news digests.
 | [FAO Newsroom](https://www.fao.org/newsroom/en/) | Primary | Ephemeral analysis | Food systems, agriculture, forests, and communities |
 | [European Commission highlighted news](https://commission.europa.eu/news-and-media/highlighted-news_en) | Primary | Ephemeral analysis, `commission.europa.eu` only | European public initiatives and cooperation |
 | [European Commission environment news](https://environment.ec.europa.eu/news_en) | Primary | Ephemeral analysis, `environment.ec.europa.eu` only | Environment, biodiversity, and climate action |
+
 | [GOV.UK news](https://www.gov.uk/search/news-and-communications) | Primary | Ephemeral analysis, `www.gov.uk` only | Public services, health, climate, communities, and research |
 | [CDC Emerging Infectious Diseases](https://wwwnc.cdc.gov/eid/page/rss-feeds) | Primary research | Ephemeral analysis, paced 20 seconds per host | Infectious-disease research and public health |
 | [Harvard Gazette](https://news.harvard.edu/gazette/feed/) | Institutional reporting | Ephemeral analysis | Health, education, culture, and research |
@@ -57,6 +58,10 @@ editions are curated perspectives, not comprehensive daily news digests.
 | [PLOS Neglected Tropical Diseases](https://journals.plos.org/plosntds/) | Primary research | Ephemeral analysis, paced 30 seconds per host | Global infectious-disease research |
 | [PLOS Sustainability and Transformation](https://journals.plos.org/sustainabilitytransformation/) | Primary research | Ephemeral analysis, paced 30 seconds per host | Sustainability research |
 | [PLOS Water](https://journals.plos.org/water/) | Primary research | Ephemeral analysis, paced 30 seconds per host | Water systems and access |
+
+The [NOAA News RSS feed](https://www.noaa.gov/rss-feeds) is excluded from the
+default configuration because linked stories returned HTTP 403 from the
+pipeline. The separate NOAA National Ocean Service feed remains enabled.
 
 The machine-readable allowlist is
 `pipeline/config/source-configuration.initial.v1.json`. Adding or changing a

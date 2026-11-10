@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   SparkWorld,
@@ -16,12 +17,18 @@ import { cycleId, spatialStoryOrder } from "@/lib/spatial-navigation";
 import { editionHref, pastWorldLabel, type PastWorld } from "@/lib/publication-loader";
 import { resolveProjectSiteUrl } from "@/lib/site-links";
 import { WorldAudio, type WorldSound } from "@/lib/world-audio";
+import { isWorldGuideEnabled } from "@/lib/world-guide";
 import { canRenderWorldInteractions, landmarkCompanion } from "@/lib/world-interactions";
 import type { StickValue } from "@/lib/touch-navigation";
 import type {
   PublicationManifest,
   PublicationStory,
 } from "@/lib/publication-schema";
+
+const WorldGuideVoice = dynamic(
+  () => import("@/components/world-guide-voice").then((module) => module.WorldGuideVoice),
+  { ssr: false },
+);
 
 const ease = [0.22, 1, 0.36, 1] as const;
 const mobileLayoutQuery = "(max-width: 760px), (orientation: landscape) and (pointer: coarse)";
@@ -91,6 +98,14 @@ function XMark() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
       <path d="M18.901 1.153h3.68L14.54 10.45 24 22.847h-7.406l-5.8-7.584-6.64 7.584H.47l8.59-9.824L.006 1.153H7.6l5.243 6.932zM17.61 20.653h2.039L6.486 3.232H4.298z" />
+    </svg>
+  );
+}
+
+function WorldLabsMark() {
+  return (
+    <svg aria-hidden="true" viewBox="-1 -2 100 87" width="18" height="18" fill="currentColor">
+      <path d="M.06,3.25l12.82,63.26c.55,2.72,3.6,3.3,5.44,1.23l5.54-5.61c5.01-5.07,12.43-4.58,16.99.9l17.47,17.88c1.28,1.35,3.7.82,4.57-.82l27.33-48.72c1.23-2.19-.63-4.25-3.06-3.6l-43.92,15.56c-4.1,1.74-8.81,3.69-14.13-2.35L4.88,1.07C3.13-1.2-.49.43.06,3.25Z" />
     </svg>
   );
 }
@@ -399,6 +414,22 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   renderer?: "spark" | "radix";
 }) {
   const projectSiteUrl = resolveProjectSiteUrl(process.env.NEXT_PUBLIC_PROJECT_SITE_URL);
+  const hostedWorldGuideApiUrl = process.env.NEXT_PUBLIC_WORLD_GUIDE_API_URL?.trim() ?? "";
+  const localWorldGuideBackendUrl = process.env.NEXT_PUBLIC_WORLD_GUIDE_BACKEND_URL?.trim() ?? "";
+  const worldGuideAgentId = process.env.NEXT_PUBLIC_WORLD_GUIDE_AGENT_ID?.trim() ?? "";
+  const worldGuideHosted = Boolean(hostedWorldGuideApiUrl);
+  const worldGuideBackendUrl = hostedWorldGuideApiUrl || localWorldGuideBackendUrl;
+  const worldGuideEnabled = isWorldGuideEnabled(
+    process.env.NEXT_PUBLIC_WORLD_GUIDE_ENABLED,
+    process.env.NODE_ENV,
+  );
+  const worldGuideConfigured = Boolean(
+    worldGuideEnabled && worldGuideBackendUrl && (
+      worldGuideHosted || (
+        process.env.NODE_ENV !== "production" && /^agent_[A-Za-z0-9]+$/.test(worldGuideAgentId)
+      )
+    ),
+  );
   const localSplatUrl = process.env.NEXT_PUBLIC_WORLD_SPLAT_URL;
   const localSplatSha256 = process.env.NEXT_PUBLIC_WORLD_SPLAT_SHA256;
   const splatUrl = publication.world.splat?.url ?? localSplatUrl;
@@ -425,6 +456,9 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [soundAvailable, setSoundAvailable] = useState(true);
   const audioRef = useRef<WorldAudio | null>(null);
+  const onGuideConversationActive = useCallback((active: boolean) => {
+    audioRef.current?.setConversationDucked(active);
+  }, []);
   const autoSoundAttemptedRef = useRef(false);
   const mobileMovementRef = useRef<StickValue>({ x: 0, y: 0 });
   const activeStory = useMemo(
@@ -433,6 +467,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
   );
   const storyIds = useMemo(() => stories.map(({ id }) => id), [stories]);
   const previewStory = stories.find((story) => story.id === previewTitleId);
+  const mobileTitleVisible = Boolean(previewStory && !activeId && !indexOpen && !controlsOpen && !archiveOpen);
   const dismissPreviewTitle = useCallback(() => setPreviewTitleId(null), []);
   const playSound = useCallback((sound: WorldSound) => audioRef.current?.play(sound), []);
   const setMovementSound = useCallback((intensity: number) => audioRef.current?.setMovement(intensity), []);
@@ -616,7 +651,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           ) {
             setIndexOpen(false);
             setArchiveOpen(false);
-            if (activeId) closeStory();
+            if (activeId || (indexOpen && focusedId)) closeStory();
           }
         }}
       >
@@ -676,6 +711,44 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.2, ease }}
       >
+        {worldGuideConfigured ? (
+          <WorldGuideVoice
+            backendUrl={worldGuideBackendUrl}
+            agentId={worldGuideAgentId}
+            publication={publication}
+            selectedStoryId={activeId ?? focusedId}
+            mobileTitleVisible={mobileTitleVisible}
+            leftPanelOpen={indexOpen}
+            rightPanelOpen={Boolean(activeStory)}
+            onConversationActive={onGuideConversationActive}
+            hosted={worldGuideHosted}
+            initiallyEnabled={worldGuideEnabled}
+            onNavigate={(storyId, openPanel) => {
+              const story = stories.find((candidate) => candidate.id === storyId);
+              if (story) selectStory(story, openPanel);
+            }}
+          />
+        ) : (
+          <span
+            className="world-guide-disabled-hint"
+            tabIndex={0}
+            title="World Guide is off in this experience. Run your own with the open-source project and an ElevenLabs agent."
+            aria-describedby="world-guide-disabled-tooltip"
+          >
+            <button
+              className="hud-button world-guide-toggle world-guide-disabled"
+              type="button"
+              disabled
+              aria-label="World Guide unavailable"
+            >
+              <span className="world-guide-toggle-mark" aria-hidden="true">✳</span>
+              <span>World Guide</span>
+            </button>
+            <span className="world-guide-disabled-tooltip" id="world-guide-disabled-tooltip" role="tooltip">
+              World Guide is off in this experience. Run your own with the open-source project and an ElevenLabs agent.
+            </span>
+          </span>
+        )}
         <button
           className="sound-toggle hud-button"
           type="button"
@@ -743,6 +816,12 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
                   transition={{ duration: 0.2, ease }}
                 >
                   <span className="archive-list-heading">Past worlds</span>
+                  {currentEditionId && publication.edition.id !== currentEditionId && (
+                    <a className="archive-world-link archive-today-link" href="/">
+                      <span>Back to today</span>
+                      <ArrowUpRight />
+                    </a>
+                  )}
                   {pastWorlds.length === 0 ? (
                     <p className="archive-empty">No past worlds yet</p>
                   ) : pastWorlds.map((world) => (
@@ -756,12 +835,6 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
                       <ArrowUpRight />
                     </a>
                   ))}
-                  {currentEditionId && publication.edition.id !== currentEditionId && (
-                    <a className="archive-world-link archive-today-link" href="/">
-                      <span>Back to today</span>
-                      <ArrowUpRight />
-                    </a>
-                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -821,7 +894,7 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       </header>
 
       <AnimatePresence mode="wait">
-        {previewStory && !activeId && !indexOpen && !controlsOpen && !archiveOpen && (
+        {mobileTitleVisible && previewStory && (
           <motion.p
             key={previewStory.id}
             className="mobile-story-title"
@@ -898,6 +971,17 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
       )}
 
       <FullscreenButton>
+        <a
+          className="world-labs-viewer-credit"
+          href="https://www.worldlabs.ai/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="World Labs website"
+          title="World Labs"
+        >
+          <WorldLabsMark />
+          <span>World Labs</span>
+        </a>
         <a
           className="spark-credit"
           href="https://github.com/sparkjsdev/spark"

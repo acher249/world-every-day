@@ -40,6 +40,8 @@ button, a { font: inherit; }
 .text-link { position: relative; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-decoration: none; text-transform: uppercase; }
 .github-link { display: inline-flex; align-items: center; gap: 7px; }
 .github-link svg, .primary-link svg { flex: 0 0 auto; }
+.header-x-link { display: inline-grid; width: 28px; height: 32px; place-items: center; }
+.header-x-link svg { display: block; width: 16px; height: 16px; }
 .hero-mobile-github { display: none; }
 .project-follow { margin-top: 24px; display: inline-flex; gap: 12px; }
 
@@ -139,6 +141,7 @@ button, a { font: inherit; }
 .site-footer p { margin: 0; color: var(--ink-soft); font: 13px Georgia, "Times New Roman", serif; }
 .site-footer > div { justify-self: end; display: flex; gap: 28px; }
 .site-footer > div a { font-size: 9px; font-weight: 700; letter-spacing: .14em; text-decoration: none; text-transform: uppercase; }
+.site-footer > div .world-labs-credit { display: inline-flex; align-items: center; gap: 7px; }
 .site-footer > .creator-credit { justify-self: start; align-items: center; flex-wrap: wrap; gap: 16px; color: var(--ink-soft); font: 13px Georgia, "Times New Roman", serif; }
 .site-footer > .project-credit { grid-column: 1 / -2; grid-row: 2; }
 .site-footer > .author-credit { grid-column: -2 / -1; grid-row: 2; justify-self: end; }
@@ -188,7 +191,7 @@ button, a { font: inherit; }
   .source-cta { min-height: 70vh; align-items: flex-start; justify-content: center; flex-direction: column; }
   .source-cta h2 { font-size: 49px; }
   .site-footer { padding-top: 36px; padding-bottom: 34px; gap: 28px; grid-template-columns: 1fr; }
-  .site-footer > div { justify-self: start; }
+  .site-footer > div { justify-self: start; flex-wrap: wrap; gap: 18px; }
   .site-footer > .creator-credit { grid-column: 1; grid-row: auto; justify-self: start; }
 }
 

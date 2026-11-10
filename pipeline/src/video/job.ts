@@ -3,7 +3,7 @@ import { sha256 } from "../panorama/hash.js";
 import type { PublicationManifest } from "../publication/schema.js";
 import { selectSoundtrack, soundtrackSchema } from "./music-options.js";
 
-export const VIDEO_VERSION = "tour-v3";
+export const VIDEO_VERSION = "tour-v16";
 export const jobSchema = z.object({
   version: z.literal(VIDEO_VERSION), editionId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
   publicationKey: z.string(), publicationSha256: z.string().regex(/^[a-f0-9]{64}$/),

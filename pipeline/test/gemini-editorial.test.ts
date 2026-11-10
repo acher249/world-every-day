@@ -67,6 +67,19 @@ test("Gemini JSON requests use bounded output and do not enable tools or caching
   }]);
 });
 
+test("Gemini supports a short explicit request timeout for interactive endpoints", async () => {
+  const requests: unknown[] = [];
+  await new GeminiJsonClient({ apiKey: "test-key", model: "gemini-3.8-flash", timeoutMs: 12_000 }, {
+    client: {
+      async generateContent(input: unknown) {
+        requests.push(input);
+        return { text: "{}" };
+      },
+    } as unknown as Pick<GoogleGenAI["models"], "generateContent">,
+  }).completeJson("bounded", 100, 0);
+  assert.equal((requests[0] as { config: { httpOptions: { timeout: number } } }).config.httpOptions.timeout, 12_000);
+});
+
 test("Gemini maps provider 5xx responses to a retryable pipeline error", async () => {
   const client = new GeminiJsonClient({ apiKey: "test-key", model: "gemini-3.8-flash" }, {
     client: {

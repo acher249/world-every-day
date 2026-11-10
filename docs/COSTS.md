@@ -2,7 +2,12 @@
 
 Pricing checked October 23, 2026. USD; estimates exclude taxes.
 
-The baseline estimates below predate the two-call panorama workflow. Pole repair
+The baseline estimates below predate the bounded panorama quality workflow.
+The live path can now use up to five candidate image requests, one pole-repair
+request, and six vision assessments. References and correction images add input
+tokens. Budget for this worst-case request count; the older per-world totals
+are not an upper bound. No new live billing measurement has been made for this
+workflow. Pole repair
 adds one 4K image request, image-input tokens, and Lambda processing per world;
 add those charges to the totals below. The 8K enlargement itself is still local.
 Repair receipts record usage so this increment can be reconciled after a live run.
@@ -50,13 +55,16 @@ rates, not batch discounts or consumer subscriptions. Gemini text-model rates ar
 ## What can increase the bill
 
 - **Optional world videos:** Not included above. A ten-second, 720p, 30 fps
-  tour uses 30 batches of ten frames, with up to ten Lambda workers at once.
+  tour uses 30 batches of ten frames, with up to six Lambda workers at once
+  to leave concurrency headroom for the rest of the workflow.
   At the initial measured rate of 47 seconds per frame and 3,008 MB per worker,
   budget roughly **$0.70–$0.90 per video** before retries and transfer. Concurrency
   reduces waiting time, not total compute cost. The estimate includes room for
   startup and encoding; actual cost depends on scene complexity.
   A complete UI tour used about **$0.57 in render compute** and finished in
-  approximately 23 minutes; encoding costs under $0.01. This is measured usage priced at published rates,
+  approximately 23 minutes at ten workers. At the current six-worker cap, expect
+  about 40 minutes if the measured per-frame rate is unchanged; encoding costs
+  under $0.01. This is measured usage priced at published rates,
   not an invoice reconciliation. At 3,008 MB, render compute is
   `billed seconds × (3008 / 1024) × $0.0000166667` in us-east-1.
   For comparison, 300 frames × 47 seconds is about $0.69 before startup.
@@ -74,6 +82,19 @@ rates, not batch discounts or consumer subscriptions. Gemini text-model rates ar
   operation used here, so this allowance is not a verified all-in media tariff.
   Check actual credit deductions in the X console; do not assume uploads are free. Check [X pricing](https://docs.x.com/x-api/getting-started/pricing)
   before enabling [daily posting](DAILY_X_POSTS.md). No extra model call is used.
+
+- **Optional World Guide:** Not included above. Voice conversation usage is
+  billed by ElevenLabs under the operator's current plan and model/voice rates;
+  on-demand research also uses the configured Gemini account. The hosted
+  reference implementation limits new sessions to 25 per UTC day (5 per source
+  IP), with a 600-second maximum call duration, and limits research to 20 calls
+  per day. A separate $5/day admission allowance reserves an operator-reviewed full-session
+  cost before issuing tokens; it stays disabled until that reservation is configured.
+  These are request/reservation bounds, not a guaranteed total-bill cap.
+  AWS API Gateway, WAF, Lambda, DynamoDB, and Secrets Manager add usage-based
+  charges. Keep the feature off unless you intend to fund a public trial, check
+  provider pricing before enabling it, and monitor provider and AWS billing.
+  See the [World Guide operating guide](WORLD_GUIDE.md).
 
 - **Retries and extra worlds:** A failed run can still incur model charges.
   Each additional Marble world uses another 1,500 credits, about $1.20 at the

@@ -26,19 +26,19 @@ test("the initial live source configuration is valid and contains no placeholder
   ) as unknown;
   const configuration = parseSourceConfiguration(input);
 
-  assert.equal(configuration.sources.length, 32);
-  assert.equal(configuration.sources.filter(({ type }) => type === "rss").length, 31);
+  assert.equal(configuration.sources.length, 31);
+  assert.equal(configuration.sources.filter(({ type }) => type === "rss").length, 30);
   assert.equal(configuration.sources.filter(({ type }) => type === "atom").length, 1);
   assert.ok(configuration.sources.every(({ feedUrl }) => !new URL(feedUrl).hostname.endsWith(".test")));
   assert.ok(configuration.sources.every(({ allowedArticleHosts }) => allowedArticleHosts.length > 0));
-  assert.ok(configuration.sources.every(({ articleAccess }) => articleAccess === "ephemeral-analysis"));
+  assert.equal(configuration.sources.filter(({ articleAccess }) => articleAccess === "discovery-only").length, 0);
   assert.equal(configuration.sources.find(({ id }) => id === "nasa-news")?.articleAccess, "ephemeral-analysis");
   assert.equal(configuration.sources.find(({ id }) => id === "nci-news")?.articleAccess, "ephemeral-analysis");
   assert.equal(configuration.sources.find(({ id }) => id === "fda-press-releases")?.upgradeHttpArticleLinksToHttps, true);
   assert.equal(configuration.sources.find(({ id }) => id === "nsf-news")?.articleAccess, "ephemeral-analysis");
   assert.equal(configuration.sources.find(({ id }) => id === "noaa-ocean-service-news")?.articleAccess, "ephemeral-analysis");
   assert.equal(configuration.sources.find(({ id }) => id === "nist-news")?.articleAccess, "ephemeral-analysis");
-  assert.equal(configuration.sources.find(({ id }) => id === "noaa-news")?.feedUrl, "https://www.noaa.gov/rss.xml");
+  assert.equal(configuration.sources.some(({ id }) => id === "noaa-news"), false);
   assert.equal(configuration.sources.find(({ id }) => id === "fao-newsroom")?.feedUrl, "https://www.fao.org/feeds/fao-newsroom-rss");
   assert.deepEqual(configuration.sources.find(({ id }) => id === "fao-newsroom")?.allowedArticleHosts, ["www.fao.org"]);
   assert.equal(configuration.sources.find(({ id }) => id === "mit-latest-news")?.feedUrl, "https://news.mit.edu/rss/feed");

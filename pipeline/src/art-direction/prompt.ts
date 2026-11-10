@@ -79,7 +79,7 @@ Visual treatment and scale: use believable environmental scale, physically plaus
 
 Environmental story echoes: weave six to eight clearly visible secondary traces from different stories into terrain, paths, materials, ecological features, or surrounding structures. Each trace must be grounded in that story's supplied visual cues, visually separate from every primary landmark, and legible as its own small discovery. Do not duplicate a landmark or invent unsupported symbolism. These echoes should enrich the environment without competing with the primary subjects.
 
-Final spatial check: mentally sweep the complete panorama in four 90-degree quadrants before returning it. Confirm that each quadrant contains two or three primary landmarks, that no narrow view is overloaded, that all landmark silhouettes remain individually readable, and that the open orientation zone and circulation system remain continuous.
+Final spatial check: mentally sweep the complete panorama in four 90-degree quadrants before returning it. Confirm that the available landmarks are distributed across the full turn (do not invent extra landmarks for editions with fewer stories), that no narrow view is overloaded, that all landmark silhouettes remain individually readable, and that the open orientation zone and circulation system remain continuous.
 
 Story subjects and spatial roles:
 ${subjects}

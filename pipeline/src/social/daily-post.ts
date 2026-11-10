@@ -22,7 +22,7 @@ export function composeDailyPost(manifest: PublicationManifest, origin: string, 
   const date = manifest.edition.id.match(/(?:^|-)(\d{4}-\d{2}-\d{2})(?:-|$)/)?.[1];
   link.searchParams.set("edition", date && z.iso.date().safeParse(date).success ? date : manifest.edition.id);
   const header = `${clean(manifest.edition.displayDate)}\n\nToday’s World: ${link.href}\n\n`;
-  const footer = `\n\nLearn more: ${new URL("/", projectOrigin).href}`;
+  const footer = `\n\nLearn more: ${new URL("/", projectOrigin).href}\n\n@theworldlabs`;
   const sentences: string[] = [];
   for (const story of manifest.stories) {
     const sentence = clean(story.title).replace(/[.!?]+$/, "") + ".";

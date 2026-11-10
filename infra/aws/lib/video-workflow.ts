@@ -76,7 +76,8 @@ export class VideoWorkflow extends Construct {
     const batch = new tasks.LambdaInvoke(this, "RenderVideoBatch", { lambdaFunction: render, payloadResponseOnly: true, retryOnServiceExceptions: false });
     batch.addRetry({ errors: ["Lambda.TooManyRequestsException", "Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.AWSLambdaException"], interval: Duration.seconds(10), backoffRate: 2, maxAttempts: 6, jitterStrategy: sfn.JitterType.FULL });
     batch.addRetry({ errors: ["States.TaskFailed"], interval: Duration.seconds(30), maxAttempts: 1 });
-    const batches = new sfn.Map(this, "RenderVideoBatches", { itemsPath: "$.videoJob.batches", maxConcurrency: 10, resultPath: sfn.JsonPath.DISCARD }).itemProcessor(batch);
+    // Leave Lambda concurrency headroom for world polling and other workflow tasks.
+    const batches = new sfn.Map(this, "RenderVideoBatches", { itemsPath: "$.videoJob.batches", maxConcurrency: 6, resultPath: sfn.JsonPath.DISCARD }).itemProcessor(batch);
     const finish = new tasks.LambdaInvoke(this, "AssembleWorldVideo", { lambdaFunction: assemble, payloadResponseOnly: true,
       payload: sfn.TaskInput.fromObject({
         editionId: sfn.JsonPath.stringAt("$.videoJob.editionId"),

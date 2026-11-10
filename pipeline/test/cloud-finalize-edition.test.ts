@@ -4,22 +4,45 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import { createFinalizeEditionHandler } from "../src/cloud/finalize-edition-handler.js";
-import { artifactSha256, createEditorialShortlist } from "../src/editorial/select.js";
+import { artifactSha256, candidateSetSha256, createEditorialShortlist } from "../src/editorial/select.js";
 import { candidateEvaluationSetSchema } from "../src/editorial/schema.js";
 import { parseSourceConfiguration } from "../src/sources/config.js";
 import { articleEvidenceSchema, candidateSetSchema } from "../src/sources/schema.js";
 import { LocalArtifactStore } from "../src/storage/artifact-store.js";
 
-test("cloud finalization requires complete evidence and reuses an immutable edition", async () => {
+test("cloud finalization excludes inaccessible articles and reuses an immutable edition", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "world-every-day-finalize-"));
   try {
     const artifacts = new LocalArtifactStore(directory);
-    const candidates = candidateSetSchema.parse(JSON.parse(await readFile(
+    const candidateFixture = JSON.parse(await readFile(
       new URL("../fixtures/candidate-set.v1.json", import.meta.url), "utf8",
-    )));
-    const evaluations = candidateEvaluationSetSchema.parse(JSON.parse(await readFile(
+    )) as Record<string, unknown>;
+    const originalStory = (candidateFixture.candidates as Array<Record<string, unknown>>)[0]!;
+    const missingStoryId = "a".repeat(64);
+    const missingStory = {
+      ...originalStory,
+      id: missingStoryId,
+      canonicalUrl: "https://news.example.test/research/missing-article",
+      title: "Second research story without accessible article text",
+      source: { ...(originalStory.source as Record<string, unknown>), entryId: "research-2026-10-13" },
+    };
+    const candidates = candidateSetSchema.parse({
+      ...candidateFixture,
+      sourceRuns: (candidateFixture.sourceRuns as Array<Record<string, unknown>>).map((run) => ({ ...run, candidateCount: 2 })),
+      candidates: [...candidateFixture.candidates as Array<Record<string, unknown>>, missingStory],
+    });
+    const evaluationFixture = JSON.parse(await readFile(
       new URL("../fixtures/candidate-evaluations.v1.json", import.meta.url), "utf8",
-    )));
+    )) as Record<string, unknown>;
+    const originalEvaluation = (evaluationFixture.evaluations as Array<Record<string, unknown>>)[0]!;
+    const evaluations = candidateEvaluationSetSchema.parse({
+      ...evaluationFixture,
+      candidateSetSha256: candidateSetSha256(candidates),
+      evaluations: [
+        ...evaluationFixture.evaluations as Array<Record<string, unknown>>,
+        { ...originalEvaluation, storyId: missingStoryId, eventKey: "second-research-story" },
+      ],
+    });
     const story = candidates.candidates[0];
     const configuration = parseSourceConfiguration({
       schemaVersion: "1.0.0",
@@ -58,7 +81,7 @@ test("cloud finalization requires complete evidence and reuses an immutable edit
       configuration,
       now: () => new Date("2026-10-13T14:36:00.000Z"),
     });
-    await assert.rejects(finalize({ editionId }), /Required editorial artifact is missing/);
+    await assert.rejects(finalize({ editionId }), /No shortlisted stories had accessible, sufficient article evidence/);
     const evidence = articleEvidenceSchema.parse({
       schemaVersion: "1.0.0",
       artifactType: "article-evidence",
@@ -91,6 +114,8 @@ test("cloud finalization requires complete evidence and reuses an immutable edit
     const bytes = await artifacts.read(first.key);
     assert.ok(bytes);
     const selected = JSON.parse(Buffer.from(bytes).toString("utf8"));
+    assert.deepEqual(selected.stories.map(({ storyId }: { storyId: string }) => storyId), [story.id]);
+    assert.deepEqual(selected.excluded, [{ storyId: missingStoryId, reason: "missing-article-evidence" }]);
     assert.equal(selected.stories[0].sources[0].url, story.canonicalUrl);
     assert.equal(selected.stories[0].articleEvidenceSha256, artifactSha256(evidence));
 

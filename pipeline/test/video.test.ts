@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import sharp from "sharp";
 import { batchInputs, cameraPose, jobId, jobSchema } from "../src/video/job.js";
+import { hasVisibleWorld } from "../src/video/frame-quality.js";
 import { ambientWav } from "../src/video/ambient.js";
 import { validateProbe } from "../src/video/assemble-handler.js";
 import { musicOptions, selectSoundtrack, soundtrackWav } from "../src/video/music-options.js";
@@ -21,8 +23,21 @@ test("thirty batches cover every frame exactly once without timeline resets", ()
   assert.throws(() => cameraPose(job, 300));
 });
 
+test("capture readiness rejects a near-black viewer shell but accepts dark rendered worlds", async () => {
+  const blackShell = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 5, g: 5, b: 5 } } }).png().toBuffer();
+  const dimOpening = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 10, g: 10, b: 10 } } }).png().toBuffer();
+  const dimWorld = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 30, g: 36, b: 34 } } }).png().toBuffer();
+  const fadingWorld = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 38, g: 44, b: 42 } } }).png().toBuffer();
+  const renderedWorld = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 72, g: 68, b: 60 } } }).png().toBuffer();
+  assert.equal(await hasVisibleWorld(blackShell), false);
+  assert.equal(await hasVisibleWorld(dimOpening), false);
+  assert.equal(await hasVisibleWorld(dimWorld), true);
+  assert.equal(await hasVisibleWorld(fadingWorld), true);
+  assert.equal(await hasVisibleWorld(renderedWorld), true);
+});
+
 test("video identity changes with world or publication, not object property order", () => {
-  const job = jobSchema.parse({ version: "tour-v3", captureBuild: "d".repeat(64), soundtrack: "soft-orbit", editionId: "example", publicationKey: "publication.json", publicationSha256: "a".repeat(64),
+  const job = jobSchema.parse({ version: "tour-v16", captureBuild: "d".repeat(64), soundtrack: "soft-orbit", editionId: "example", publicationKey: "publication.json", publicationSha256: "a".repeat(64),
     worldSha256: "b".repeat(64), worldKey: "world.spz", seed: 1, startYaw: 0, width: 1280, height: 720, fps: 30, frameCount: 300, batchSize: 10 });
   assert.notEqual(jobId(job), jobId({ ...job, worldSha256: "c".repeat(64) }));
   assert.notEqual(jobId(job), jobId({ ...job, publicationSha256: "c".repeat(64) }));

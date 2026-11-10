@@ -11,7 +11,7 @@ social posting are separate opt-in operations.
 | [AWS workflow](AWS_WORKFLOW.md) | State machines, daily schedule, stage flags, publication, and recovery |
 | [Video generation](VIDEO_GENERATION.md) | Batched rendering, music, encoding, S3 archival, and manual testing |
 | [Automated X posting](DAILY_X_POSTS.md) | App authorization, credentials, activation, video delivery, and troubleshooting |
-| [World Guide plan](WORLD_GUIDE.md) | Planned optional voice conversation, semantic navigation, ephemeral research, and privacy controls |
+| [World Guide](WORLD_GUIDE.md) | Optional local and hosted voice navigation, token broker, Secrets Manager setup, usage limits, source research, privacy, and operations |
 | [AWS deployment](../infra/aws/README.md) | Account configuration, infrastructure, domains, secrets, and alarms |
 | [Contributing](../CONTRIBUTING.md) | Package checks and contribution expectations |
 

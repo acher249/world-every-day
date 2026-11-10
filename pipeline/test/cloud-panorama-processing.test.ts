@@ -67,8 +67,8 @@ test("cloud panorama processing reuses one raw image and writes immutable 2:1 ou
       generator: { async generate(prompt, reference) {
         calls++;
         assert.match(prompt, /masked zenith and nadir/);
-        assert.equal(reference?.mimeType, "image/png");
-        assert.ok(reference!.bytes.length > 0);
+        assert.equal((Array.isArray(reference) ? reference[0] : reference)?.mimeType, "image/png");
+        assert.ok((Array.isArray(reference) ? reference[0] : reference)!.bytes.length > 0);
         return { bytes: await sharp({ create: { width: 160, height: 90, channels: 3, background: "#5078a0" } }).png().toBuffer(), mimeType: "image/png", elapsedMs: 1, usage: null };
       } },
     },
@@ -95,5 +95,17 @@ test("cloud panorama processing reuses one raw image and writes immutable 2:1 ou
   // A downstream interruption can resume from the paid repair receipt.
   records.delete(first.key);
   assert.equal((await handler({ editionId, confirmPaidGeneration: true })).status, "created");
+  assert.equal(calls, 1);
+  let reviews = 0;
+  const rejectingHandler = createPanoramaProcessingHandler({ artifacts, quality: {
+    model: "fixture-review", claims: { async claimOnce(key) { if (claims.has(key)) return false; claims.add(key); return true; } },
+    reviewer: async () => { reviews++; return {
+      sectors: [0,1,2,3].map((sector) => ({sector, visible:true, horizonY:0.2, confidence:0.9, evidence:"Distant sea too high"})),
+      tilted:false, collageOrSeams:false, textOrGuides:false,
+    }; },
+  } });
+  await assert.rejects(rejectingHandler({editionId,confirmPaidGeneration:true}), /Final panorama failed/);
+  await assert.rejects(rejectingHandler({editionId,confirmPaidGeneration:true}), /Final panorama failed/);
+  assert.equal(reviews, 1);
   assert.equal(calls, 1);
 });

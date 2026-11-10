@@ -14,6 +14,12 @@ const permissiveLicenses = new Set([
 
 const reviewedExceptions = [
   {
+    packagePattern: /^@bufbuild\/protobuf$/,
+    version: "1.10.1",
+    licenses: new Set(["(Apache-2.0 AND BSD-3-Clause)"]),
+    reason: "Exact pinned protobuf dependency; both declared licenses are permissive",
+  },
+  {
     packagePattern: /^argparse$/,
     version: "2.0.1",
     licenses: new Set(["Python-2.0"]),

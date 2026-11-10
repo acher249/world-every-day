@@ -105,3 +105,24 @@ test("electric buzz follows movement intensity without adding one-shot tones", a
     globalThis.window = previousWindow;
   }
 });
+
+test("World Guide ducks ambience and restores the user's enabled state", async () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { AudioContext: FakeAudioContext } as unknown as Window & typeof globalThis;
+  const audio = new WorldAudio();
+  try {
+    await audio.enable();
+    const ambience = FakeAudioContext.latest.gains[0].gain;
+    audio.setConversationDucked(true);
+    assert.ok(ambience.targets.includes(0.28));
+    audio.setConversationDucked(false);
+    assert.ok(ambience.targets.includes(1));
+    audio.disable();
+    audio.setConversationDucked(true);
+    await audio.enable();
+    assert.ok(FakeAudioContext.latest.gains[0].gain.targets.includes(0.28));
+  } finally {
+    audio.dispose();
+    globalThis.window = previousWindow;
+  }
+});

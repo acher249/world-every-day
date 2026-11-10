@@ -7,6 +7,7 @@
   },
   "scripts": {
     "start": "next dev",
+    "postinstall": "node scripts/patch-livekit-signal-close.mjs",
     "build": "next build",
     "publication:assemble-local": "node scripts/assemble-local-publication.mjs",
     "hotspots:bake-local": "node scripts/bake-local-hotspots.mjs",
@@ -17,6 +18,7 @@
     "world:local": "node scripts/sync-local-world.mjs"
   },
   "dependencies": {
+    "@elevenlabs/react": "^1.20.2",
     "@sparkjsdev/radix": "^0.0.1",
     "@sparkjsdev/spark": "^2.3.1",
     "motion": "^12.23.24",

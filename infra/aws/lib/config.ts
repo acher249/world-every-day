@@ -10,6 +10,9 @@ export type DeploymentConfig = {
   landmarkVisionModel: string;
   nanoBananaModel: string;
   worldLabsModel: string;
+  worldGuideAgentId?: string;
+  worldGuideDailyBudgetCents?: number;
+  worldGuideSessionReservationCents?: number;
   enableSchedule: boolean;
   xPostingAccountId?: string;
   xVideoEnabled?: boolean;
@@ -132,6 +135,25 @@ export function readDeploymentConfig(
   if (typeof worldLabsModel !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,159}$/.test(worldLabsModel)) {
     throw new Error("worldLabsModel must be a valid model identifier");
   }
+  const rawWorldGuideAgentId = setting(
+    node,
+    environment,
+    "worldGuideAgentId",
+    "WORLD_EVERY_DAY_WORLD_GUIDE_AGENT_ID",
+  );
+  const guideCents = (contextKey: string, envKey: string, fallback: number) => {
+    const value = Number(setting(node, environment, contextKey, envKey) ?? fallback);
+    if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${contextKey} must be non-negative integer cents`);
+    return value;
+  };
+  const worldGuideDailyBudgetCents = guideCents("worldGuideDailyBudgetCents", "WORLD_EVERY_DAY_WORLD_GUIDE_DAILY_BUDGET_CENTS", 500);
+  const worldGuideSessionReservationCents = guideCents("worldGuideSessionReservationCents", "WORLD_EVERY_DAY_WORLD_GUIDE_SESSION_RESERVATION_CENTS", 0);
+  const worldGuideAgentId = rawWorldGuideAgentId === undefined || rawWorldGuideAgentId === null || String(rawWorldGuideAgentId).trim() === ""
+    ? undefined
+    : String(rawWorldGuideAgentId).trim();
+  if (worldGuideAgentId !== undefined && !/^agent_[A-Za-z0-9]+$/.test(String(worldGuideAgentId))) {
+    throw new Error("worldGuideAgentId must be a valid ElevenLabs agent ID");
+  }
   const budgetAlertEmail = setting(
     node,
     environment,
@@ -205,6 +227,9 @@ export function readDeploymentConfig(
     monthlyBudgetUsd,
     nanoBananaModel,
     worldLabsModel,
+    ...(worldGuideAgentId ? { worldGuideAgentId } : {}),
+    worldGuideDailyBudgetCents,
+    worldGuideSessionReservationCents,
     siteDomain: rootDomain && hostedZoneId ? {
       explorerSubdomain: String(explorerSubdomain).toLowerCase(),
       hostedZoneId: String(hostedZoneId),

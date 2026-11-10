@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import "dotenv/config";
-import { readFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildScenePrompt } from "../art-direction/prompt.js";
 import { parseArtDirection } from "../art-direction/schema.js";
@@ -10,6 +10,10 @@ import { buildPanoramaPrompt } from "./prompt.js";
 import { buildPoleRepairPrompt } from "./poles.js";
 import { sha256 } from "./hash.js";
 import { NanoBananaGenerator } from "./generator.js";
+import { LocalArtifactStore } from "../storage/artifact-store.js";
+import { createQualityGenerator, loadPanoramaReferences, PanoramaCandidateRejected } from "./quality-generator.js";
+import { createHorizonReviewer, MAX_PANORAMA_CANDIDATES } from "./horizon.js";
+import { dirname } from "node:path";
 import { runPanorama } from "./run.js";
 
 type CliOptions = {
@@ -107,6 +111,9 @@ async function main(): Promise<void> {
           editionId: promptInput.editionId,
           inputType: promptInput.inputType,
           model,
+          maximumCandidateImages: MAX_PANORAMA_CANDIDATES,
+          references: ["October 19 composition", "latitude-longitude geometry grid"],
+          reviewModel: process.env.PANORAMA_REVIEW_MODEL || "gemini-3.8-flash",
           promptVersion: promptInput.promptVersion,
           promptSha256: sha256(prompt),
         },
@@ -123,13 +130,31 @@ async function main(): Promise<void> {
   }
   const outputDirectory = resolve(options.outputDirectory ?? defaultOutputDirectory());
   const generator = new NanoBananaGenerator({ apiKey, model });
+  const reviewer = createHorizonReviewer(apiKey, process.env.PANORAMA_REVIEW_MODEL || "gemini-3.8-flash");
+  const qualityGenerator = createQualityGenerator({
+    generator, reviewer, model, reviewModel: process.env.PANORAMA_REVIEW_MODEL || "gemini-3.8-flash",
+    references: await loadPanoramaReferences(), artifacts: new LocalArtifactStore(outputDirectory), root: "quality",
+    claims: { async claimOnce(key, bytes) {
+      const path = resolve(outputDirectory, key);
+      await mkdir(dirname(path), { recursive: true });
+      try { await writeFile(path, bytes, { flag: "wx" }); return true; }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === "EEXIST") return false; throw error; }
+    } },
+  });
   const manifestPath = await runPanorama({
     artDirectionSha256: promptInput.artDirectionSha256,
     editionId: promptInput.editionId,
     scenePrompt: promptInput.scenePrompt,
     model,
     outputDirectory,
-    generator,
+    generator: { async generate(prompt) {
+      for (let attempt = 1; attempt <= MAX_PANORAMA_CANDIDATES; attempt++) {
+        try { return await qualityGenerator.generate(prompt); }
+        catch (error) { if (!(error instanceof PanoramaCandidateRejected)) throw error; console.log(`Candidate ${attempt} rejected; generating a correction`); }
+      }
+      throw new Error("Panorama candidate limit reached");
+    } },
+    reviewer,
     repairPoles: async (sheet) => (await generator.generate(buildPoleRepairPrompt(promptInput.scenePrompt), { bytes: sheet, mimeType: "image/png" })).bytes,
   });
   console.log(JSON.stringify({ status: "complete", manifestPath }, null, 2));

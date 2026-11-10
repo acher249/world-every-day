@@ -48,6 +48,11 @@ export async function main(event: unknown) {
         const stored = await store.putImmutable({ key: frameKey(input, index), bytes, contentType: "image/png" });
         frames.push({ index, sha256: stored.sha256, byteLength: stored.byteLength });
       },
+      onRejectedFrame: async (index, bytes, meanLuma) => {
+        const key = `${jobRoot(input)}/diagnostics/rejected-frame-${index}-luma-${meanLuma.toFixed(1)}.png`;
+        await store.putImmutable({ key, bytes, contentType: "image/png" });
+        console.error(JSON.stringify({ event: "capture-frame-rejected", index, meanLuma, diagnosticKey: key }));
+      },
     });
     if (frames.length !== 10) throw new Error("Incomplete video batch");
     await writeJson(store, receiptKey, { jobId: input.jobId, frames });

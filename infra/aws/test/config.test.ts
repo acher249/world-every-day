@@ -18,6 +18,31 @@ test("X posting requires an explicit numeric account ID and permits blank disabl
   assert.throws(() => readDeploymentConfig(context({}), { WORLD_EVERY_DAY_X_ACCOUNT_ID: "@example" }), /numeric/);
 });
 
+test("World Guide accepts only a server-side ElevenLabs agent identifier", () => {
+  assert.equal(readDeploymentConfig(context({}), {}).worldGuideAgentId, undefined);
+  assert.equal(readDeploymentConfig(context({}), { WORLD_EVERY_DAY_WORLD_GUIDE_AGENT_ID: "" }).worldGuideAgentId, undefined);
+  assert.equal(readDeploymentConfig(context({}), {
+    WORLD_EVERY_DAY_WORLD_GUIDE_AGENT_ID: "agent_abc123",
+  }).worldGuideAgentId, "agent_abc123");
+  assert.throws(() => readDeploymentConfig(context({}), {
+    WORLD_EVERY_DAY_WORLD_GUIDE_AGENT_ID: "https://example.com",
+  }), /valid ElevenLabs agent ID/);
+});
+
+test("World Guide allowance uses integer cents and context overrides environment", () => {
+  const config = readDeploymentConfig(context({ worldGuideDailyBudgetCents: 500 }), {
+    WORLD_EVERY_DAY_WORLD_GUIDE_DAILY_BUDGET_CENTS: "1000",
+    WORLD_EVERY_DAY_WORLD_GUIDE_SESSION_RESERVATION_CENTS: "100",
+  });
+  assert.equal(config.worldGuideDailyBudgetCents, 500);
+  assert.equal(config.worldGuideSessionReservationCents, 100);
+  for (const value of ["-1", "0.5", "NaN"]) {
+    assert.throws(() => readDeploymentConfig(context({}), {
+      WORLD_EVERY_DAY_WORLD_GUIDE_SESSION_RESERVATION_CENTS: value,
+    }), /integer cents/);
+  }
+});
+
 test("deployment defaults are development and schedule-disabled", () => {
   assert.deepEqual(readDeploymentConfig(context({}) as never), {
     alarmNotificationEmail: undefined,
@@ -29,6 +54,8 @@ test("deployment defaults are development and schedule-disabled", () => {
     landmarkVisionModel: "gemini-3.8-flash",
     enableSchedule: false,
     xVideoEnabled: false,
+    worldGuideDailyBudgetCents: 500,
+    worldGuideSessionReservationCents: 0,
     environmentName: "development",
     monthlyBudgetUsd: undefined,
     nanoBananaModel: "gemini-nano-banana-2.1",
@@ -71,6 +98,8 @@ test("ignored local environment settings are supported but CDK context wins", ()
       landmarkVisionModel: "gemini-3.8-flash",
       enableSchedule: true,
       xVideoEnabled: false,
+      worldGuideDailyBudgetCents: 500,
+      worldGuideSessionReservationCents: 0,
       environmentName: "production",
       monthlyBudgetUsd: 40,
       nanoBananaModel: "gemini-nano-banana-2.1",

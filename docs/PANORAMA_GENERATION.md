@@ -14,12 +14,16 @@ original visual prompt, not article bodies. Local experiments can instead use
 a plain-text scene prompt.
 
 ```text
-Art direction → scene prompt + projection instructions → initial image request
+Art direction → remove scene-owned camera/horizon directives
+  → scene prompt + projection instructions + composition reference + geometry grid
+  → candidate request → structured four-sector horizon review
+  → rejected candidate + centerline annotation → correction (maximum five candidates)
+  → accepted image
   → preserve provider response → normalize → centered 2:1 crop
   → exposure balance + longitude-seam feather
   → extract upward/downward views → masked pole-repair image request
   → color-match and blend repaired poles → stabilize pole convergence
-  → final seam feather → 8192 × 4096 delivery image + manifest
+  → final seam feather → 8192 × 4096 delivery image → final visual review → manifest
 ```
 
 The request uses a 4K `16:9` canvas with polar overscan. Processing extracts the
@@ -37,9 +41,41 @@ Mountains and nearby terrain can cross that row: their skyline is not the
 geometric horizon. Landmarks should be distributed around the viewer, with
 varied topography and clear sightlines.
 
-These are model instructions, not a guarantee. There is no automatic
-vision-based horizon rejection, annotated repair loop, or repeated generation
-until success. Seam processing cannot correct an incorrectly generated horizon.
+The live CLI and AWS entry points attach two references: a 1440 × 720 copy of
+October 19's composition and a generated latitude/longitude grid with a red
+equator. The grid controls geometry; the photographic reference only guides
+spacing and coherence. Neither contributes story content. Reference provenance
+is in [`pipeline/assets/panorama/README.md`](../pipeline/assets/panorama/README.md).
+
+A structured vision assessment examines four longitude sectors in the centered
+2:1 crop. Admission requires at least two visible, confident distant-horizon
+observations (confidence ≥ 0.8), every visible observation within 3 percentage
+points of the midpoint, and no reported tilt, collage seams, text, or guide
+marks. Hidden horizons are recorded as unknown, not guessed. A wholly obscured
+horizon requires manual review; the unattended path fails closed.
+
+A rejection produces an annotated copy: red is the exact midpoint, amber is the
+reviewer's estimated horizon in each visible sector. The next request includes
+both references, that annotated candidate, and the assessment. It requests a
+new level-camera composition, not a shifted or stretched image. Stop after five
+candidates. No model switching occurs silently: `NANO_BANANA_MODEL` selects the
+image provider model; `PANORAMA_REVIEW_MODEL` selects the CLI reviewer (default
+`gemini-3.8-flash`). AWS uses its configured landmark vision model for review.
+
+After pole repair and processing, a second visual assessment gates delivery.
+A final-stage failure stops publication for inspection rather than restarting
+the paid workflow. Existing public worlds remain in place.
+
+Art-direction generation forbids camera/horizon directives. A deterministic
+filter removes geometry-bearing clauses from generated proposals and again
+from scene prose at the panorama and pole-repair boundaries. Original source
+facts and archived inputs are not rewritten. Geometry-only required fields
+fail validation. This catches known conflicts such as “high horizon,” “aerial
+view,” or “camera tilt” while preserving mountains, elevated terrain, drones,
+and camera objects. It cannot prove that arbitrary natural language has no
+subtle semantic conflict. Vision judgments can also be wrong; these checks
+reduce risk, not guarantee projection accuracy. Seam processing cannot fix an
+incorrect geometric horizon.
 
 ## Local use
 
@@ -92,12 +128,18 @@ attempt stops rather than silently charging again. The final manifest also
 includes normalized repair images and hashes. Wrong-layout responses or visibly
 unfilled magenta masks fail processing; they never reach world generation.
 
-Live CLI and AWS runs use two image calls in total. Fictional fixture runs use
+Live CLI and AWS runs use at most five candidate image calls plus one pole-repair
+call, and up to six vision assessments (five candidates and final delivery). Fictional fixture runs use
 synthetic images and do not contact the provider. Pole repair does not guarantee
 correct horizon geometry or perfect generated content; review real outputs.
 
-An uncertain paid attempt stops for inspection instead of silently requesting
-another image. Preserve attempt records and completed artifacts when recovering.
+AWS runs one new candidate per Lambda invocation; Step Functions retries only
+`PanoramaCandidateRejected`, at most four retries. Immutable candidate images,
+prompts, hashes, assessments, correction images, and per-call claims live under
+`panorama/quality/`. Resumes reuse completed candidates. Changed inputs, malformed
+assessments, and uncertain paid attempts stop for inspection instead of silently
+requesting another image. Existing pre-upgrade inputs/receipts may need a new
+reviewed run because prompt identity has changed. Preserve attempt records and completed artifacts when recovering.
 See [workflow recovery](AWS_WORKFLOW.md#failures-and-recovery).
 
 ## Where to change it

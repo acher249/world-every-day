@@ -14,6 +14,7 @@ async function main() {
   const publication = JSON.parse(publicationBytes.toString("utf8"));
   await mkdir(output, { recursive: true });
   await captureUiFrames({ publicationBytes, worldPath: worldFile, expectedSha256: publication.world.splat.sha256, executablePath: chrome,
+    headless: false,
     readStatic: (key) => readFile(join(root, key)),
     onFrame: async (frame, png) => { await writeFile(join(output, `${String(frame).padStart(4, "0")}.png`), png); },
   });

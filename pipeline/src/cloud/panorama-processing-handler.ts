@@ -1,3 +1,4 @@
+import { createHorizonReviewer, horizonAssessmentSchema, horizonPasses, horizonPreview, HORIZON_POLICY_VERSION, type HorizonReviewer } from "../panorama/horizon.js";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -35,15 +36,34 @@ export function createPanoramaProcessingHandler({
   artifacts,
   processingConfig,
   poleRepair,
+  quality,
 }: {
   artifacts: ArtifactStore;
   processingConfig?: PanoramaProcessingConfig;
+  quality?: { reviewer: HorizonReviewer; model: string; claims: GenerationClaimStore };
   poleRepair?: { generator: PanoramaGenerator; claims: GenerationClaimStore; model: string };
 }) {
   return async (rawInput: unknown) => {
     const { editionId, confirmPaidGeneration } = inputSchema.parse(rawInput);
-    if (poleRepair && confirmPaidGeneration !== true) throw new Error("Pole repair requires confirmPaidGeneration=true");
+    if ((poleRepair || quality) && confirmPaidGeneration !== true) throw new Error("Pole repair requires confirmPaidGeneration=true");
     const root = `editions/${editionId}`;
+    async function checkDelivery(bytes: Buffer) {
+      if (!quality) return;
+      const binding = { imageSha256: sha256(bytes), model: quality.model, policy: HORIZON_POLICY_VERSION };
+      const reviewKey = `${root}/panorama/delivery-assessment.json`;
+      const saved = await artifacts.read(reviewKey);
+      let assessment;
+      if (saved) {
+        const receipt = z.object({ binding: z.object({ imageSha256: z.string(), model: z.string(), policy: z.string() }), assessment: horizonAssessmentSchema }).parse(JSON.parse(Buffer.from(saved).toString("utf8")));
+        if (JSON.stringify(receipt.binding) !== JSON.stringify(binding)) throw new Error("Final panorama review inputs changed");
+        assessment = receipt.assessment;
+      } else {
+        if (!await quality.claims.claimOnce(`${root}/panorama/delivery-review-attempt.json`, Buffer.from(JSON.stringify(binding)))) throw new Error("Uncertain final panorama review; inspect before retrying");
+        assessment = horizonAssessmentSchema.parse(await quality.reviewer(await horizonPreview(bytes)));
+        await artifacts.putImmutable({ key: reviewKey, contentType: "application/json", bytes: Buffer.from(JSON.stringify({ binding, assessment })) });
+      }
+      if (!horizonPasses(assessment)) throw new Error("Final panorama failed horizon/visual review; publication stopped");
+    }
     const source = sourceImageSchema.parse(await readJson(artifacts, `${root}/panorama/source-image.json`));
     const direction = artDirectionSchema.parse(await readJson(artifacts, `${root}/art-direction/art-direction.json`));
     if (source.editionId !== editionId || direction.editionId !== editionId ||
@@ -66,6 +86,7 @@ export function createPanoramaProcessingHandler({
           !delivery || sha256(Buffer.from(delivery)) !== manifest.outputs.delivery8kSha256) {
         throw new Error("Existing panorama does not match the approved raw source image");
       }
+      await checkDelivery(Buffer.from(delivery));
       return { editionId, key, deliveryKey: `${root}/panorama/${manifest.files.delivery8k}`, status: "reused" };
     }
     const sourceBytes = await artifacts.read(source.image.key);
@@ -106,6 +127,7 @@ export function createPanoramaProcessingHandler({
           bytes,
         });
       }
+      await checkDelivery(await readFile(resolve(outputDirectory, manifest.files.delivery8k)));
       await artifacts.putImmutable({
         key,
         contentType: "application/json",
@@ -126,23 +148,24 @@ export async function main(event: unknown) {
   if (!secretId || !model) throw new Error("Pole repair requires GOOGLE_SECRET_NAME and NANO_BANANA_MODEL");
   const client = new S3Client({});
   const secrets = new SecretsManagerClient({});
+  const claims: GenerationClaimStore = { async claimOnce(key, bytes) {
+    try { await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: "application/json", IfNoneMatch: "*" })); return true; }
+    catch (error) { if (error instanceof Error && error.name === "PreconditionFailed") return false; throw error; }
+  } };
+  const reviewModel = process.env.PANORAMA_REVIEW_MODEL?.trim();
+  if (!reviewModel) throw new Error("PANORAMA_REVIEW_MODEL is required");
+  const secret = await secrets.send(new GetSecretValueCommand({ SecretId: secretId }));
+  if (!secret.SecretString) throw new Error("Google secret must contain a string value");
   return createPanoramaProcessingHandler({
     artifacts: new S3ArtifactStore({ bucket, client }),
+    quality: { model: reviewModel, claims, reviewer: createHorizonReviewer(parseGoogleKey(secret.SecretString), reviewModel) },
     poleRepair: { model,
       generator: { async generate(prompt, reference) {
         const result = await secrets.send(new GetSecretValueCommand({ SecretId: secretId }));
         if (!result.SecretString) throw new Error("Google secret must contain a string value");
         return new NanoBananaGenerator({ apiKey: parseGoogleKey(result.SecretString), model }).generate(prompt, reference);
       } },
-      claims: { async claimOnce(key, bytes) {
-        try {
-          await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: "application/json", IfNoneMatch: "*" }));
-          return true;
-        } catch (error) {
-          if (error instanceof Error && error.name === "PreconditionFailed") return false;
-          throw error;
-        }
-      } },
+      claims,
     },
   })(event);
 }

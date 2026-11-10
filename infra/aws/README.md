@@ -33,6 +33,9 @@ The current stack synthesizes:
   explorer subdomain;
 - an on-demand DynamoDB table for edition state, locks, and publication pointers;
 - references to pre-existing Google AI and World Labs secrets;
+- an optional hosted World Guide API with a Secrets Manager token-broker key,
+  encrypted short-lived session/quota table, disabled SSM switches, regional
+  API Gateway, WAF rate rule, and bounded Lambda concurrency;
 - a manual-only World Labs authentication probe that lists worlds without
   returning world data or starting generation;
 - a Step Functions Standard fixture workflow and one bounded Lambda with
@@ -110,6 +113,7 @@ would remove the live custom-domain resources.
 | `WORLD_EVERY_DAY_LANDMARK_VISION_MODEL` | `landmarkVisionModel` | `gemini-3.8-flash` | Google model for generated-image landmark detection; it does not receive source pages |
 | `WORLD_EVERY_DAY_NANO_BANANA_MODEL` | `nanoBananaModel` | `gemini-nano-banana-2.1` | Model identifier for optional paid raw-image generation |
 | `WORLD_EVERY_DAY_WORLD_LABS_MODEL` | `worldLabsModel` | `marble-1.1` | Model identifier for optional paid World Labs generation |
+| `WORLD_EVERY_DAY_WORLD_GUIDE_AGENT_ID` | `worldGuideAgentId` | unset | Server-side ElevenLabs agent ID; non-secret, validated, never sent to the frontend |
 | `WORLD_EVERY_DAY_ALARM_EMAIL` | `alarmNotificationEmail` | unset | Email subscriber for workflow and scheduler failure alarms |
 | `WORLD_EVERY_DAY_MONTHLY_BUDGET_USD` | `monthlyBudgetUsd` | unset | Positive monthly AWS cost threshold |
 | `WORLD_EVERY_DAY_BUDGET_ALERT_EMAIL` | `budgetAlertEmail` | unset | Email for the forecasted 80% budget notification |
@@ -204,6 +208,36 @@ world-every-day/<environmentName>/google-ai
 world-every-day/<environmentName>/world-labs
 ```
 
+For World Guide, CDK creates a retained secret with an automatically generated
+placeholder value (not an ElevenLabs credential). Its generated name is emitted
+as the `WorldGuideElevenLabsSecretName` stack output.
+
+After deployment, replace the placeholder through the AWS console or a
+protected JSON file outside the repository with shape
+`{"apiKey":"<ElevenLabs API key>"}`. The API remains disabled until this
+valid key and the non-secret agent ID are configured. Never
+put this value in CDK context, `.env.local`, shell history, frontend build
+variables, or CloudFormation outputs. The Lambda role can read this secret;
+the browser cannot. The hosted API and research switches are created as `false`
+in Parameter Store. Their names are emitted as `WorldGuideEnabledParameter`
+and `WorldGuideResearchEnabledParameter`; the API URL is emitted as
+`WorldGuideApiUrl`. See the [World Guide operating guide](../../docs/WORLD_GUIDE.md)
+for frontend build configuration, quotas, enable/disable steps, and privacy
+boundaries.
+
+For CLI-based secret setup, create a mode-`600` JSON file outside the checkout
+and pass its path (not the key value) to AWS CLI:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id "$(aws cloudformation describe-stacks \
+    --stack-name WorldEveryDay-production \
+    --query "Stacks[0].Outputs[?OutputKey=='WorldGuideElevenLabsSecretName'].OutputValue | [0]" \
+    --output text --profile <named-profile>)" \
+  --secret-string file:///secure/path/world-guide-secret.json \
+  --profile <named-profile>
+```
+
 Secret values must be added directly through an authorized AWS workflow. They
 must never appear in CDK context, CloudFormation parameters, source files, or
 command history.
@@ -247,7 +281,7 @@ workflow evaluate candidate metadata and create immutable
 uses the selected Gemini or Bedrock Nova adapter in batches of at most
 ten candidates (at most 20 requests for 100 candidates with one malformed-response
 retry per batch); a completed artifact is reused on resume.
-The deployed development worker uses the 32-source RSS/Atom allowlist, including
+The deployed development worker uses the 31-source RSS/Atom allowlist, including
 GOV.UK news and European Commission environment news.
 Shortlist artifacts apply
 the reviewed source-access policy, record its configuration checksum, and
@@ -279,7 +313,7 @@ Before changing the provider, source policy, or deployment:
    review the [Paid Services terms](https://ai.google.dev/gemini-api/terms),
    and avoid opt-in data-sharing features. Put the key in the existing
    `world-every-day/<environmentName>/google-ai` secret, not CDK context or a
-   Lambda environment variable. Confirm the reviewed 32-source allowlist is in the
+   Lambda environment variable. Confirm the reviewed 31-source allowlist is in the
    deployed bundle before any live collection.
 2. If selecting Bedrock, confirm Nova access. With a named role-based profile, inspect the account's retention
    setting and model-invocation logging in that Region (these commands only

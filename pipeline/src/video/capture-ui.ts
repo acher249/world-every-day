@@ -4,13 +4,20 @@ import { extname } from "node:path";
 import { createHash } from "node:crypto";
 import puppeteer from "puppeteer-core";
 import { publicationManifestSchema } from "../publication/schema.js";
+import { measurePngMeanLuma, MIN_CAPTURE_LUMA } from "./frame-quality.js";
 
-/** Replay cheap UI/camera steps from zero; render only the requested frame batch. */
+// Preselect and finish focusing the first story before frame zero. The same
+// offset applies to every batch, preserving one continuous 30 fps timeline.
+const CAPTURE_START_OFFSET_FRAMES = 75;
+const CAPTURE_PRIME_FRAME = 30;
+
+/** Replay cheap UI/camera steps from a shared timeline; render one batch. */
 export async function captureUiFrames({ publicationBytes, worldPath: sourceWorldPath, expectedSha256, executablePath, args = [], readStatic,
-  startFrame = 0, frameCount = 300, shouldSkip, onFrame,
+  startFrame = 0, frameCount = 300, shouldSkip, onFrame, onRejectedFrame, headless = true,
 }: {
   publicationBytes: Uint8Array; worldPath: string; expectedSha256: string; executablePath: string; args?: string[];
-  readStatic(key: string): Promise<Uint8Array>; startFrame?: number; frameCount?: number;
+  readStatic(key: string): Promise<Uint8Array>; startFrame?: number; frameCount?: number; headless?: boolean;
+  onRejectedFrame?(frame: number, png: Buffer, meanLuma: number): Promise<void>;
   shouldSkip?(frame: number): Promise<boolean>; onFrame(frame: number, png: Buffer): Promise<void>;
 }) {
   if (!Number.isInteger(startFrame) || !Number.isInteger(frameCount) || startFrame < 0 || frameCount < 1 || startFrame + frameCount > 300) throw new Error("Invalid UI capture frame range");
@@ -47,7 +54,7 @@ export async function captureUiFrames({ publicationBytes, worldPath: sourceWorld
   const port = (server.address() as { port: number }).port;
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
-    browser = await puppeteer.launch({ executablePath, args: [...args, "--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE localhost"], headless: true, defaultViewport: { width: 1280, height: 720, deviceScaleFactor: 1 }, protocolTimeout: 180_000 });
+    browser = await puppeteer.launch({ executablePath, args: [...args, "--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE localhost"], headless, defaultViewport: { width: 1280, height: 720, deviceScaleFactor: 1 }, protocolTimeout: 180_000 });
     const page = await browser.newPage();
     // CSP and DNS isolation keep capture local without intercepting Spark's worker fetches.
     page.on("pageerror", (error) => console.error(String(error)));
@@ -108,12 +115,60 @@ export async function captureUiFrames({ publicationBytes, worldPath: sourceWorld
     });
     // Start at a fresh clock epoch after initial UI entrance animations settle.
     await new Promise((done) => setTimeout(done, 1200));
+    // Each Lambda batch starts a fresh Chromium page. Prime the viewer at the
+    // start of the deterministic timeline so React can remove its loading
+    // overlay and Radix can compile/warm its render pipeline before frame 0 is
+    // recorded. Without this, the first frame of every batch can capture the
+    // loading screen while the world itself is still readying for display.
+    await page.evaluate(async (offsetFrames) => {
+      const runtime = window as unknown as {
+        __WORLD_OFFLINE_TOUR__: { step(): void; render(): Promise<void> };
+        __TOUR_CLOCK__: { advance(ms: number): void; freezeAnimations(): void };
+      };
+      runtime.__TOUR_CLOCK__.advance(offsetFrames * 1000 / 30);
+      runtime.__WORLD_OFFLINE_TOUR__.step();
+      await runtime.__WORLD_OFFLINE_TOUR__.render();
+    }, CAPTURE_PRIME_FRAME);
+    await page.waitForFunction(
+      `(() => {
+        const world = document.querySelector('.spark-world');
+        const loading = document.querySelector('.spark-loading');
+        return world?.dataset.viewerState === 'ready' &&
+          loading?.dataset.visible === 'false' &&
+          getComputedStyle(loading).visibility === 'hidden' &&
+          Number(getComputedStyle(loading).opacity) < 0.01;
+      })()`,
+      { timeout: 30_000, polling: 50 },
+    );
+    // Force a real first Radix draw before resetting the deterministic tour to
+    // the capture start. Fresh capture batches otherwise race the viewer's GPU initialization
+    // even after React reports ready. Frames 0–10 are warm-up only; the final
+    // reset keeps the recorded timeline unchanged.
+    for (let timelineFrame = CAPTURE_PRIME_FRAME; timelineFrame <= CAPTURE_START_OFFSET_FRAMES; timelineFrame++) {
+      await page.evaluate((timelineFrame) => {
+        const runtime = window as unknown as { __TOUR_CLOCK__: { advance(ms: number): void; freezeAnimations(): void }; __WORLD_OFFLINE_TOUR__: { step(): void } };
+        runtime.__TOUR_CLOCK__.advance(timelineFrame * 1000 / 30);
+        if (timelineFrame === 30) window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+        runtime.__WORLD_OFFLINE_TOUR__.step();
+        runtime.__TOUR_CLOCK__.freezeAnimations();
+      }, timelineFrame);
+      await page.evaluate(() => new Promise((done) => setTimeout(done, 0)));
+      await page.evaluate(() => (window as unknown as { __WORLD_OFFLINE_TOUR__: { render(): Promise<void> } }).__WORLD_OFFLINE_TOUR__.render());
+    }
+    await page.evaluate((offsetFrames) => {
+      const runtime = window as unknown as { __TOUR_CLOCK__: { advance(ms: number): void; freezeAnimations(): void }; __WORLD_OFFLINE_TOUR__: { step(): void } };
+      runtime.__TOUR_CLOCK__.advance(offsetFrames * 1000 / 30);
+      runtime.__WORLD_OFFLINE_TOUR__.step();
+      runtime.__TOUR_CLOCK__.freezeAnimations();
+    }, CAPTURE_START_OFFSET_FRAMES);
+    await page.evaluate(() => (window as unknown as { __WORLD_OFFLINE_TOUR__: { render(): Promise<void> } }).__WORLD_OFFLINE_TOUR__.render());
     for (let frame = 0; frame < startFrame + frameCount; frame++) {
-      await page.evaluate((frame) => {
+      const timelineFrame = frame + CAPTURE_START_OFFSET_FRAMES;
+      await page.evaluate((timelineFrame) => {
         const runtime = window as unknown as { __TOUR_CLOCK__: { advance(ms: number): void; freezeAnimations(): void } };
-        runtime.__TOUR_CLOCK__.advance(frame * 1000 / 30);
-        if ([30, 90, 150, 210].includes(frame)) window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-      }, frame);
+        runtime.__TOUR_CLOCK__.advance(timelineFrame * 1000 / 30);
+        if ([105, 165, 225, 285].includes(timelineFrame)) window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      }, timelineFrame);
       // Let React commit the actual panel/selection changes before stepping the viewer.
       await page.evaluate(() => new Promise((done) => setTimeout(done, 0)));
       await page.evaluate(() => {
@@ -121,9 +176,37 @@ export async function captureUiFrames({ publicationBytes, worldPath: sourceWorld
         runtime.__WORLD_OFFLINE_TOUR__.step();
         runtime.__TOUR_CLOCK__.freezeAnimations();
       });
-      if (frame < startFrame || await shouldSkip?.(frame)) continue;
-      await page.evaluate(() => (window as unknown as { __WORLD_OFFLINE_TOUR__: { render(): Promise<void> } }).__WORLD_OFFLINE_TOUR__.render());
-      await onFrame(frame, Buffer.from(await page.screenshot({ type: "png" })));
+      if (frame < startFrame) {
+        continue;
+      }
+      if (await shouldSkip?.(frame)) continue;
+      const render = () => page.evaluate(() => (window as unknown as { __WORLD_OFFLINE_TOUR__: { render(): Promise<void> } }).__WORLD_OFFLINE_TOUR__.render());
+      await render();
+      let png = Buffer.from(await page.screenshot({ type: "png" }));
+      // A fresh Chromium process can report the viewer ready before Radix has
+      // completed its first visible splat draw. Never encode that transient
+      // black canvas as a real video frame. Retry the same deterministic frame
+      // while the renderer warms up, then fail the batch if it stays blank.
+      if (frame === startFrame) {
+        let brightness = await measurePngMeanLuma(png);
+        if (brightness < MIN_CAPTURE_LUMA) {
+          // Retry only this frame for up to four seconds. Never advance or
+          // rewind the deterministic tour clock to find a brighter image:
+          // doing so duplicates future frames and creates visible jumps at
+          // Lambda batch boundaries.
+          for (let attempt = 1; attempt <= 8 && brightness < MIN_CAPTURE_LUMA; attempt++) {
+            await new Promise((done) => setTimeout(done, 500));
+            await render();
+            png = Buffer.from(await page.screenshot({ type: "png" }));
+            brightness = await measurePngMeanLuma(png);
+          }
+          if (brightness < MIN_CAPTURE_LUMA) {
+            await onRejectedFrame?.(frame, png, brightness);
+            throw new Error(`Radix viewer produced a near-black first frame (mean luma ${brightness.toFixed(1)}) for batch starting at frame ${startFrame}`);
+          }
+        }
+      }
+      await onFrame(frame, png);
       console.info(JSON.stringify({ frame, elapsedMs: Math.round(performance.now() - started) }));
     }
     return { frameCount, elapsedMs: performance.now() - started };

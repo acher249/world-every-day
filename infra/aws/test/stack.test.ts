@@ -81,7 +81,7 @@ test("optional video uses bounded batches before posting and isolates failures",
   const rendered = template({ xPostingAccountId: "123", xVideoEnabled: true });
   const json = JSON.stringify(rendered.toJSON());
   assert.match(json, /RenderVideoBatches/);
-  assert.match(json, /MaxConcurrency\\?":10/);
+  assert.match(json, /MaxConcurrency\\?":6/);
   assert.match(json, /AssembleWorldVideo/);
   assert.match(json, /editionId\.\$\\?":\\?"\$\.videoJob\.editionId/);
   assert.match(json, /jobId\.\$\\?":\\?"\$\.videoJob\.jobId/);
@@ -121,7 +121,7 @@ test("foundation creates on-demand state, observability, and disabled automation
     },
   });
   rendered.resourceCountIs("AWS::StepFunctions::StateMachine", 3);
-  rendered.resourceCountIs("AWS::Lambda::Function", 17);
+  rendered.resourceCountIs("AWS::Lambda::Function", 18);
   rendered.hasResourceProperties("AWS::Lambda::Function", {
     Architectures: ["arm64"],
     ReservedConcurrentExecutions: Match.absent(),
@@ -194,6 +194,9 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /ConfirmPaidArticleAnalysis/);
   assert.match(body, /PrepareLiveArticleAnalysis/);
   assert.match(body, /AnalyzeLiveArticles/);
+  assert.match(body, /SkipUnavailableLiveArticle/);
+  assert.match(body, /SourceFetchError/);
+  assert.match(body, /ArticleUnavailableError/);
   assert.match(body, /FinalizeLiveEdition/);
   assert.match(body, /ConfirmPaidArtDirection/);
   assert.match(body, /CreateLiveArtDirection/);
@@ -206,6 +209,12 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /ApproveUnattendedPublication/);
   assert.match(body, /confirmUnattendedRun/);
   assert.match(body, /CreateApprovedRawPanoramaSource/);
+  assert.match(body, /PanoramaCandidateRejected/);
+  assert.match(body, /PanoramaCandidateRejected.{0,160}MaxAttempts.{0,10}4/);
+  const rawWorker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
+    .find(([id]) => id.startsWith("RawPanoramaHandler"))?.[1];
+  assert.equal(rawWorker?.Properties?.Timeout, 900);
+  assert.equal(rawWorker?.Properties?.Environment?.Variables?.PANORAMA_REVIEW_MODEL, "gemini-3.8-flash");
   assert.match(body, /ProcessPrivatePanorama/);
   const poleWorker = Object.entries(rendered.findResources("AWS::Lambda::Function"))
     .find(([id]) => id.startsWith("PanoramaProcessingHandler"))?.[1];
@@ -216,6 +225,7 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /ConfirmPaidWorldGeneration/);
   assert.match(body, /StartApprovedWorldGeneration/);
   assert.match(body, /PollWorldGeneration/);
+  assert.match(body, /Lambda\.TooManyRequestsException/);
   assert.match(body, /LivePrivateWorldReadyForReview/);
   assert.match(body, /ConfirmPaidLandmarkDetection/);
   assert.match(body, /DetectPrivateLandmarks/);
@@ -247,6 +257,46 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.doesNotMatch(body, /s3:DeleteObject|dynamodb:Scan/);
   assert.ok(rendered.toJSON().Outputs?.LiveCollectionStateMachineArn);
   assert.ok(rendered.toJSON().Outputs?.WorldLabsAuthProbeFunctionName);
+});
+
+test("hosted World Guide is provisioned with private storage and disabled switches", () => {
+  const rendered = template();
+  rendered.hasResourceProperties("AWS::DynamoDB::Table", {
+    BillingMode: "PAY_PER_REQUEST",
+    TimeToLiveSpecification: { AttributeName: "ttl", Enabled: true },
+    PointInTimeRecoverySpecification: Match.absent(),
+  });
+  rendered.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/world-every-day/development/world-guide-enabled",
+    Type: "String",
+    Value: "false",
+  });
+  rendered.hasResourceProperties("AWS::SSM::Parameter", {
+    Name: "/world-every-day/development/world-guide-research-enabled",
+    Type: "String",
+    Value: "false",
+  });
+  rendered.hasResourceProperties("AWS::SecretsManager::Secret", {
+    Description: "Server-side ElevenLabs API key for the optional World Guide",
+  });
+  rendered.hasResourceProperties("AWS::ApiGateway::RestApi", {
+    EndpointConfiguration: { Types: ["REGIONAL"] },
+  });
+  rendered.resourceCountIs("AWS::WAFv2::WebACL", 1);
+  rendered.resourceCountIs("AWS::WAFv2::WebACLAssociation", 1);
+  rendered.hasResourceProperties("AWS::Lambda::Function", {
+    Environment: { Variables: Match.objectLike({
+      WORLD_GUIDE_AGENT_ID: "",
+      WORLD_GUIDE_ENABLED_PARAMETER: Match.anyValue(),
+      WORLD_GUIDE_RESEARCH_PARAMETER: Match.anyValue(),
+    }) },
+  });
+  const templateJson = JSON.stringify(rendered.toJSON());
+  assert.match(templateJson, /WorldGuideIpRateLimit/);
+  assert.match(templateJson, /WorldGuideApiUrl/);
+  assert.match(templateJson, /dynamodb:EnclosingOperation/);
+  assert.match(templateJson, /dynamodb:PutItem/);
+  assert.match(templateJson, /dynamodb:UpdateItem/);
 });
 
 test("production state enables deletion protection and point-in-time recovery", () => {

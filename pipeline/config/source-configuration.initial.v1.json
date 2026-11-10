@@ -69,17 +69,6 @@
       ]
     },
     {
-      "id": "noaa-news",
-      "type": "rss",
-      "publisher": "NOAA",
-      "feedUrl": "https://www.noaa.gov/rss.xml",
-      "kind": "primary",
-      "articleAccess": "ephemeral-analysis",
-      "allowedArticleHosts": [
-        "www.noaa.gov"
-      ]
-    },
-    {
       "id": "yale-news",
       "type": "rss",
       "publisher": "Yale News",

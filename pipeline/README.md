@@ -78,9 +78,11 @@ It parses them into a versioned
 candidate set, normalizes tracking URLs, applies the configured publication
 window, and deduplicates exact canonical URLs. One failed feed is isolated from
 the rest. Candidate admission is capped at 100 with publisher-balanced selection
-and an omitted-count field. The default list contains only sources reviewed for
-ephemeral article analysis. Custom configurations can still mark a source
-discovery-only, but those candidates cannot enter the full edition workflow.
+and an omitted-count field. Each source explicitly allows ephemeral article
+analysis or discovery only. The main NOAA News feed at
+`https://www.noaa.gov/rss.xml` is excluded because its linked stories returned
+HTTP 403 from the pipeline. The separate NOAA Ocean Service feed remains
+eligible for analysis.
 
 Full article pages are fetched only after a candidate is shortlisted. GOV.UK
 Atom entries are checked against the official Content API for their original
@@ -94,6 +96,12 @@ project-written analysis only. The AWS worker defaults to Gemini; fixture
 analyzers remain the default for tests. A single
 analysis produces a clear headline, original summary, source-grounded claims,
 and granular visual details. Missing visual details remain non-fatal.
+
+Article retrieval is isolated per story. Transient network, throttling, and
+server errors receive up to three bounded attempts; permanent denials such as
+HTTP 403 are not retried. An unavailable or unreadable article is excluded
+from the final edition, and the other stories continue. Finalization stops
+before generation if no story has accessible, sufficient article evidence.
 
 Gemini and Bedrock are managed services, not local inference.
 Before live use, review source permissions and provider handling in the
@@ -396,7 +404,7 @@ npm run panorama -- \
   --confirm-paid-generation
 ```
 
-Live generation makes two image requests: the panorama and a masked repair of
+Live generation allows up to five reviewed panorama candidates, then a masked repair of
 both poles. It requires deliberate `--confirm-paid-generation` approval. Every
 output directory must be new, and the command creates it before calling the
 provider so an existing run cannot trigger a duplicate paid request.

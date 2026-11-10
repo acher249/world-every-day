@@ -36,6 +36,22 @@ function GitHubIcon() {
   );
 }
 
+function XIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 3h4l12 18h-4L4 3Z" /><path d="m20 3-7 8M11 13l-7 8" />
+    </svg>
+  );
+}
+
+function WorldLabsMark() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="-1 -2 100 87" fill="currentColor">
+      <path d="M.06,3.25l12.82,63.26c.55,2.72,3.6,3.3,5.44,1.23l5.54-5.61c5.01-5.07,12.43-4.58,16.99.9l17.47,17.88c1.28,1.35,3.7.82,4.57-.82l27.33-48.72c1.23-2.19-.63-4.25-3.06-3.6l-43.92,15.56c-4.1,1.74-8.81,3.69-14.13-2.35L4.88,1.07C3.13-1.2-.49.43.06,3.25Z" />
+    </svg>
+  );
+}
+
 function FollowLinks({ className, project = false }: { className: string; project?: boolean }) {
   const label = project ? "Follow the project on X" : "Follow Adam";
   const xLabel = project ? label : "Follow Adam on X";
@@ -43,9 +59,7 @@ function FollowLinks({ className, project = false }: { className: string; projec
     <div className={`${className} follow-adam`}>
       <span className="follow-adam-label">{label}</span>
       <a href={project ? "https://x.com/aworldeveryday" : "https://x.com/ajc_builds"} target="_blank" rel="noopener noreferrer" aria-label={xLabel} title={xLabel}>
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M4 3h4l12 18h-4L4 3Z" /><path d="m20 3-7 8M11 13l-7 8" />
-        </svg>
+        <XIcon />
       </a>
       {!project && <a href="https://www.linkedin.com/in/adamchernick/" target="_blank" rel="noopener noreferrer" aria-label="Follow Adam on LinkedIn" title="Follow Adam on LinkedIn">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -83,6 +97,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         <nav aria-label="Primary navigation">
           <a className="text-link desktop-link" href="#project">The project</a>
           <a className="text-link desktop-link github-link" href={githubUrl} target="_blank" rel="noopener noreferrer"><GitHubIcon /> GitHub <Arrow diagonal /></a>
+          <a className="text-link header-x-link" href="https://x.com/aworldeveryday" target="_blank" rel="noopener noreferrer" aria-label="Follow A World Every Day on X" title="Follow A World Every Day on X"><XIcon /></a>
           <a className="pill-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">Explore today <Arrow /></a>
         </nav>
         <FollowLinks className="header-follow" />
@@ -285,6 +300,7 @@ export function MarketingExperience({ explorerUrl, githubUrl }: MarketingSiteCon
         <div>
           <a className="github-link" href={githubUrl} target="_blank" rel="noopener noreferrer"><GitHubIcon /> GitHub</a>
           <a href={explorerUrl} target="_blank" rel="noopener noreferrer">Explore today</a>
+          <a className="world-labs-credit" href="https://www.worldlabs.ai/" target="_blank" rel="noopener noreferrer"><WorldLabsMark /> World Labs</a>
         </div>
         <FollowLinks className="creator-credit project-credit" project />
         <FollowLinks className="creator-credit author-credit" />

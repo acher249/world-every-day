@@ -9,6 +9,8 @@ import { cameraRelativeFocusCenter, focusPositionForLandmark, focusShapeForLandm
 import { companionOffset } from "@/lib/world-interactions";
 import { depthOfFieldTarget, focusPanelYaw, hotspotVisualScale, viewerPixelRatio } from "@/lib/viewer-presentation";
 import { observeViewerVisibility } from "@/lib/viewer-visibility";
+import { offlineTour } from "@/lib/offline-tour";
+import { boundaryCircleColumns, boundaryCircleRows, boundaryLatitudeSegments, boundaryLongitudeSegments, boundaryOpacity } from "@/lib/navigation-boundary";
 import type { ViewerState, WorldAnchor } from "@/components/spark-world";
 import { WorldLoadingIndicator } from "@/components/world-loading-indicator";
 
@@ -86,6 +88,8 @@ export function RadixWorld({
     let cancelled = false;
     let renderer: import("three/webgpu").WebGPURenderer | undefined;
     let splatRenderer: import("@sparkjsdev/radix").SplatRenderer | undefined;
+    let boundaryGeometry: import("three").BufferGeometry | undefined;
+    let boundaryMaterial: import("three/webgpu").MeshBasicNodeMaterial | undefined;
     let resizeObserver: ResizeObserver | undefined;
     const removeListeners: Array<() => void> = [];
 
@@ -93,7 +97,7 @@ export function RadixWorld({
       try {
         setViewerState("loading");
         setProgress((current) => Math.max(current ?? 0, reportedProgressRef.current));
-        const [THREE, TSL, radix] = await Promise.all([import("three"), import("three/tsl"), import("@sparkjsdev/radix")]);
+        const [THREE, TSL, WebGPU, radix] = await Promise.all([import("three"), import("three/tsl"), import("three/webgpu"), import("@sparkjsdev/radix")]);
         renderer = await radix.createRenderer({ canvas: canvas!, antialias: false });
         if (cancelled) return;
         reportedProgressRef.current = Math.max(reportedProgressRef.current, 6);
@@ -159,13 +163,47 @@ export function RadixWorld({
         // Radix selects GPU sorting on WebGPU and its asynchronous CPU sort on
         // WebGL. Keep its backend-aware default so browsers without WebGPU can
         // still use the spatial viewer.
-        splatRenderer = new radix.SplatRenderer({ renderer, collection, modifier, modifierSpace: "world" });
+        splatRenderer = new radix.SplatRenderer({ renderer, collection, modifier, modifierSpace: "world", autoSort: offlineTour() ? false : undefined });
         scene.add(splatRenderer);
         const capsInfo = `Radix · ${caps.backend} · ${data.count.toLocaleString()} splats`;
 
         const maxAnchorDistance = Math.max(1, ...anchorsRef.current.map(({ worldPosition }) => Math.hypot(worldPosition.x, worldPosition.y, worldPosition.z)));
         const navigationRadius = getNavigationRadius(maxAnchorDistance / 0.15);
         const navigationFloor = getNavigationFloor(navigationRadius);
+        const boundaryScene = new THREE.Scene();
+        const boundaryOpacityNode = TSL.uniform(0);
+        const boundaryRadiusNode = TSL.uniform(navigationRadius);
+        const boundaryDistance = TSL.length(TSL.positionWorld.sub(TSL.cameraPosition)).div(boundaryRadiusNode);
+        const boundaryDistanceSquared = boundaryDistance.mul(boundaryDistance);
+        const boundaryNearby = TSL.float(1).sub(TSL.smoothstep(0.09, 1.96, boundaryDistanceSquared));
+        const boundaryUv = TSL.fract(TSL.uv().mul(TSL.vec2(boundaryCircleColumns, boundaryCircleRows)));
+        const boundaryCircleProximity = TSL.float(1).sub(TSL.smoothstep(0.0036, 0.25, boundaryDistanceSquared));
+        const boundaryCircleRadius = TSL.mix(TSL.float(0.05), TSL.float(0.48), boundaryCircleProximity);
+        const boundaryRingWidth = TSL.mix(TSL.float(0.012), TSL.float(0.023), boundaryCircleProximity);
+        const boundaryCircleDistance = TSL.length(boundaryUv.sub(TSL.vec2(0.5, 0.5)));
+        const boundaryCircle = TSL.float(1).sub(TSL.smoothstep(
+          boundaryRingWidth.mul(0.35), boundaryRingWidth,
+          TSL.abs(boundaryCircleDistance.sub(boundaryCircleRadius)),
+        ));
+        const boundaryEdgeDistance = TSL.min(
+          TSL.min(boundaryUv.x, TSL.float(1).sub(boundaryUv.x)),
+          TSL.min(boundaryUv.y, TSL.float(1).sub(boundaryUv.y)),
+        );
+        const boundaryGrid = TSL.float(1).sub(TSL.smoothstep(0.002, 0.026, boundaryEdgeDistance));
+        const boundaryPattern = boundaryCircle.mul(0.48)
+          .add(boundaryGrid.mul(TSL.mix(TSL.float(0.13), TSL.float(0.3), boundaryCircleProximity)))
+          .add(0.015);
+        const boundaryNodeMaterial = new WebGPU.MeshBasicNodeMaterial({
+          side: THREE.BackSide,
+          transparent: true,
+          depthTest: false,
+          depthWrite: false,
+        });
+        boundaryNodeMaterial.colorNode = TSL.vec3(0.38, 0.96, 0.91);
+        boundaryNodeMaterial.opacityNode = boundaryOpacityNode.mul(boundaryNearby).mul(boundaryPattern);
+        boundaryGeometry = new THREE.SphereGeometry(navigationRadius * 1.04, boundaryLongitudeSegments, boundaryLatitudeSegments);
+        boundaryMaterial = boundaryNodeMaterial;
+        boundaryScene.add(new THREE.Mesh(boundaryGeometry, boundaryNodeMaterial));
         const landmarkFocus = new Map<string, { center: InstanceType<typeof THREE.Vector3>; shape: InstanceType<typeof THREE.Vector3> }>();
         for (const anchor of anchorsRef.current) {
           if (anchor.kind !== "story") continue;
@@ -227,6 +265,11 @@ export function RadixWorld({
         const focusTravelStartInverseRadii = new THREE.Vector3(1, 1, 1);
         const focusTravelEndInverseRadii = new THREE.Vector3(1, 1, 1);
         let lastMovement = 0;
+        const tour = offlineTour();
+        // The recorded tour advances to a new story every two seconds. Finish
+        // each camera flight first so the next selection does not interrupt
+        // an in-progress 2.4s interactive navigation transition.
+        const focusTransitionDuration = tour ? 1.5 : 2.4;
 
         const applyRotation = () => {
           euler.set(pitch, yaw, 0);
@@ -316,7 +359,7 @@ export function RadixWorld({
           () => canvas!.removeEventListener("contextmenu", preventContext),
         );
 
-        const renderFrame = (time: number) => {
+        const renderFrame = (time: number, draw = true) => {
           const delta = Math.min((time - previousTime) / 1000, 0.05);
           previousTime = time;
           if (lastResetRevision !== resetRevisionRef.current) {
@@ -371,7 +414,7 @@ export function RadixWorld({
                 focusTravelEndInverseRadii.set(1 / targetShape.x, 1 / targetShape.y, 1 / targetShape.z);
                 focusTravel = {
                   elapsed: 0,
-                  duration: 2.4,
+                  duration: focusTransitionDuration,
                   id: anchor.id,
                   startView: focusTravelStartView.clone(),
                   endView: focusTravelEndView.clone(),
@@ -391,7 +434,7 @@ export function RadixWorld({
               } else {
                 transition = {
                   elapsed: 0,
-                  duration: 2.4,
+                  duration: focusTransitionDuration,
                   start: camera.position.clone(),
                   end: endPosition,
                   startYaw: yaw,
@@ -500,7 +543,18 @@ export function RadixWorld({
           const targetAperture = Math.tan(depth.apertureAngle / 2);
           splatRenderer!.objectParams.apertureTan += (targetAperture - splatRenderer!.objectParams.apertureTan) * focusBlend;
           camera.updateMatrixWorld(true);
-          renderer!.render(scene, camera);
+          const boundaryTarget = boundaryOpacity(camera.position.length(), navigationRadius);
+          boundaryOpacityNode.value += (boundaryTarget - boundaryOpacityNode.value) *
+            (reducedMotion.matches ? 1 : 1 - Math.exp(-5 * delta));
+          if (draw) {
+            renderer!.render(scene, camera);
+            if (boundaryOpacityNode.value > 0.003) {
+              const autoClear = renderer!.autoClear;
+              renderer!.autoClear = false;
+              renderer!.render(boundaryScene, camera);
+              renderer!.autoClear = autoClear;
+            }
+          }
           for (const anchor of anchorsRef.current) {
             const element = anchorElementsRef.current.get(anchor.id);
             if (!element) continue;
@@ -557,13 +611,40 @@ export function RadixWorld({
             console.info(capsInfo);
           }
         };
-        renderer.setAnimationLoop(renderFrame);
-        removeListeners.push(observeViewerVisibility(canvas!, (visible) => {
-          previousTime = performance.now();
-          stopMovement();
-          canvas!.dataset.rendering = visible ? "active" : "paused";
-          renderer?.setAnimationLoop(visible ? renderFrame : null);
-        }));
+        const renderLoop = (time: number) => renderFrame(time);
+        if (tour) {
+          tour.step = () => renderFrame(performance.now(), false);
+          tour.render = async () => {
+            if (!renderer || !splatRenderer) throw new Error("Tour viewer unavailable");
+            // Step updates camera and UI state without drawing. CPU orders must
+            // be awaited and applied explicitly: readSortedCount only waits on
+            // the GPU backend. Background CPU sorts can otherwise land halfway
+            // through a batch, changing visibility between screenshots.
+            if (splatRenderer.sortMode === "cpu") {
+              const view = splatRenderer.viewFor(camera);
+              const order = await view.sort(camera);
+              if (!view.apply(order)) throw new Error("Capture could not apply the current frame's splat order");
+            }
+            splatRenderer.prepare(camera);
+            if (splatRenderer.sortMode === "gpu") await splatRenderer.readSortedCount();
+            renderer.render(scene, camera);
+            if (boundaryOpacityNode.value > 0.003) {
+              const autoClear = renderer.autoClear;
+              renderer.autoClear = false;
+              renderer.render(boundaryScene, camera);
+              renderer.autoClear = autoClear;
+            }
+          };
+          removeListeners.push(() => { delete tour.step; delete tour.render; });
+        } else {
+          renderer.setAnimationLoop(renderLoop);
+          removeListeners.push(observeViewerVisibility(canvas!, (visible) => {
+            previousTime = performance.now();
+            stopMovement();
+            canvas!.dataset.rendering = visible ? "active" : "paused";
+            renderer?.setAnimationLoop(visible ? renderLoop : null);
+          }));
+        }
       } catch (error) {
         if (!cancelled) {
           console.error("Radix WebGPU world failed to initialize", error);
@@ -580,6 +661,8 @@ export function RadixWorld({
       removeListeners.forEach((remove) => remove());
       renderer?.setAnimationLoop(null);
       splatRenderer?.dispose();
+      boundaryGeometry?.dispose();
+      boundaryMaterial?.dispose();
       renderer?.dispose();
     };
   }, [mobileMovementRef, onMovementChange, splatUrl]);

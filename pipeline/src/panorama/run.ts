@@ -7,6 +7,7 @@ import {
   type PanoramaProcessingConfig,
 } from "./config.js";
 import type { PanoramaGenerator } from "./generator.js";
+import { horizonPasses, horizonPreview, type HorizonReviewer } from "./horizon.js";
 import { sha256 } from "./hash.js";
 import { createPanoramaAssets, type PoleRepair } from "./process.js";
 import { POLE_REPAIR_VERSION } from "./poles.js";
@@ -23,6 +24,7 @@ type RunPanoramaOptions = {
   generator: PanoramaGenerator;
   processingConfig?: PanoramaProcessingConfig;
   repairPoles?: PoleRepair;
+  reviewer?: HorizonReviewer;
 };
 
 function extensionForMimeType(mimeType: string): string {
@@ -47,6 +49,7 @@ export async function runPanorama({
   generator,
   processingConfig = defaultProcessingConfig(),
   repairPoles,
+  reviewer,
 }: RunPanoramaOptions): Promise<string> {
   const outputRoot = resolve(outputDirectory);
   await mkdir(dirname(outputRoot), { recursive: true });
@@ -68,6 +71,11 @@ export async function runPanorama({
   );
 
   const deliveryBytes = await readFile(artifacts.deliveryPath);
+  if (reviewer) {
+    const assessment = await reviewer(await horizonPreview(deliveryBytes));
+    await writeFile(resolve(outputRoot, "delivery-assessment.json"), JSON.stringify(assessment, null, 2));
+    if (!horizonPasses(assessment)) throw new Error("Processed panorama failed final horizon/visual review; do not publish");
+  }
 
   const manifest = panoramaManifestSchema.parse({
     schemaVersion: 1,

@@ -8,8 +8,10 @@ export type GeneratedImage = {
   usage: unknown;
 };
 
+export type ImageReference = { bytes: Buffer; mimeType: string };
+
 export type PanoramaGenerator = {
-  generate(prompt: string, reference?: { bytes: Buffer; mimeType: string }): Promise<GeneratedImage>;
+  generate(prompt: string, reference?: ImageReference | ImageReference[]): Promise<GeneratedImage>;
 };
 
 type NanoBananaGeneratorOptions = {
@@ -28,13 +30,15 @@ export class NanoBananaGenerator implements PanoramaGenerator {
     this.#model = model;
   }
 
-  async generate(prompt: string, reference?: { bytes: Buffer; mimeType: string }): Promise<GeneratedImage> {
+  async generate(prompt: string, reference?: ImageReference | ImageReference[]): Promise<GeneratedImage> {
     const startedAt = Date.now();
     const response = await this.#client.models.generateContent({
       model: this.#model,
       contents: reference ? [{ role: "user", parts: [
         { text: prompt },
-        { inlineData: { data: reference.bytes.toString("base64"), mimeType: reference.mimeType } },
+        ...(Array.isArray(reference) ? reference : [reference]).map((image) => ({
+          inlineData: { data: image.bytes.toString("base64"), mimeType: image.mimeType },
+        })),
       ] }] : prompt,
       config: {
         responseModalities: ["IMAGE"],
