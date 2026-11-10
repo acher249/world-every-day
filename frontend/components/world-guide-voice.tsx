@@ -29,6 +29,7 @@ type GuideToolMap = {
   research_stories: (parameters: Record<string, unknown>) => Promise<string>;
 };
 const mobileWorldGuideQuery = "(max-width: 760px), (orientation: landscape) and (pointer: coarse)";
+const maxSessionDurationMs = 180_000;
 
 function providerErrorText(message: string, context: unknown) {
   const details = context && typeof context === "object"
@@ -171,6 +172,7 @@ function GuideSession({
   const editionRef = useRef(context.editionId);
   const statusRef = useRef(status);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxSessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const agentJustSpokeRef = useRef(false);
   latestContextRef.current = context;
   latestGrantRef.current = grant;
@@ -179,6 +181,10 @@ function GuideSession({
   useEffect(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = null;
+    if ((status === "disconnected" && !pending) || status === "error") {
+      if (maxSessionTimerRef.current) clearTimeout(maxSessionTimerRef.current);
+      maxSessionTimerRef.current = null;
+    }
     if (status !== "connected") {
       agentJustSpokeRef.current = false;
       return;
@@ -194,10 +200,11 @@ function GuideSession({
         void endSession();
       }, 24_000);
     }
-  }, [endSession, mode, status, userResponseRevision]);
+  }, [endSession, mode, pending, status, userResponseRevision]);
 
   useEffect(() => () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (maxSessionTimerRef.current) clearTimeout(maxSessionTimerRef.current);
   }, []);
 
   useConversationClientTool<GuideToolMap>("navigate_to_story", (parameters) => {
@@ -270,6 +277,8 @@ function GuideSession({
     editionRef.current = context.editionId;
     sentEditionRef.current = null;
     const activeGrant = latestGrantRef.current;
+    if (maxSessionTimerRef.current) clearTimeout(maxSessionTimerRef.current);
+    maxSessionTimerRef.current = null;
     latestGrantRef.current = null;
     setGrant(null);
     if (statusRef.current !== "disconnected") void endSession();
@@ -300,11 +309,14 @@ function GuideSession({
   }, [context, selectedStoryId, sendContextualUpdate, status]);
 
   useEffect(() => () => {
+    if (maxSessionTimerRef.current) clearTimeout(maxSessionTimerRef.current);
     if (statusRef.current !== "disconnected") void endSession();
     void releaseLeaseRef.current(latestGrantRef.current);
   }, [endSession]);
 
   const start = useCallback(async () => {
+    if (maxSessionTimerRef.current) clearTimeout(maxSessionTimerRef.current);
+    maxSessionTimerRef.current = null;
     onStartAttempt();
     setPending(true);
     setError(null);
@@ -352,19 +364,31 @@ function GuideSession({
           ? {}
           : { leaseExpiresInSeconds: receivedGrant.leaseExpiresInSeconds }),
       });
+      latestGrantRef.current = receivedGrant;
+      maxSessionTimerRef.current = setTimeout(() => {
+        maxSessionTimerRef.current = null;
+        latestGrantRef.current = null;
+        setGrant(null);
+        setError("World Guide sessions are limited to 3 minutes.");
+        void endSession();
+        void releaseLease(receivedGrant);
+      }, maxSessionDurationMs);
       await startSession({
         ...connection,
         dynamicVariables: buildWorldGuideDynamicVariables(context),
       });
     } catch (cause) {
+      if (maxSessionTimerRef.current) clearTimeout(maxSessionTimerRef.current);
+      maxSessionTimerRef.current = null;
       microphone?.getTracks().forEach((track) => track.stop());
+      latestGrantRef.current = null;
       if (receivedGrant) await releaseLease(receivedGrant);
       setGrant(null);
       setError(cause instanceof Error ? cause.message : "The World Guide could not start.");
     } finally {
       setPending(false);
     }
-  }, [agentId, context, onStartAttempt, releaseLease, serviceEnabled, startSession]);
+  }, [agentId, context, endSession, onStartAttempt, releaseLease, serviceEnabled, startSession]);
 
   const handledStartRequestRef = useRef(0);
   useEffect(() => {
@@ -374,7 +398,13 @@ function GuideSession({
   }, [start, startRequest]);
 
   const stop = async () => {
+    if (maxSessionTimerRef.current) clearTimeout(maxSessionTimerRef.current);
+    maxSessionTimerRef.current = null;
+    const activeGrant = latestGrantRef.current;
+    latestGrantRef.current = null;
+    setGrant(null);
     await endSession();
+    await releaseLease(activeGrant);
   };
 
   const active = status === "connected" || status === "connecting" || pending;

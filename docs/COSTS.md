@@ -87,7 +87,7 @@ rates, not batch discounts or consumer subscriptions. Gemini text-model rates ar
   billed by ElevenLabs under the operator's current plan and model/voice rates;
   on-demand research also uses the configured Gemini account. The hosted
   reference implementation limits new sessions to 25 per UTC day (5 per source
-  IP), with a 600-second maximum call duration, and limits research to 20 calls
+  IP), with a 180-second maximum call duration, and limits research to 20 calls
   per day. A separate $5/day admission allowance reserves an operator-reviewed full-session
   cost before issuing tokens; it stays disabled until that reservation is configured.
   These are request/reservation bounds, not a guaranteed total-bill cap.

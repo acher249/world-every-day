@@ -156,7 +156,7 @@ test("returns a short-lived local lease and allows explicit session end", async 
       sessionId: string;
       localLeaseExpiresInSeconds: number;
     };
-    assert.equal(result.localLeaseExpiresInSeconds, 900);
+    assert.equal(result.localLeaseExpiresInSeconds, 180);
     assert.equal("signedUrl" in result, false);
 
     const end = await fetch(`${baseUrl}/session/end`, {

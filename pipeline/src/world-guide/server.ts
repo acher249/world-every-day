@@ -4,7 +4,7 @@ import { worldGuideResearchInputSchema, worldGuideResearchResultSchema, worldGui
 import type { WorldGuideResearchService } from "./research.js";
 import type { WorldGuideConfig } from "./config.js";
 
-const sessionTtlMs = 15 * 60 * 1000;
+const sessionTtlMs = 3 * 60 * 1000;
 const requestWindowMs = 60 * 1000;
 const maxRequestsPerWindow = 5;
 

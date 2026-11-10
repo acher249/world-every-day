@@ -96,11 +96,12 @@ test("hosted sessions issue only a short-lived token and persist bounded context
   assert.equal(result.statusCode, 200);
   const response = JSON.parse(result.body) as Record<string, unknown>;
   assert.equal(response.conversationToken, "short-lived-test-token");
-  assert.equal(response.leaseExpiresInSeconds, 900);
+  assert.equal(response.leaseExpiresInSeconds, 180);
   assert.equal(typeof response.sessionId, "string");
   assert.equal("apiKey" in response, false);
   const stored = harness.leases.get(response.sessionId as string);
   assert.deepEqual(stored?.context, context);
+  assert.equal(stored?.expiresAt, Math.floor(Date.UTC(2026, 10, 4) / 1000) + 180);
 });
 
 test("origin checks are exact and invalid contexts never reach token issuance", async () => {

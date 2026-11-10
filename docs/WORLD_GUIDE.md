@@ -150,7 +150,7 @@ allowed-origin list, restricting it to the same local origin is useful defense
 in depth; without one, anyone who obtains the agent ID may be able to start a
 conversation. Keep the agent ID out of production builds until the hosted
 service and its access/cost controls are ready. Set
-`max_duration_seconds` to 600, turn audio saving off, choose the shortest
+`max_duration_seconds` to 180, turn audio saving off, choose the shortest
 available transcript retention, and opt out of training/data use. Then set
 `WORLD_GUIDE_AGENT_DIRECT_ACCESS_CONFIRMED=true`, the duration/privacy
 confirmations, and `WORLD_GUIDE_ENABLED=true`. The direct-access flag records
@@ -230,11 +230,13 @@ account. CORS is exact-origin browser policy, not authentication. Abuse and
 cost are bounded with API Gateway throttling, AWS WAF per-IP rate limiting,
 atomic DynamoDB quotas (25 new sessions per UTC day globally, 5 per source IP
 per UTC day, 20 research calls per UTC day, and 4 per session), and a
-15-minute session lease. API Gateway has a 10-request/second rate and a
-20-request burst limit per route. The account's Lambda concurrency quota also
+3-minute session lease. The viewer ends each session 3 minutes after receiving
+its session grant.
+API Gateway has a 10-request/second rate and a 20-request burst limit per
+route. The account's Lambda concurrency quota also
 applies, but the World Guide function does not reserve account concurrency.
 The agent must be configured with authenticated conversations and a
-600-second maximum call duration. These limits bound exposure; they do not
+180-second maximum call duration. These limits bound exposure; they do not
 prevent someone from consuming the available daily allowance. Monitor
 ElevenLabs usage and configure provider-side spending limits/alerts where
 available.
@@ -272,8 +274,9 @@ Enable paid source research separately with
 `/world-every-day/production/world-guide-research-enabled`. To turn the feature
 off quickly, set the conversation switch back to `false`; the backend denies
 new sessions, and connected viewers detect the change on their next status
-poll (normally within about 33 seconds, including the backend flag cache). A disconnected or hostile browser can keep an
-existing provider connection alive until the 600-second agent limit, so also
+poll (normally within about 33 seconds, including the backend flag cache). A
+disconnected or hostile browser can keep an existing provider connection alive
+until the 180-second agent limit, so also
 disable the agent in ElevenLabs to stop new provider sessions immediately.
 The frontend build flag is an additional deployment-time gate, not the runtime
 kill switch.
@@ -290,9 +293,9 @@ still vary with traffic, and provider pricing is separate.
 
 The session context (published story metadata and source URLs, not article
 bodies or audio) is stored in the encrypted DynamoDB table so research can be
-bound to the active edition. It is deleted on session end and has a 15-minute
-expiry; DynamoDB TTL cleanup is asynchronous, so expiry is not an exact deletion
-time. The session table has no point-in-time recovery and is not retained when
+bound to the active edition. It is deleted on session end and expires after
+3 minutes; DynamoDB TTL cleanup is asynchronous, so expiry is not an exact
+deletion time. The session table has no point-in-time recovery and is not retained when
 its stack is deleted. Research article text remains request-scoped in Lambda
 memory and is not written to S3, DynamoDB, browser storage, or application logs.
 
@@ -313,7 +316,7 @@ WORLD_EVERY_DAY_WORLD_GUIDE_SESSION_RESERVATION_CENTS=0
 ```
 
 Zero reservation deliberately keeps hosted sessions disabled. Replace it with a
-reviewed upper-bound estimate for one **full 600-second conversation**, including
+reviewed upper-bound estimate for one **full 180-second conversation**, including
 ElevenLabs voice, the agent's LLM/voice surcharges, and up to four Gemini research
 calls if research is enabled. Confirm provider-side duration and authentication
 settings; changing the agent, model, pricing, or research configuration requires
@@ -354,8 +357,10 @@ the repository does not create or pay for one:
   dashboard provides an allowed-origin list, restrict it to that origin and
   avoid wildcards or production origins. This extra restriction is recommended
   but is not required for the current local connection.
-- Set the agent's maximum call duration to 600 seconds. The local server lease
-  expires after 15 minutes as a separate backstop.
+- Set the agent's maximum call duration to 180 seconds. The viewer ends the
+  session at three minutes, and the local/hosted server lease expires after
+  three minutes as a separate backstop. The provider-side limit is required
+  because a browser timer can be bypassed.
 - Set the agent's default TTS voice to the preferred voice in the ElevenLabs
   dashboard. The viewer uses the agent's published default and does not send
   per-session TTS overrides, so startup does not depend on override permissions.
@@ -467,7 +472,7 @@ node scripts/check-secrets.mjs
 Before a public trial, verify these manually with the intended hosted agent:
 
 - Authentication prevents direct unauthenticated agent-ID connections.
-- Voice, client tools, dynamic variables, privacy settings, and the 600-second
+- Voice, client tools, dynamic variables, privacy settings, and the 180-second
   provider duration limit are configured and the agent is published.
 - Desktop and mobile: microphone denial, start/stop, idle timeout, music
   restoration, story-panel overlap, keyboard access, and reduced motion.

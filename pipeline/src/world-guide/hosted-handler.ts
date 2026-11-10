@@ -8,7 +8,7 @@ import {
 } from "./contracts.js";
 import type { WorldGuideResearchService } from "./research.js";
 
-const sessionLifetimeSeconds = 15 * 60;
+const sessionLifetimeSeconds = 3 * 60;
 const maxResearchPerSession = 4;
 const maxBodyBytes = 64 * 1024;
 
