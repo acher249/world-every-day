@@ -11,7 +11,7 @@ fetch() {
 fetch ffmpeg.tar.xz https://ffmpeg.org/releases/ffmpeg-8.0.1.tar.xz 05ee0b03119b45c0bdb4df654b96802e909e0a752f72e4fe3794f487229e5a41
 fetch openh264.tar.gz https://github.com/cisco/openh264/archive/refs/tags/v2.6.0.tar.gz 558544ad358283a7ab2930d69a9ceddf913f4a51ee9bf1bfb9e377322af81a69
 fetch libvpx.tar.gz https://github.com/webmproject/libvpx/archive/refs/tags/v1.15.2.tar.gz 26fcd3db88045dee380e581862a6ef106f49b74b6396ee95c2993a260b4636aa
-fetch opus.tar.gz https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz 65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1
+fetch opus.tar.gz https://github.com/xiph/opus/releases/download/v1.5.2/opus-1.5.2.tar.gz 65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1
 tar xf openh264.tar.gz
 cd openh264-2.6.0
 make -j4 ASM=No BUILDTYPE=Release PREFIX=/opt/video

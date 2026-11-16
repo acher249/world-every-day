@@ -1,5 +1,5 @@
 import type { LandmarkArtifact } from "../landmarks/schema.js";
-import { interactionManifestSchema, type InteractionAnchor, type InteractionManifest } from "./schema.js";
+import { interactionAnchorSchema, interactionManifestSchema, type InteractionAnchor, type InteractionBakeResult, type InteractionManifest } from "./schema.js";
 
 export interface InteractionBaker {
   readonly algorithmVersion?: string;
@@ -8,7 +8,7 @@ export interface InteractionBaker {
     landmarks: LandmarkArtifact;
     sourceSplatPath: string;
     sourceSplatSha256: string;
-  }): Promise<InteractionAnchor[]>;
+  }): Promise<InteractionBakeResult[]>;
 }
 
 /** Remove unlocated stories before raycasting; their details remain in the private landmark artifact. */
@@ -39,20 +39,40 @@ export async function createInteractionManifest({
   sourceSplatSha256: string;
 }): Promise<InteractionManifest> {
   const renderableLandmarks = renderableLandmarkArtifact(landmarks);
-  const anchors = await baker.bake({ landmarks: renderableLandmarks, sourceSplatPath, sourceSplatSha256 });
+  const results = await baker.bake({ landmarks: renderableLandmarks, sourceSplatPath, sourceSplatSha256 });
   const expectedIds = new Set([
     ...renderableLandmarks.landmarks.map(({ storyId }) => storyId),
     ...renderableLandmarks.contextMarkers.map(({ id }) => id),
   ]);
-  const anchorIds = new Set(anchors.map(({ id }) => id));
-  const missing = [...expectedIds].filter((id) => !anchorIds.has(id));
-  const unexpected = [...anchorIds].filter((id) => !expectedIds.has(id));
-  if (missing.length || unexpected.length || anchorIds.size !== anchors.length) {
+  const resultIds = new Set(results.map(({ id }) => id));
+  const missingResults = [...expectedIds].filter((id) => !resultIds.has(id));
+  const unexpected = [...resultIds].filter((id) => !expectedIds.has(id));
+  if (missingResults.length || unexpected.length || resultIds.size !== results.length) {
     throw new Error(
-      `Interaction anchors do not match landmarks; missing=${missing.join(",") || "none"}; ` +
+      `Interaction bake results do not match landmarks; missing=${missingResults.join(",") || "none"}; ` +
       `unexpected=${unexpected.join(",") || "none"}`,
     );
   }
+
+  const storyIds = new Set(renderableLandmarks.landmarks.map(({ storyId }) => storyId));
+  const missedStoryIds = new Set(results
+    .filter(({ id, worldPosition }) => storyIds.has(id) && worldPosition === null)
+    .map(({ id }) => id));
+  const locatedStoryIds = [...storyIds].filter((id) => {
+    const result = results.find((item) => item.id === id);
+    return result?.worldPosition !== null && result?.worldPosition !== undefined;
+  });
+  if (locatedStoryIds.length === 0) {
+    throw new Error("No selected stories have a supported 3D surface; refusing to create a zero-story world");
+  }
+
+  const echoStoryById = new Map(renderableLandmarks.contextMarkers.map(({ id, storyId }) => [id, storyId]));
+  const anchors = interactionAnchorSchema.array().parse(results
+    .filter((result) => result.worldPosition !== null)
+    .filter((result) => {
+      const storyId = echoStoryById.get(result.id);
+      return storyId === undefined || !missedStoryIds.has(storyId);
+    }));
 
   return interactionManifestSchema.parse({
     schemaVersion: "1.0.0",

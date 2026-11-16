@@ -1,7 +1,7 @@
 # Art direction
 
 Status: working guide  
-Last updated: 2026-10-13
+Last updated: 2026-11-15
 
 This document contains the evolving visual rules for generating a daily world.
 They belong here—and eventually in versioned pipeline configuration—rather than
@@ -56,19 +56,29 @@ subjects should fill other major directions, and smaller details should sit in
 the gaps. The initial view may introduce the world, but visitors should need to
 look left, right, and behind to find the complete edition.
 
-Keep the camera near standing eye height, approximately 1.7 meters above the
-walking surface. Place recognizable landmark mass in a comfortable equatorial
-interaction band with grounded bases below the horizon. Use varied walkable
+Camera height and terrain may suit each setting. Keep the optical axis level;
+the panorama renderer independently fixes the geometric horizon at the vertical
+midpoint. Place recognizable landmark centers in the 35–65% image-height
+interaction band, with grounded bases below the midpoint. Use varied walkable
 distances to create a spacious sequence of discoveries around an open
 orientation zone. Give each landmark its own bay, readable silhouette, grounded
-base, and visible interval before the next subject. Avoid bird's-eye staging,
-immediate foreground objects, shared display platforms, overlapping subjects,
-and clusters that put several hotspots in the same viewing direction.
+base, and visible interval before the next subject. Avoid immediate foreground
+objects, shared display platforms, overlapping subjects, and clusters that put
+several hotspots in the same viewing direction.
 
-The panorama prompt starts and ends with a critical level-horizon check against
-the middle pixel row (50% image height). This concerns the geometric horizon,
+Do not choose a high-altitude plateau, summit, or overlook as the whole setting
+unless a supplied story requires it. Keep high ground as distinct local
+landforms in a broader walkable landscape, and avoid placing a landmark on the
+highest point by default. Leave open passages toward distant terrain so varied
+relief does not turn a nearby rim into the dominant skyline.
+
+The panorama prompt has one authoritative camera rule: the level geometric
+horizon stays at the middle pixel row (50% image height), independent of camera
+height, terrain, and landmark placement. This concerns the geometric horizon,
 not mountain ridges or nearby shorelines; varied terrain remains welcome.
-This is prompt guidance, not an automatic geometric validation or retry stage.
+The pipeline also reviews the generated panorama across four longitude sectors
+and makes up to five candidate attempts. Rejected candidates are annotated with
+the target equator and the observed horizon to guide the next generation.
 
 Use one coherent circulation system to make that distribution legible. Its form
 should follow the world: a loop, oval, meander, branching boardwalk, terraced

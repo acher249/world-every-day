@@ -12,6 +12,13 @@ export type SeamMetrics = {
   rightFeatherBoundaryDifference: number;
 };
 
+/** The periodic feather sets both wrap-edge columns to the same midpoint. */
+export const MAX_WRAP_BOUNDARY_MEAN_ABSOLUTE_DIFFERENCE = 1;
+
+export function wrapBoundaryPasses(metrics: SeamMetrics): boolean {
+  return metrics.wrapMeanAbsoluteDifference <= MAX_WRAP_BOUNDARY_MEAN_ABSOLUTE_DIFFERENCE;
+}
+
 export type PanoramaArtifacts = {
   nativePath: string;
   repairedPath: string;
@@ -206,6 +213,11 @@ export async function createPanoramaAssets(
     .png()
     .toFile(deliveryPath);
 
+  const metrics = await measureSeam(repairedPath, config.seamFeatherWidth);
+  if (!wrapBoundaryPasses(metrics)) {
+    throw new Error(`Longitude wrap edge check failed: mean RGB difference ${metrics.wrapMeanAbsoluteDifference.toFixed(2)} exceeds ${MAX_WRAP_BOUNDARY_MEAN_ABSOLUTE_DIFFERENCE}`);
+  }
+
   return {
     nativePath,
     repairedPath,
@@ -214,6 +226,6 @@ export async function createPanoramaAssets(
     nativeWidth,
     nativeHeight,
     poleRepair,
-    metrics: await measureSeam(repairedPath, config.seamFeatherWidth),
+    metrics,
   };
 }

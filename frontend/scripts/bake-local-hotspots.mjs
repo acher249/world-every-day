@@ -132,7 +132,7 @@ try {
     returnByValue: true,
   });
   const bakeInfo = infoResult.result?.value;
-  if (bakeInfo?.algorithmVersion !== "surface-grid-v2") {
+  if (bakeInfo?.algorithmVersion !== "surface-grid-v3") {
     throw new Error("The Spark.js baker is outdated; rebuild the explorer before baking hotspots");
   }
   if (bakeInfo?.sourceSplatSha256 !== sourceSplatSha256) {
@@ -158,7 +158,7 @@ try {
     editionId: detections.editionId,
     createdAt: new Date().toISOString(),
     method: "spherical-raycast",
-    algorithmVersion: "surface-grid-v2",
+    algorithmVersion: "surface-grid-v3",
     sourceImageSha256: detections.sourceImage.sha256,
     sourceSplatSha256,
     anchors,

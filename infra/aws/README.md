@@ -184,14 +184,14 @@ URL. This checks the exported page rather than the local development settings.
 
 ## AWS access and secrets
 
-Use an AWS CLI named profile backed by IAM Identity Center or an assumed role.
-The profile and its temporary credentials live in the standard AWS CLI config
-outside this repository. Pass the profile explicitly when inspecting a target
-account:
+Use a named AWS CLI profile already configured on your machine (for example,
+`audiobook`). The repository does not require IAM Identity Center or a
+role-based profile. Keep the profile and credentials outside this repository,
+and pass the profile explicitly when inspecting the target account:
 
 ```bash
-aws sso login --profile world-every-day-dev
-npm run diff -- --profile world-every-day-dev
+aws sts get-caller-identity --profile audiobook
+npm run diff -- --profile audiobook
 ```
 
 Do not put `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, session tokens, or
@@ -315,13 +315,13 @@ Before changing the provider, source policy, or deployment:
    `world-every-day/<environmentName>/google-ai` secret, not CDK context or a
    Lambda environment variable. Confirm the reviewed 31-source allowlist is in the
    deployed bundle before any live collection.
-2. If selecting Bedrock, confirm Nova access. With a named role-based profile, inspect the account's retention
+2. If selecting Bedrock, confirm Nova access. With the configured named profile, inspect the account's retention
    setting and model-invocation logging in that Region (these commands only
    read configuration):
 
    ```bash
-   aws --profile <role-profile> --region <region> bedrock get-account-data-retention
-   aws --profile <role-profile> --region <region> bedrock get-model-invocation-logging-configuration
+   aws --profile audiobook --region <region> bedrock get-account-data-retention
+   aws --profile audiobook --region <region> bedrock get-model-invocation-logging-configuration
    ```
 
 3. For Bedrock, interpret the returned retention setting using the current AWS documentation,

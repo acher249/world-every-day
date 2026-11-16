@@ -19,6 +19,9 @@ import { parseGoogleKey } from "./google-secret.js";
 const inputSchema = z.object({
   editionId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
   confirmPaidGeneration: z.literal(true),
+  panoramaAttemptSet: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).optional(),
+  allowPromptDriftForExistingSource: z.boolean().optional(),
+  panoramaSourceRevision: z.boolean().optional(),
 });
 
 export const sourceImageSchema = z.object({
@@ -33,6 +36,7 @@ export const sourceImageSchema = z.object({
     reviewSha256: z.string().regex(/^[a-f0-9]{64}$/),
     promptSha256: z.string().regex(/^[a-f0-9]{64}$/),
     qualitySha256: z.string().optional(),
+    qualityRunId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).optional(),
   }),
   image: z.object({
     key: z.string().min(1),
@@ -69,7 +73,8 @@ export function createRawPanoramaHandler({
 }) {
   if (!model.trim()) throw new Error("NANO_BANANA_MODEL is required");
   return async (rawInput: unknown) => {
-    const { editionId } = inputSchema.parse(rawInput);
+    const { editionId, panoramaAttemptSet = "primary", allowPromptDriftForExistingSource = false, panoramaSourceRevision = false } = inputSchema.parse(rawInput);
+    if (panoramaSourceRevision && panoramaAttemptSet === "primary") throw new Error("A fresh source revision requires a named panoramaAttemptSet");
     const root = `editions/${editionId}`;
     const edition = selectedEditionSchema.parse(await readJson(artifacts, `${root}/editorial/selected-edition.json`));
     const direction = artDirectionSchema.parse(await readJson(artifacts, `${root}/art-direction/art-direction.json`));
@@ -91,13 +96,19 @@ export function createRawPanoramaHandler({
       reviewSha256: artifactSha256(review),
       promptSha256,
       ...(quality ? { qualitySha256: sha256(JSON.stringify({ version: HORIZON_POLICY_VERSION, reviewModel: quality.reviewModel, references: quality.references.map((r) => sha256(r.bytes)) })) } : {}),
+      ...(quality && panoramaAttemptSet !== "primary" ? { qualityRunId: panoramaAttemptSet } : {}),
     };
-    const manifestKey = `${root}/panorama/source-image.json`;
+    const sourceRoot = `${root}/panorama${panoramaSourceRevision ? `/runs/${panoramaAttemptSet}` : ""}`;
+    const manifestKey = `${sourceRoot}/source-image.json`;
     const existing = await artifacts.read(manifestKey);
     if (existing) {
       const manifest = sourceImageSchema.parse(JSON.parse(Buffer.from(existing).toString("utf8")));
+      const { promptSha256: _existingPrompt, ...existingInputsExceptPrompt } = manifest.inputs;
+      const { promptSha256: _currentPrompt, ...currentInputsExceptPrompt } = inputs;
+      const allOtherInputsMatch = JSON.stringify(existingInputsExceptPrompt) === JSON.stringify(currentInputsExceptPrompt);
+      const promptMatches = manifest.inputs.promptSha256 === inputs.promptSha256;
       if (manifest.editionId !== editionId || manifest.model !== model ||
-          JSON.stringify(manifest.inputs) !== JSON.stringify(inputs)) {
+          !allOtherInputsMatch || (!promptMatches && !allowPromptDriftForExistingSource)) {
         throw new Error("Existing source image does not match the approved generation inputs");
       }
       const image = await artifacts.read(manifest.image.key);
@@ -114,13 +125,14 @@ export function createRawPanoramaHandler({
     if (!claimed) {
       throw new Error("A paid image-generation attempt already exists; inspect it before retrying");
     }
-    const checkedGenerator = quality ? createQualityGenerator({ generator, ...quality, artifacts, claims, root: `${root}/panorama/quality`, model }) : generator;
+    const qualityRoot = `${root}/panorama/quality/${HORIZON_POLICY_VERSION}${panoramaAttemptSet === "primary" ? "" : `/${panoramaAttemptSet}`}`;
+    const checkedGenerator = quality ? createQualityGenerator({ generator, ...quality, artifacts, claims, root: qualityRoot, model, requireConversationContinuity: true }) : generator;
     const generated = await checkedGenerator.generate(buildPanoramaPrompt(buildScenePrompt(direction)));
     const mimeType = z.enum(["image/png", "image/jpeg", "image/webp"]).parse(generated.mimeType);
     if (generated.bytes.length === 0 || generated.bytes.length > 64 * 1024 * 1024) {
       throw new Error("Image provider returned an empty or oversized source image");
     }
-    const imageKey = `${root}/panorama/source-original`;
+    const imageKey = `${sourceRoot}/source-original`;
     await artifacts.putImmutable({ key: imageKey, contentType: mimeType, bytes: generated.bytes });
     const manifest = sourceImageSchema.parse({
       schemaVersion: "1.0.0",

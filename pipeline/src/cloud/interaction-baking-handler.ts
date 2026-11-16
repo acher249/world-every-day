@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { S3Client } from "@aws-sdk/client-s3";
 import { z } from "zod";
-import { createInteractionManifest, type InteractionBaker } from "../interactions/run.js";
+import { createInteractionManifest, renderableLandmarkArtifact, type InteractionBaker } from "../interactions/run.js";
 import { interactionManifestSchema } from "../interactions/schema.js";
 import { CloudBrowserInteractionBaker } from "../interactions/cloud-browser.js";
 import { landmarkArtifactSchema } from "../landmarks/schema.js";
@@ -74,7 +74,14 @@ export function createCloudInteractionBakingHandler({
         bytes: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),
         contentType: "application/json",
       });
-      return { editionId, key, status: "created" as const };
+      const anchoredIds = new Set(manifest.anchors.map(({ id }) => id));
+      const omittedStoryIds = renderableLandmarkArtifact(landmarks).landmarks
+        .filter(({ storyId }) => !anchoredIds.has(storyId))
+        .map(({ storyId }) => storyId);
+      if (omittedStoryIds.length) {
+        console.warn(JSON.stringify({ event: "interaction-stories-omitted", editionId, storyIds: omittedStoryIds }));
+      }
+      return { editionId, key, status: "created" as const, omittedStoryIds };
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

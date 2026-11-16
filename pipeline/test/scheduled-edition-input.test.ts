@@ -5,6 +5,9 @@ import { editionInputForScheduledTime } from "../src/cloud/scheduled-edition-inp
 test("daily scheduler uses the scheduled Pacific date and a bounded 24-hour window", () => {
   assert.deepEqual(editionInputForScheduledTime({ scheduledTime: "2026-10-19T14:30:00Z" }), {
     editionId: "daily-2026-10-19",
+    panoramaAttemptSet: "primary",
+    panoramaSourceRevision: false,
+    allowPromptDriftForExistingSource: false,
     windowStart: "2026-10-18T14:30:00.000Z",
     windowEnd: "2026-10-19T14:30:00.000Z",
     confirmPaidAnalysis: true,

@@ -43,7 +43,8 @@ export class VideoWorkflow extends Construct {
       environment,
       bundling: { banner: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
         format: nodejs.OutputFormat.ESM, bundleAwsSDK: true, forceDockerBundling: true,
-        nodeModules: ["@sparticuz/chromium", "puppeteer-core"], minify: true, target: "node24" },
+        nodeModules: ["@sparticuz/chromium", "puppeteer-core"], minify: true, target: "node24",
+      },
       logGroup: new logs.LogGroup(this, "RenderLogs", { retention: logs.RetentionDays.ONE_MONTH }),
     });
     const assemble = new lambda.DockerImageFunction(this, "Assemble", {

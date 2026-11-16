@@ -12,11 +12,11 @@ const receiptSchema = z.object({
 });
 
 /** Checkpoint the second paid call independently of panorama generation and processing. */
-export function createPoleRepair({ artifacts, claims, generator, editionId, model, scenePrompt }: {
+export function createPoleRepair({ artifacts, claims, generator, editionId, model, scenePrompt, artifactRoot }: {
   artifacts: ArtifactStore; claims: { claimOnce(key: string, bytes: Uint8Array): Promise<boolean> }; generator: PanoramaGenerator;
-  editionId: string; model: string; scenePrompt: string;
+  editionId: string; model: string; scenePrompt: string; artifactRoot?: string;
 }) {
-  const root = `editions/${editionId}/panorama/pole-repair`;
+  const root = artifactRoot ?? `editions/${editionId}/panorama/pole-repair`;
   const prompt = buildPoleRepairPrompt(scenePrompt);
   return async (sheet: Buffer): Promise<Buffer> => {
     const inputs = { version: POLE_REPAIR_VERSION, model, inputSha256: sha256(sheet), promptSha256: sha256(prompt) };

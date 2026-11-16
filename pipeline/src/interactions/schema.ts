@@ -6,15 +6,21 @@ const normalizedPointSchema = z.object({
   x: z.number().min(0).max(1),
   y: z.number().min(0).max(1),
 });
+const worldPositionSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  z: z.number().finite(),
+});
 
 export const interactionAnchorSchema = z.object({
   id: idSchema,
   imageTarget: normalizedPointSchema,
-  worldPosition: z.object({
-    x: z.number().finite(),
-    y: z.number().finite(),
-    z: z.number().finite(),
-  }),
+  worldPosition: worldPositionSchema,
+});
+
+/** A null position is an explicit raycast miss, not a usable public anchor. */
+export const interactionBakeResultSchema = interactionAnchorSchema.extend({
+  worldPosition: worldPositionSchema.nullable(),
 });
 
 export const interactionManifestSchema = z.object({
@@ -42,5 +48,6 @@ export const interactionManifestSchema = z.object({
 });
 
 export type InteractionAnchor = z.infer<typeof interactionAnchorSchema>;
+export type InteractionBakeResult = z.infer<typeof interactionBakeResultSchema>;
 export type InteractionManifest = z.infer<typeof interactionManifestSchema>;
 

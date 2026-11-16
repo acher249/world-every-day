@@ -12,7 +12,7 @@ import { sha256 } from "./hash.js";
 import { NanoBananaGenerator } from "./generator.js";
 import { LocalArtifactStore } from "../storage/artifact-store.js";
 import { createQualityGenerator, loadPanoramaReferences, PanoramaCandidateRejected } from "./quality-generator.js";
-import { createHorizonReviewer, MAX_PANORAMA_CANDIDATES } from "./horizon.js";
+import { createHorizonReviewer, HORIZON_POLICY_VERSION, MAX_PANORAMA_CANDIDATES } from "./horizon.js";
 import { dirname } from "node:path";
 import { runPanorama } from "./run.js";
 
@@ -133,7 +133,8 @@ async function main(): Promise<void> {
   const reviewer = createHorizonReviewer(apiKey, process.env.PANORAMA_REVIEW_MODEL || "gemini-3.8-flash");
   const qualityGenerator = createQualityGenerator({
     generator, reviewer, model, reviewModel: process.env.PANORAMA_REVIEW_MODEL || "gemini-3.8-flash",
-    references: await loadPanoramaReferences(), artifacts: new LocalArtifactStore(outputDirectory), root: "quality",
+    references: await loadPanoramaReferences(), artifacts: new LocalArtifactStore(outputDirectory), root: `quality/${HORIZON_POLICY_VERSION}`,
+    requireConversationContinuity: true,
     claims: { async claimOnce(key, bytes) {
       const path = resolve(outputDirectory, key);
       await mkdir(dirname(path), { recursive: true });

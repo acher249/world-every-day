@@ -657,7 +657,9 @@ export class WorldEveryDayStack extends Stack {
         bundleAwsSDK: true, forceDockerBundling: true, nodeModules: ["sharp"], minify: true, sourceMap: true, target: "node24",
         commandHooks: {
           beforeBundling() { return []; }, beforeInstall() { return []; },
-          afterBundling(inputDir, outputDir) { return [`cp -R "${inputDir}/assets" "${outputDir}/assets"`]; },
+          afterBundling(inputDir, outputDir) { return [
+            `cp -R "${inputDir}/assets" "${outputDir}/assets"`,
+          ]; },
         },
       },
       depsLockFilePath: resolve(pipelineRoot, "package-lock.json"),
@@ -688,6 +690,9 @@ export class WorldEveryDayStack extends Stack {
       lambdaFunction: rawPanoramaHandler,
       payload: stepfunctions.TaskInput.fromObject({
         "editionId.$": "$.editionId",
+        "panoramaAttemptSet.$": "$.panoramaAttemptSet",
+        "allowPromptDriftForExistingSource.$": "$.allowPromptDriftForExistingSource",
+        "panoramaSourceRevision.$": "$.panoramaSourceRevision",
         confirmPaidGeneration: true,
       }),
       payloadResponseOnly: true,
@@ -727,11 +732,12 @@ export class WorldEveryDayStack extends Stack {
     googleSecret.grantRead(panoramaProcessingHandler);
     const processPanorama = new tasks.LambdaInvoke(this, "ProcessPrivatePanorama", {
       lambdaFunction: panoramaProcessingHandler,
-      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId", confirmPaidGeneration: true }),
+      payload: stepfunctions.TaskInput.fromObject({ "editionId.$": "$.editionId", "panoramaAttemptSet.$": "$.panoramaAttemptSet", "panoramaSourceRevision.$": "$.panoramaSourceRevision", confirmPaidGeneration: true }),
       payloadResponseOnly: true,
       resultPath: "$.panorama",
       retryOnServiceExceptions: false,
     });
+    processPanorama.addRetry({ errors: ["InsufficientCorrectionTime"], maxAttempts: 1, interval: Duration.seconds(5), backoffRate: 1 });
     const worldGenerationHandler = new lambdaNodejs.NodejsFunction(this, "WorldGenerationHandler", {
       architecture: lambda.Architecture.ARM_64,
       bundling: { bundleAwsSDK: true, minify: true, sourceMap: true, target: "node24" },
@@ -1021,6 +1027,7 @@ export class WorldEveryDayStack extends Stack {
     const previewReady = new stepfunctions.Succeed(this, "LivePrivatePreviewReadyForReview");
     const testPreviewPublished = new stepfunctions.Succeed(this, "LiveTestPreviewPublished");
     const published = new stepfunctions.Succeed(this, "LiveEditionPublished");
+    const publishedWithoutOptionalDelivery = new stepfunctions.Succeed(this, "LiveEditionPublishedWithoutOptionalDelivery");
     // Optional social publication is isolated from world publication and generation.
     let afterPublication: stepfunctions.IChainable = published;
     let xPostFailureAlarm: cloudwatch.Alarm | undefined;
@@ -1092,6 +1099,15 @@ export class WorldEveryDayStack extends Stack {
       });
     }
     const conflictingPublicationFlags = new stepfunctions.Fail(this, "ConflictingPublicationFlags");
+    const optionalDeliveryGate = new stepfunctions.Choice(this, "SkipOptionalDelivery")
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.isPresent("$.skipOptionalDelivery"),
+          stepfunctions.Condition.booleanEquals("$.skipOptionalDelivery", true),
+        ),
+        publishedWithoutOptionalDelivery,
+      )
+      .otherwise(afterPublication);
     const publicationGate = new stepfunctions.Choice(this, "ConfirmPublicPublication")
       .when(
         stepfunctions.Condition.and(
@@ -1107,7 +1123,7 @@ export class WorldEveryDayStack extends Stack {
           stepfunctions.Condition.isPresent("$.confirmPublish"),
           stepfunctions.Condition.booleanEquals("$.confirmPublish", true),
         ),
-        publishEdition.next(afterPublication),
+        publishEdition.next(optionalDeliveryGate),
       )
       .when(
         stepfunctions.Condition.and(

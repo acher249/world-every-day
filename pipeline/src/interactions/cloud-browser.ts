@@ -6,7 +6,7 @@ import chromium from "@sparticuz/chromium";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
 import { renderableLandmarkArtifact, type InteractionBaker } from "./run.js";
-import { interactionAnchorSchema } from "./schema.js";
+import { interactionBakeResultSchema } from "./schema.js";
 
 const MAX_SPLAT_BYTES = 512 * 1024 * 1024;
 
@@ -40,7 +40,7 @@ function siteKey(pathname: string): string | null {
 
 export class CloudBrowserInteractionBaker implements InteractionBaker {
   readonly method = "spherical-raycast" as const;
-  readonly algorithmVersion = "surface-grid-v2";
+  readonly algorithmVersion = "surface-grid-v3";
   readonly #client: S3Client;
   readonly #siteBucket: string;
 
@@ -191,9 +191,10 @@ export class CloudBrowserInteractionBaker implements InteractionBaker {
         expectedAlgorithm: this.algorithmVersion,
       });
       if (!Array.isArray(result)) throw new Error("Spark.js baker returned no anchors");
-      const missing = result.filter((anchor) => !anchor?.worldPosition);
-      if (missing.length) throw new Error(`Raycasting missed landmarks: ${missing.map((anchor) => anchor.id).join(", ")}`);
-      return interactionAnchorSchema.array().parse(result);
+      const bakeResults = interactionBakeResultSchema.array().parse(result);
+      const missed = bakeResults.filter(({ worldPosition }) => worldPosition === null).map(({ id }) => id);
+      if (missed.length) console.warn(JSON.stringify({ event: "interaction-raycast-misses", editionId: landmarks.editionId, ids: missed }));
+      return bakeResults;
     } finally {
       await browser?.close();
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()));

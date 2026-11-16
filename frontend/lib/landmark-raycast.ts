@@ -34,8 +34,15 @@ export function landmarkRayTargets(target: ImagePoint, bounds?: LandmarkBounds, 
 }
 
 /** Prefer supported geometry near the intended image target, never an average inside a hole. */
-export function selectLandmarkSurface(samples: SurfaceSample[], target: ImagePoint, bounds?: LandmarkBounds, excluded: LandmarkBounds[] = []) {
+export function selectLandmarkSurface(
+  samples: SurfaceSample[],
+  target: ImagePoint,
+  bounds?: LandmarkBounds,
+  excluded: LandmarkBounds[] = [],
+  maxDistance = Number.POSITIVE_INFINITY,
+) {
   const valid = samples.filter((sample) => Number.isFinite(sample.distance) && sample.distance > 0 &&
+    sample.distance <= maxDistance &&
     Object.values(sample.point).every(Number.isFinite) &&
     (!bounds || inside(sample.imageTarget, bounds)) && !excluded.some((box) => inside(sample.imageTarget, box)));
   if (!bounds) return valid[0] ?? null;

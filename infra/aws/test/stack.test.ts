@@ -233,6 +233,8 @@ test("foundation creates on-demand state, observability, and disabled automation
   assert.match(body, /StagePrivatePublication/);
   assert.match(body, /ConfirmPublicPublication/);
   assert.match(body, /PublishApprovedEdition/);
+  assert.match(body, /SkipOptionalDelivery/);
+  assert.match(body, /skipOptionalDelivery/);
   assert.match(body, /PublishApprovedTestPreview/);
   assert.match(body, /LiveTestPreviewPublished/);
   assert.match(body, /confirmPublishPreview/);

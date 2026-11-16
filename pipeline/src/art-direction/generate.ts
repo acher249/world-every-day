@@ -10,7 +10,7 @@ import {
   type ArtDirection,
 } from "./schema.js";
 
-export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v8";
+export const ART_DIRECTION_GENERATION_PROMPT_VERSION = "art-direction-generation-v10";
 
 export const defaultArtDirectionConstraints = {
   required: [
@@ -151,7 +151,7 @@ export async function generateArtDirection({
     artifactType: "art-direction",
     editionId: validatedEdition.editionId,
     createdAt: createdAt.toISOString(),
-    promptVersion: "panorama-scene-v3",
+    promptVersion: "panorama-scene-v4",
     inputs: { selectedEditionSha256: artifactSha256(validatedEdition) },
     producer: {
       type: provider.provider === "fixture" ? "fixture" : "model",

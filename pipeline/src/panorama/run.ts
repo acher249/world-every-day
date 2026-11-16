@@ -18,6 +18,7 @@ type RunPanoramaOptions = {
   artDirectionSha256?: string;
   editionId?: string;
   scenePrompt: string;
+  requestPrompt?: string;
   model: string;
   outputDirectory: string;
   provider?: string;
@@ -43,6 +44,7 @@ export async function runPanorama({
   artDirectionSha256,
   editionId,
   scenePrompt,
+  requestPrompt,
   model,
   outputDirectory,
   provider = "google",
@@ -55,7 +57,7 @@ export async function runPanorama({
   await mkdir(dirname(outputRoot), { recursive: true });
   await mkdir(outputRoot, { recursive: false });
 
-  const prompt = buildPanoramaPrompt(scenePrompt);
+  const prompt = requestPrompt ?? buildPanoramaPrompt(scenePrompt);
   const generated = await generator.generate(prompt);
   const originalExtension = extensionForMimeType(generated.mimeType);
   const originalPath = resolve(outputRoot, `source-original${originalExtension}`);

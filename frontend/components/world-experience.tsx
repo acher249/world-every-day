@@ -732,7 +732,6 @@ export function WorldExperience({ publication, pastWorlds = [], currentEditionId
           <span
             className="world-guide-disabled-hint"
             tabIndex={0}
-            title="World Guide is off in this experience. Run your own with the open-source project and an ElevenLabs agent."
             aria-describedby="world-guide-disabled-tooltip"
           >
             <button

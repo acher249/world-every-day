@@ -15,6 +15,11 @@ test("a center ray through a hole loses to a supported nearby frame", () => {
   const chosen = selectLandmarkSurface([sample(0.5, 0.5, 80), ...frame], target, bounds);
   assert.ok(chosen && frame.includes(chosen));
 });
+test("a far background hit cannot escape the navigable sphere when a nearby surface is supported", () => {
+  const nearby = [sample(0.5, 0.5, 3), sample(0.5, 0.52, 3.1), sample(0.5, 0.54, 3.2)];
+  const chosen = selectLandmarkSurface([sample(0.5, 0.49, 30), ...nearby], target, bounds, [], 5.3703);
+  assert.equal(chosen, nearby[0]);
+});
 test("isolated foreground floaters do not outrank supported geometry", () => {
   const surface = [sample(0.29, 0.5, 10), sample(0.5, 0.5, 10), sample(0.71, 0.5, 10)];
   assert.equal(selectLandmarkSurface([sample(0.08, 0.08, 1), ...surface], target, bounds), surface[1]);

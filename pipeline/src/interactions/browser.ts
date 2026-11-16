@@ -111,7 +111,7 @@ function evaluationValue(response: Record<string, unknown>): unknown {
 
 export class BrowserInteractionBaker implements InteractionBaker {
   readonly method = "spherical-raycast" as const;
-  readonly algorithmVersion = "surface-grid-v2";
+  readonly algorithmVersion = "surface-grid-v3";
   readonly #browserUrl: URL;
   readonly #frontendDirectory: string;
   readonly #pageUrl: URL;

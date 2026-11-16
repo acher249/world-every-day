@@ -223,9 +223,10 @@ landmark's focus effect. This example shows the detected regions
 Server-side stages live in `pipeline/`; the AWS CDK application lives in
 `infra/aws/`. For local infrastructure settings, copy
 `infra/aws/.env.example` to the ignored `infra/aws/.env.local`. That file is for
-non-secret settings only. Use a named AWS CLI profile backed by IAM Identity
-Center or an assumed role for AWS access, and keep provider credentials in AWS
-Secrets Manager. See the [AWS infrastructure guide](infra/aws/README.md).
+non-secret settings only. Use a named AWS CLI profile configured on your
+machine (for example, `audiobook`); the project does not require IAM Identity
+Center or a role-based profile. Keep provider credentials in AWS Secrets
+Manager. See the [AWS infrastructure guide](infra/aws/README.md).
 
 ## Make it your own
 

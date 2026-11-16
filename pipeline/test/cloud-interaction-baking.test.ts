@@ -44,10 +44,19 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
         confidence: 0,
         visibility: "not-found",
       },
+      {
+        storyId: "story-three",
+        label: "Unraycastable subject",
+        boundingBox: { xMin: 0.6, yMin: 0.4, xMax: 0.7, yMax: 0.5 },
+        target: { x: 0.65, y: 0.45 },
+        confidence: 0.9,
+        visibility: "clear",
+      },
     ],
     contextMarkers: [
       { id: "story-one-echo", storyId: "story-one", label: "Path", explanation: "Visible path.", boundingBox: { xMin: 0.3, yMin: 0.4, xMax: 0.4, yMax: 0.5 }, target: { x: 0.35, y: 0.45 }, confidence: 0.9 },
       { id: "story-two-echo", storyId: "story-two", label: "Marker", explanation: "Secondary feature.", boundingBox: { xMin: 0.5, yMin: 0.4, xMax: 0.6, yMax: 0.5 }, target: { x: 0.55, y: 0.45 }, confidence: 0.9 },
+      { id: "story-three-echo", storyId: "story-three", label: "Marker", explanation: "Secondary feature.", boundingBox: { xMin: 0.7, yMin: 0.4, xMax: 0.8, yMax: 0.5 }, target: { x: 0.75, y: 0.45 }, confidence: 0.9 },
     ],
   })));
   records.set(`${root}/world/generated-world.json`, Buffer.from(JSON.stringify({
@@ -74,28 +83,25 @@ test("cloud interaction baking binds landmarks to the immutable SPZ and reuses t
     artifacts,
     baker: {
       method: "spherical-raycast",
-      algorithmVersion: "surface-grid-v2",
+      algorithmVersion: "surface-grid-v3",
       async bake({ landmarks, sourceSplatSha256 }) {
         calls += 1;
         assert.equal(sourceSplatSha256, worldHash);
-        assert.deepEqual(landmarks.landmarks.map(({ storyId }) => storyId), ["story-one"]);
-        assert.deepEqual(landmarks.contextMarkers.map(({ id }) => id), ["story-one-echo"]);
+        assert.deepEqual(landmarks.landmarks.map(({ storyId }) => storyId), ["story-one", "story-three"]);
+        assert.deepEqual(landmarks.contextMarkers.map(({ id }) => id), ["story-one-echo", "story-three-echo"]);
         return [
-          ...landmarks.landmarks.map((landmark) => ({
-            id: landmark.storyId,
-            imageTarget: landmark.target,
-            worldPosition: { x: 1, y: 2, z: 3 },
-          })),
-          ...landmarks.contextMarkers.map((marker) => ({
-            id: marker.id,
-            imageTarget: marker.target,
-            worldPosition: { x: 2, y: 3, z: 4 },
-          })),
+          { id: "story-one", imageTarget: { x: 0.15, y: 0.45 }, worldPosition: { x: 1, y: 2, z: 3 } },
+          { id: "story-one-echo", imageTarget: { x: 0.35, y: 0.45 }, worldPosition: { x: 2, y: 3, z: 4 } },
+          { id: "story-three", imageTarget: { x: 0.65, y: 0.45 }, worldPosition: null },
+          // A valid echo surface cannot keep a story whose primary anchor missed.
+          { id: "story-three-echo", imageTarget: { x: 0.75, y: 0.45 }, worldPosition: { x: 2, y: 3, z: 4 } },
         ];
       },
     },
   });
-  assert.equal((await handler({ editionId })).status, "created");
+  const result = await handler({ editionId });
+  assert.equal(result.status, "created");
+  assert.deepEqual(result.omittedStoryIds, ["story-three"]);
   assert.equal((await handler({ editionId })).status, "reused");
   assert.equal(calls, 1);
   assert.ok(records.has(`${root}/interactions/interaction-manifest.json`));

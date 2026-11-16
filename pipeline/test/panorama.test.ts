@@ -5,27 +5,26 @@ import { resolve } from "node:path";
 import test from "node:test";
 import sharp from "sharp";
 import { buildPanoramaPrompt } from "../src/panorama/prompt.js";
-import { createPanoramaAssets } from "../src/panorama/process.js";
+import { createPanoramaAssets, wrapBoundaryPasses } from "../src/panorama/process.js";
 
 test("buildPanoramaPrompt combines the scene with spherical constraints", () => {
   const prompt = buildPanoramaPrompt("A quiet coastal research garden.");
-  assert.ok(prompt.startsWith("CRITICAL: CENTER THE GEOMETRIC HORIZON"));
-  assert.match(prompt, /CRITICAL: CHECK YOUR WORK BEFORE RETURNING THE IMAGE/);
+  assert.ok(prompt.startsWith("CRITICAL CAMERA RULE: In the final centered 2:1 panorama"));
+  assert.match(prompt, /CRITICAL FINAL CHECK: Before returning the image/);
   assert.match(prompt, /y = image height \/ 2/);
-  assert.ok(prompt.endsWith("Return only the clean panorama, with no guide lines or text."));
+  assert.ok(prompt.endsWith("Return only the clean panorama without guide lines, text, logos, or watermarks."));
   assert.match(prompt, /quiet coastal research garden/i);
   assert.match(prompt, /full-sphere equirectangular panorama/i);
   assert.match(prompt, /left and right boundaries/i);
-  assert.match(prompt, /2:1 spherical panorama/i);
+  assert.match(prompt, /360 degrees of longitude and 180\s+degrees of latitude/i);
   assert.match(prompt, /zero pitch and zero\s+roll/i);
-  assert.match(prompt, /horizon.*exactly 50%/i);
-  assert.match(prompt, /do not place the\s+horizon on a rule-of-thirds line/i);
-  assert.match(prompt, /1\.7 meters above the local walking\s+surface/i);
+  assert.match(prompt, /geometric horizon exactly on the vertical center row \(y = 50%\)/i);
+  assert.match(prompt, /camera height may suit the setting/i);
   assert.match(prompt, /every 90-degree quadrant/i);
   assert.match(prompt, /no 90-degree view should contain\s+more than three/i);
   assert.match(prompt, /at most one primary\s+landmark center in any 30-degree interval/i);
   assert.match(prompt, /circulation may be circular, oval,\s+meandering, branching, terraced/i);
-  assert.match(prompt, /central orientation zone remains open/i);
+  assert.match(prompt, /central orientation zone\s+remains open/i);
   assert.match(prompt, /looking left, right, and behind/i);
   assert.match(prompt, /grounded cinematic realism/i);
   assert.match(prompt, /expansive,\s+inhabitable scale/i);
@@ -67,6 +66,8 @@ test("createPanoramaAssets crops, repairs, and enlarges an ERP", async () => {
     assert.equal(result.nativeWidth, 160);
     assert.equal(result.nativeHeight, 80);
     assert.equal(result.metrics.wrapMeanAbsoluteDifference, 0);
+    assert.equal(wrapBoundaryPasses(result.metrics), true);
+    assert.equal(wrapBoundaryPasses({ ...result.metrics, wrapMeanAbsoluteDifference: 1.1 }), false);
     assert.deepEqual(
       await sharp(result.deliveryPath).metadata().then(({ width, height }) => ({
         width,

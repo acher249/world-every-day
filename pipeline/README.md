@@ -15,7 +15,8 @@ This page covers local stage commands. Focused guides explain
 
 The stage:
 
-1. asks Nano Banana for a 4K `16:9` full-sphere image with polar overscan;
+1. asks Nano Banana for a 4K `16:9` source whose centered `2:1` crop is the
+   complete equirectangular sphere;
 2. saves the exact provider response and a normalized PNG;
 3. extracts a centered `2:1` equirectangular master;
 4. closes the longitude boundary with a narrow periodic linear-light feather;
@@ -368,6 +369,13 @@ a prepublication interaction-baking step. That step raycasts the finished splat
 once and writes fixed world-space positions tied to the splat checksum. The
 public frontend only projects those baked positions through its live camera; it
 does not recompute landmark intersections at runtime.
+
+The current `surface-grid-v3` bake samples each detected box, avoids neighboring
+story boxes, and accepts only a supported surface hit inside the viewer's
+navigable sphere. A distant background hit cannot become a hotspot; if no
+supported reachable surface exists, that story is omitted and recorded as a
+raycast miss. The algorithm version is stored with the interaction manifest so
+older mappings cannot be silently reused after a bake change.
 
 Validate the prompt and inputs without calling a provider:
 

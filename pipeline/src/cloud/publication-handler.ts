@@ -39,7 +39,20 @@ export function nextCurrentPointer(
   const previousDate = previous.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0];
   const nextDate = next.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0];
   if (previousDate && nextDate && nextDate < previousDate) {
-    throw new Error("Refusing to move the current edition backward in time");
+    const { pastWorlds = [] } = previous;
+    const alreadyArchived = pastWorlds.find((world) => world.editionId === next.editionId);
+    if (alreadyArchived) {
+      if (alreadyArchived.publicationSha256 !== next.publicationSha256) {
+        throw new Error("An archived edition already points to different publication bytes");
+      }
+      return previous;
+    }
+    const historicalWorlds = [...pastWorlds, next].sort((left, right) => {
+      const leftDate = left.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+      const rightDate = right.editionId.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+      return rightDate.localeCompare(leftDate) || right.publishedAt.localeCompare(left.publishedAt);
+    });
+    return currentEditionPointerSchema.parse({ ...previous, pastWorlds: historicalWorlds });
   }
   const { pastWorlds: olderWorlds = [], ...previousWorld } = previous;
   return currentEditionPointerSchema.parse({

@@ -589,13 +589,6 @@ export function WorldGuideVoice({
             className="hud-button world-guide-toggle"
             type="button"
             disabled={(!serviceEnabled || dailyLimitReached)}
-            title={(!serviceEnabled || dailyLimitReached)
-              ? dailyLimitReached
-                ? "World Guide has reached today’s usage limit. Please try again tomorrow."
-                : availabilityChecked
-                ? "World Guide is off in this experience. Run your own with the open-source project and an ElevenLabs agent."
-                : "Checking World Guide availability…"
-              : "Start a World Guide conversation"}
             aria-describedby={(!serviceEnabled || dailyLimitReached) ? "world-guide-runtime-status" : undefined}
             aria-pressed={conversationActive}
             aria-label={(!serviceEnabled || dailyLimitReached) ? "World Guide unavailable" : conversationActive ? "World Guide conversation active" : "Start World Guide conversation"}

@@ -8,7 +8,12 @@ export const panoramaManifestSchema = z.object({
   editionId: z.string().min(1).max(100).optional(),
   createdAt: z.iso.datetime({ offset: true }),
   stage: z.literal("panorama-generation"),
-  inputs: z.object({ artDirectionSha256: sha256Schema }).optional(),
+  inputs: z.object({
+    artDirectionSha256: sha256Schema,
+    rawSourceSha256: sha256Schema.optional(),
+    rawPromptSha256: sha256Schema.optional(),
+    deliveryCorrectionAttempt: z.number().int().positive().max(11).optional(),
+  }).optional(),
   provider: z.string().min(1).max(100),
   model: z.string().min(1).max(160),
   request: z.object({
@@ -53,6 +58,7 @@ export const panoramaManifestSchema = z.object({
     nativeEquirectangular: z.string().min(1),
     seamRepairedEquirectangular: z.string().min(1),
     delivery8k: z.string().min(1),
+    deliveryAssessment: z.string().min(1).optional(),
     poleRepairInput: z.string().min(1).optional(),
     poleRepairResponse: z.string().min(1).optional(),
   }),
@@ -60,7 +66,12 @@ export const panoramaManifestSchema = z.object({
 
 export const editionPanoramaManifestSchema = panoramaManifestSchema.extend({
   editionId: z.string().min(1).max(100),
-  inputs: z.object({ artDirectionSha256: sha256Schema }),
+  inputs: z.object({
+    artDirectionSha256: sha256Schema,
+    rawSourceSha256: sha256Schema.optional(),
+    rawPromptSha256: sha256Schema.optional(),
+    deliveryCorrectionAttempt: z.number().int().positive().max(11).optional(),
+  }),
 });
 
 export type PanoramaManifest = z.infer<typeof panoramaManifestSchema>;

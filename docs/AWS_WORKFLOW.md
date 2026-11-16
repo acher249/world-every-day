@@ -54,11 +54,15 @@ Landmark detection treats `not-found` as a recoverable model result: it asks the
 vision model to re-scan the panorama with the missing subject descriptions, up
 to three paid attempts total. If a subject is still not located, it is excluded
 from raycasting and the public story list; located stories still publish when
-at least one has a validated world-space anchor. The complete landmark artifact
-remains private for diagnosis. The run stops before publication only when no
+at least one has a validated world-space anchor. A visually detected subject
+that has no supported 3D surface after multi-ray sampling is also omitted,
+along with its echoes; its identity remains in the private landmark artifact
+and bake logs for diagnosis. Raycast hits outside the viewer's navigable sphere
+are rejected so sparse geometry cannot anchor a hotspot to distant background.
+The run stops before publication only when no
 selected story can be anchored, or when another required asset fails
 validation. This avoids inventing hotspot positions and avoids discarding an
-otherwise usable world because one detector result was incomplete.
+otherwise usable world because one subject cannot be mapped reliably.
 
 The library reuses immutable candidate metadata and evaluations already in
 private S3; it does not store article text or need another database. It admits
@@ -110,13 +114,16 @@ Manual inputs may stop at individual gates:
 | `confirmPaidPanorama` | Image generation |
 | `confirmPaidWorld` | Marble generation |
 | `confirmPaidLandmarks` | Image-based landmark detection |
-| `confirmPublish` | Public publication and current-world update |
+| `confirmPublish` | Public publication, archive insertion, and forward-only current-world update |
 | `confirmUnattendedRun` | Automated checksum-bound approvals instead of operator-supplied review artifacts |
 
 Unattended mode requires the relevant stage flags too. It records automated
 decisions; it does not claim human review. `confirmPublishPreview` is a separate,
 mutually exclusive test-preview option that does not advance the current world
 or trigger social delivery. See [publication details](../infra/aws/README.md#private-world-and-publication-stages).
+For a historical backfill, set `skipOptionalDelivery: true` to publish into the
+archive without starting the optional video/X branch. An older edition is added
+to `pastWorlds`; it never replaces the current edition.
 
 ## Publication and optional delivery
 
@@ -148,6 +155,20 @@ Inspect the execution's failed state, result, and CloudWatch logs first.
 Optional video/social failures are caught, so the overall execution can report
 success while its result contains `videoError` or `socialError`. Check the
 delivery receipts as well as the overall status.
+
+For a panorama-only recovery, pass a unique `panoramaAttemptSet` value when
+starting the live workflow. It creates a separate, immutable candidate path for
+that edition while leaving the scheduled `primary` path intact. Reuse
+`primary` when an accepted source image already exists and only downstream
+processing needs to resume. Set `allowPromptDriftForExistingSource` only when
+the source image's prompt hash is stale but its selected-edition, art-direction,
+review, model, and reference hashes still match. Omit `confirmPublish` to stop at private review;
+the workflow will not publish the world or enter the optional X/video branch.
+If the existing source image itself is unusable, also set
+`panoramaSourceRevision: true` with that unique attempt set. This writes the
+new source and all working files below `panorama/runs/<attempt-set>/`; the old
+source stays intact, and only a fully approved result is linked by the canonical
+manifest. Scheduled runs always set this option to `false`.
 
 | Failure | Recovery boundary |
 | --- | --- |

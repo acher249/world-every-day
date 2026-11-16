@@ -348,7 +348,7 @@ export function SparkWorld({
                   samples.push({ imageTarget: candidate, point: intersections[0].point, distance: intersections[0].distance });
                 }
               }
-              const hit = selectLandmarkSurface(samples, { x, y }, boundingBox, excluded);
+              const hit = selectLandmarkSurface(samples, { x, y }, boundingBox, excluded, navigationRadius);
               return {
                 id,
                 imageTarget: hit?.imageTarget ?? { x, y },
@@ -359,7 +359,7 @@ export function SparkWorld({
             });
           };
           developmentWindow.__WORLD_EVERY_DAY_BAKE_INFO__ = {
-            algorithmVersion: "surface-grid-v2",
+            algorithmVersion: "surface-grid-v3",
             sourceSplatSha256: splatSha256,
             splatUrl: sourceSplatUrl,
           };

@@ -15,7 +15,7 @@ test("an unpublished marker cannot be mistaken for a published edition", () => {
   assert.equal(currentEditionPointerSchema.safeParse(marker).success, false);
 });
 
-test("publication moves only the former current world into the past-world list", () => {
+test("publication advances current and adds historical editions without moving current backward", () => {
   const pointer = (editionId: string) => currentEditionPointerSchema.parse({
     schemaVersion: "1.0.0",
     editionId,
@@ -31,7 +31,11 @@ test("publication moves only the former current world into the past-world list",
   assert.equal(nextCurrentPointer(tomorrow, pointer("daily-2026-10-20")), tomorrow);
   const nextDay = nextCurrentPointer(tomorrow, pointer("daily-2026-10-21"));
   assert.deepEqual(nextDay.pastWorlds?.map((world) => world.editionId), ["daily-2026-10-20", today.editionId]);
-  assert.throws(() => nextCurrentPointer(tomorrow, pointer("daily-2026-10-18")), /backward/);
+  const historical = nextCurrentPointer(nextDay, pointer("daily-2026-10-18"));
+  assert.equal(historical.editionId, nextDay.editionId);
+  assert.deepEqual(historical.pastWorlds?.map((world) => world.editionId), ["daily-2026-10-20", today.editionId, "daily-2026-10-18"]);
+  assert.equal(nextCurrentPointer(historical, pointer("daily-2026-10-18")), historical, "replaying an identical historical publication is idempotent");
+  assert.throws(() => nextCurrentPointer(historical, { ...pointer("daily-2026-10-18"), publicationSha256: "f".repeat(64) }), /different publication bytes/);
 });
 
 function memoryStore() {

@@ -22,6 +22,9 @@ export function editionInputForScheduledTime(event: ScheduleEvent) {
   const editionId = `daily-${value("year")}-${value("month")}-${value("day")}`;
   return {
     editionId,
+    panoramaAttemptSet: "primary",
+    panoramaSourceRevision: false,
+    allowPromptDriftForExistingSource: false,
     windowStart: new Date(end.getTime() - DAY_MS).toISOString(),
     windowEnd: end.toISOString(),
     confirmPaidAnalysis: true,
