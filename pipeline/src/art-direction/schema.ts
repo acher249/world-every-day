@@ -56,6 +56,7 @@ export const artDirectionSchema = z
         "art-direction-generation-v8",
         "art-direction-generation-v9",
         "art-direction-generation-v10",
+        "art-direction-generation-v11",
       ]),
       usage: providerUsageSchema.optional(),
     }).optional(),

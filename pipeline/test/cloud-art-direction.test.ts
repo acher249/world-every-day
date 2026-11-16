@@ -26,7 +26,7 @@ test("cloud art direction is checksum-bound, immutable, and free on resume", asy
     const provider: ArtDirectionProvider = {
       provider: "fixture",
       model: "fixture-v1",
-      promptVersion: "art-direction-generation-v10",
+      promptVersion: "art-direction-generation-v11",
       async propose(stories) {
         providerCalls += 1;
         return {

@@ -18,13 +18,13 @@ test("buildPanoramaPrompt combines the scene with spherical constraints", () => 
   assert.match(prompt, /left and right boundaries/i);
   assert.match(prompt, /360 degrees of longitude and 180\s+degrees of latitude/i);
   assert.match(prompt, /zero pitch and zero\s+roll/i);
-  assert.match(prompt, /geometric horizon exactly on the vertical center row \(y = 50%\)/i);
+  assert.match(prompt, /representative far-distance horizon near the vertical center row \(y = 50%\)/i);
   assert.match(prompt, /camera height may suit the setting/i);
   assert.match(prompt, /every 90-degree quadrant/i);
   assert.match(prompt, /no 90-degree view should contain\s+more than three/i);
   assert.match(prompt, /at most one primary\s+landmark center in any 30-degree interval/i);
   assert.match(prompt, /circulation may be circular, oval,\s+meandering, branching, terraced/i);
-  assert.match(prompt, /central orientation zone\s+remains open/i);
+  assert.match(prompt, /central orientation zone open/i);
   assert.match(prompt, /looking left, right, and behind/i);
   assert.match(prompt, /grounded cinematic realism/i);
   assert.match(prompt, /expansive,\s+inhabitable scale/i);

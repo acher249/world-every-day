@@ -195,7 +195,14 @@ test("a blocking seam review corrects once and accepts a localized mismatch", as
     tilted: false, collageOrSeams: false, textOrGuides: false,
   };
   const acceptedAssessment: HorizonAssessment = { ...centeredAssessment, sectors: centeredAssessment.sectors.map((sector) => ({ ...sector, evidence: "Clear, level distant horizon." })) };
-  const seamFailure: HorizonAssessment = { ...centeredAssessment, collageOrSeams: false };
+  const seamFailure: HorizonAssessment = {
+    ...centeredAssessment,
+    sectors: centeredAssessment.sectors.map((sector, index) => ({
+      ...sector,
+      horizonY: [0.4, 0.45, 0.55, 0.65][index]!,
+    })),
+    collageOrSeams: false,
+  };
   const priorDelivery = await sharp({ create: { width: 32, height: 16, channels: 3, background: "#8a7968" } }).png().toBuffer();
   records.set(`${root}/panorama/equirectangular-8192x4096.png`, priorDelivery);
   records.set(`${root}/panorama/quality/${HORIZON_POLICY_VERSION}/${DELIVERY_REVIEW_POLICY_VERSION}/delivery-assessment.json`, Buffer.from(JSON.stringify({
@@ -222,7 +229,7 @@ test("a blocking seam review corrects once and accepts a localized mismatch", as
       generator: { async generate(prompt, reference, continuation) {
         generations++;
         assert.match(prompt, /Repair the longitude continuity/);
-        assert.match(prompt, /horizon passed review: preserve its current centered, level position exactly/i);
+        assert.match(prompt, /average distant horizon passed review: preserve its current near-centered, level position/i);
         assert.equal(continuation?.toString(), generations === 1 ? conversation.toString() : "next-turn");
         handlerContinuation = continuation;
         const image = Array.isArray(reference) ? reference[0] : reference;

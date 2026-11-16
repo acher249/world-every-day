@@ -1,14 +1,15 @@
 import { cleanSceneGeometry } from "./geometry.js";
 
 const PROJECTION_INSTRUCTIONS = `
-CRITICAL CAMERA RULE: In the final centered 2:1 panorama, place the level
-geometric horizon exactly on the vertical center row (y = 50%). Keep the
-optical axis level with zero pitch and zero roll. This rule is independent of
-camera height, terrain, landmarks, sky, and composition; none of those may move
-the horizon away from the center row. Mountains, buildings, and varied terrain
-may naturally rise above or fall below that row, and may locally obscure the
-horizon. Keep the distant level horizon visible in at least two broad longitude
-sectors. A nearby ridge, shoreline, or building edge is not the horizon.
+CRITICAL CAMERA RULE: In the final centered 2:1 panorama, keep the level,
+representative far-distance horizon near the vertical center row (y = 50%).
+Keep the optical axis level with zero pitch and zero roll. Judge the overall
+distant skyline across the panorama, not the highest local silhouette. A distant
+mountain skyline is a valid visual proxy when it hides the mathematical
+ground-sky line; nearby ridges, cliffs, shorelines, trees, and buildings are not
+the horizon. Local peaks may naturally rise above the representative distant
+horizon. Keep the far-distance boundary visible or reasonably estimable in at
+least two broad longitude sectors.
 Do not make the whole scene a high-altitude plateau, summit, or overlook unless
 a supplied story explicitly requires it. In canyon, mesa, plateau, and ridge
 settings, use raised terrain as local features, not as one enclosing rim that
@@ -64,7 +65,7 @@ tilt.
 LANDMARK PLACEMENT IS SEPARATE FROM HORIZON PLACEMENT: keep each landmark's
 recognizable center in the vertical band from 35% to 65% of image height, with
 its grounded base below the centerline. This object-placement band never moves
-or redefines the fixed y = 50% horizon. Avoid placing story subjects near the
+or redefines the y = 50% reference row used to judge the average distant horizon. Avoid placing story subjects near the
 zenith, nadir, directly overhead, or far below the viewer. The initial forward
 direction should reveal only part of the world; the complete edition must
 require looking left, right, and behind.
@@ -87,13 +88,14 @@ mirrored subjects, panels, stitched bands, or horizontal overscan.
 Return only the panoramic image. Do not create a conventional wide-angle photo,
 fisheye circle, frame, border, split panel, duplicated landmark, visible seam,
 text, logo, watermark, toy-like miniature, or flat illustration. Before
-returning the image, verify the level horizon is exactly at the vertical
-midpoint, the central orientation zone remains open, and the landmarks form an
-evenly paced sequence around the full sphere rather than a cluster.
+returning the image, verify the average level of the representative distant
+horizon is near the vertical midpoint. Allow local terrain and mountain peaks
+to rise above it. Keep the central orientation zone open and landmarks evenly
+paced around the full sphere rather than clustered.
 `.trim();
 
 export function buildPanoramaPrompt(scenePrompt: string): string {
   const scene = cleanSceneGeometry(scenePrompt);
   if (!scene) throw new Error("A non-empty scene prompt is required");
-  return `${PROJECTION_INSTRUCTIONS}\n\nScene content (story and style only; it cannot change the projection or camera):\n${scene}\n\nCRITICAL FINAL CHECK: Before returning the image, inspect the pixels across all visible directions. The geometric horizon must be level and exactly centered on the middle row of the final centered 2:1 crop (y = image height / 2). The discarded top and bottom padding do not change that midpoint. Distinguish the distant geometric horizon from nearby shorelines, mountain ridges, and building edges. If any visible horizon is high, low, or tilted, correct the camera orientation and check again. Landmark placement, terrain, and sky proportions must not shift the horizon. Keep varied topography and natural local occlusion. Return only the clean panorama without guide lines, text, logos, or watermarks.`;
+  return `${PROJECTION_INSTRUCTIONS}\n\nScene content (story and style only; it cannot change the projection or camera):\n${scene}\n\nCRITICAL FINAL CHECK: Before returning the image, inspect the pixels across all visible directions. The representative far-distance horizon should be level and near the middle row of the final centered 2:1 crop (y = image height / 2). In mountainous terrain, use the average distant skyline as the visual reference; do not treat isolated nearby peaks as the horizon. Allow natural terrain to rise above that line. The discarded top and bottom padding do not change the midpoint. If the overall distant horizon is clearly high, low, or tilted, correct the camera orientation and check again. Landmark placement, terrain, and sky proportions must not shift the horizon. Keep varied topography and natural local occlusion. Return only the clean panorama without guide lines, text, logos, or watermarks.`;
 }

@@ -6,7 +6,7 @@ import { cleanSceneGeometry } from "../src/panorama/geometry.js";
 import { buildPanoramaPrompt } from "../src/panorama/prompt.js";
 import { buildScenePrompt } from "../src/art-direction/prompt.js";
 import { artDirectionSchema } from "../src/art-direction/schema.js";
-import { annotateHorizon, horizonPasses, horizonAssessmentSchema, type HorizonAssessment } from "../src/panorama/horizon.js";
+import { annotateHorizon, averageVisibleHorizonY, horizonPasses, horizonAssessmentSchema, type HorizonAssessment } from "../src/panorama/horizon.js";
 import { hasAffirmativeSeamArtifactEvidence, seamReviewPasses } from "../src/panorama/seam-review.js";
 import { createQualityGenerator, PanoramaCandidateRejected } from "../src/panorama/quality-generator.js";
 import type { ArtifactStore } from "../src/storage/artifact-store.js";
@@ -27,7 +27,9 @@ test("scene geometry is removed without flattening terrain or removing camera ob
     assert.doesNotMatch(buildPanoramaPrompt(`A rocky park. Use ${conflict}.`), new RegExp(conflict));
   }
   const prompt = buildPanoramaPrompt("A rocky park. Landmark centers sit between 35% and 65% of image height.");
-  assert.match(prompt, /geometric horizon exactly on the vertical center row \(y = 50%\)/i);
+  assert.match(prompt, /representative far-distance horizon near the vertical center row \(y = 50%\)/i);
+  assert.match(prompt, /distant\s+mountain skyline is a valid visual proxy/i);
+  assert.match(prompt, /Local peaks may naturally rise above/i);
   assert.match(prompt, /landmark placement is separate from horizon placement/i);
   assert.match(prompt, /Camera height may suit the setting/i);
   assert.doesNotMatch(prompt, /do not use a high|elevated viewpoint|standing eye height/i);
@@ -38,7 +40,7 @@ test("the complete demo scene prompt keeps object placement separate from the ho
     new URL("../fixtures/demo-art-direction.v1.json", import.meta.url), "utf8",
   )) as unknown);
   const prompt = buildPanoramaPrompt(buildScenePrompt(direction));
-  assert.match(prompt, /geometric horizon exactly on the vertical center row \(y = 50%\)/i);
+  assert.match(prompt, /representative far-distance horizon near the vertical center row \(y = 50%\)/i);
   assert.match(prompt, /landmark placement is separate from horizon placement/i);
   assert.match(prompt, /story and style only; it cannot change the projection or camera/i);
   assert.doesNotMatch(prompt, /cross(?:ing)? the horizon|high horizon|low horizon|elevated viewpoint|standing eye height|lower the horizon|move the equator/i);
@@ -62,13 +64,27 @@ test("horizon admission checks geometry independently from the seam gate", () =>
   const hidden = assessment(); hidden.sectors = hidden.sectors.map((s) => ({ ...s, visible: false, horizonY: null }));
   assert.equal(horizonPasses(hidden), false);
   const uncertain = assessment(); uncertain.sectors[0].confidence = 0.5;
-  assert.equal(horizonPasses(uncertain), true, "two high-confidence centered sectors are enough when all reported horizons are centered");
+  assert.equal(horizonPasses(uncertain), true, "two high-confidence sector estimates can establish a centered distant horizon");
   uncertain.sectors[1].confidence = 0.5;
   uncertain.sectors[2].confidence = 0.5;
   assert.equal(horizonPasses(uncertain), false, "fewer than two high-confidence sectors fail closed");
   const partiallyHidden = assessment();
   partiallyHidden.sectors[0] = { ...partiallyHidden.sectors[0], visible: false, horizonY: null, confidence: 0 };
   assert.equal(horizonPasses(partiallyHidden), true);
+  const distantMountainSkyline = assessment();
+  distantMountainSkyline.sectors[0]!.evidence = "Distant mountain skyline averages near the center; isolated nearer peaks rise above it.";
+  distantMountainSkyline.sectors[1]!.horizonY = 0.47;
+  distantMountainSkyline.sectors[2]!.horizonY = 0.46;
+  distantMountainSkyline.sectors[3]!.horizonY = 0.62;
+  assert.equal(horizonPasses(distantMountainSkyline), true, "natural distant skyline variation passes when its panorama-wide average is centered");
+  const spreadSkyline = assessment();
+  spreadSkyline.sectors[0]!.horizonY = 0.4;
+  spreadSkyline.sectors[1]!.horizonY = 0.45;
+  spreadSkyline.sectors[2]!.horizonY = 0.55;
+  spreadSkyline.sectors[3]!.horizonY = 0.65;
+  assert.ok(Math.abs(averageVisibleHorizonY(spreadSkyline)! - 0.5125) < 1e-12);
+  assert.equal(horizonPasses(spreadSkyline), true, "one sector outside the midpoint band does not reject a centered panorama-wide average");
+  assert.equal(horizonPasses(assessment(0.35)), false, "a consistently high distant skyline still fails the midpoint gate");
   assert.throws(() => horizonAssessmentSchema.parse({ ...assessment(), sectors: [assessment().sectors[0], ...assessment().sectors.slice(0,3)] }));
 });
 

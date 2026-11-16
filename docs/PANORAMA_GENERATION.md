@@ -38,11 +38,13 @@ equatorial region intact during pole repair. A narrow convergence pass softens
 the exact poles before the final seam feather and enlargement. The 8K output is upscaled; it is
 not native 8K generated detail.
 
-The prompt starts and ends with a critical instruction to keep the geometric
-horizon at the vertical midpoint, with a level camera and no image text.
-Mountains and nearby terrain can cross that row: their skyline is not the
-geometric horizon. Landmarks should be distributed around the viewer, with
-varied topography and clear sightlines.
+The prompt starts and ends with a critical instruction to keep the perceived
+distant horizon near the vertical midpoint, with a level camera and no image
+text. A distant mountain skyline is a valid visual proxy when it hides the
+mathematical ground-sky line. Local ridges, cliffs, and peaks may rise above the
+representative horizon and must not be mistaken for the horizon itself.
+Landmarks should be distributed around the viewer, with varied topography and
+clear sightlines.
 For canyon, mesa, plateau, and ridge settings, the prompt keeps raised terrain
 local unless the stories require a high-altitude setting, and distinguishes
 nearby rims from the distant ground-sky boundary. This preserves open sightlines
@@ -60,23 +62,26 @@ Reference provenance is in
 [`pipeline/assets/panorama/README.md`](../pipeline/assets/panorama/README.md).
 
 A structured vision assessment examines four longitude sectors in the centered
-2:1 crop. Admission requires at least two visible distant-horizon observations
-with confidence ≥ 0.8; every visible observation must be within 10 percentage
-points of the midpoint (y = 0.40–0.60). Tilt, visible text, and guide marks
-remain hard failures. Hidden horizons are recorded as unknown, not guessed. Seam
-quality is evaluated independently so a seam flag cannot invalidate a correct
-horizon measurement. At least two sectors must provide a confident horizon;
-the horizon may be obscured in the remaining sectors.
+2:1 crop. It reports the representative average level of the far-distance
+skyline in each sector, not the highest nearby peak. Admission requires at least
+two visible sector estimates with confidence ≥ 0.8, and the average of all
+visible sector estimates must be within 10 percentage points of the midpoint
+(y = 0.40–0.60). This allows natural skyline variation while still rejecting a
+consistently high or low horizon. Tilt, visible text, and guide marks remain
+hard failures. A truly unobservable sector is recorded as unknown. Seam quality
+is evaluated independently so a seam flag cannot invalidate a correct horizon
+measurement.
 
 A rejection produces an annotated copy: a solid red line marks the exact
-midpoint, a dashed amber line marks the reviewer's estimated horizon in each
-visible sector, and an arrow points from the observed line toward the target.
+midpoint, a dashed amber line marks the reviewer's representative distant
+skyline estimate in each visible sector, and an arrow points from that estimate
+toward the target.
 The correction is a true multi-turn image edit. The first Nano Banana response's
 SDK chat history is saved with the candidate; the next Lambda invocation
 restores that history, including any thought signatures the model returned,
 then sends a focused edit prompt with the annotated image. It does not restart
 from a fresh prompt. Conversation state is private candidate data under a
-versioned `panorama/quality/horizon-v3-clean-reference/` prefix and is not included
+versioned `panorama/quality/horizon-v4-distant-skyline/` prefix and is not included
 in the published world. Missing or altered state fails closed. Each turn still
 produces a distinct candidate that must pass visual review; conversation context
 improves continuity but does not guarantee a correct horizon. Stop after five
@@ -113,7 +118,7 @@ and color mismatches are currently tolerable so more editions can publish while
 seam handling is improved. Broad smear bands and large unrelated scene panels
 remain blocking; uncertain reviews fail closed. The evaluation is versioned
 under
-`panorama/quality/horizon-v3-clean-reference/delivery-review-v3-seam-tolerant/`
+`panorama/quality/horizon-v4-distant-skyline/delivery-review-v3-seam-tolerant/`
 so older decisions cannot silently carry forward under changed rules. Both
 decisions are stored in the accepted panorama's delivery-review artifact.
 Processing also measures the final wrap-edge pixel difference after feathering
@@ -129,10 +134,10 @@ facts and archived inputs are not rewritten. Geometry-only required fields
 fail validation. This catches known conflicts such as “high horizon,” “aerial
 view,” or “camera tilt” while preserving mountains, elevated terrain, drones,
 and camera objects. Story-object placement is explicitly separate from the
-fixed horizon rule. Prompt checks reduce conflicting language but cannot prove
+distant-horizon target. Prompt checks reduce conflicting language but cannot prove
 that arbitrary natural language has no subtle semantic conflict. Vision
 judgments can also be wrong; these checks reduce risk, not guarantee projection
-accuracy. Seam processing cannot fix an incorrect geometric horizon.
+accuracy. Seam processing cannot fix an incorrectly composed distant skyline.
 
 ## Local use
 
@@ -194,7 +199,7 @@ AWS runs one new candidate per Lambda invocation; Step Functions retries only
 `PanoramaCandidateRejected`, at most four retries. Immutable candidate images,
 conversation histories, prompts, hashes, assessments, correction images, and
 per-call claims live under
-`panorama/quality/horizon-v3-clean-reference/`. Resumes restore prior Nano Banana
+`panorama/quality/horizon-v4-distant-skyline/`. Resumes restore prior Nano Banana
 chat state and reuse completed candidates. Changed inputs, malformed
 assessments, and uncertain paid image-generation attempts stop for inspection
 instead of silently requesting another image. Horizon-review provider timeouts

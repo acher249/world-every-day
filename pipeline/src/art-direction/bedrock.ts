@@ -12,7 +12,7 @@ type ConverseClient = Pick<BedrockRuntimeClient, "send">;
 
 export function buildArtDirectionPrompt(stories: ArtDirectionStoryInput[]): string {
   return [
-    "CRITICAL: Describe scene content only. Do not specify horizon position, camera angle, camera elevation, viewpoint, pitch, roll, aerial views, or rule-of-thirds framing in any field. The panorama renderer alone controls projection: keep the optical axis level and the geometric horizon at the exact vertical midpoint, independent of camera height. Preserve mountains and varied topography; they are not camera instructions.",
+    "CRITICAL: Describe scene content only. Do not specify horizon position, camera angle, camera elevation, viewpoint, pitch, roll, aerial views, or rule-of-thirds framing in any field. The panorama renderer alone controls projection and horizon placement. Preserve mountains and varied topography; they are scene content, not camera instructions.",
     "Design one coherent, playful, diagrammatic physical world from these stories. The output remains an image composition, but every subject should be spatially legible and suitable for reconstruction as a navigable 3D environment.",
     "Create one continuous setting with foreground, middle ground, background, paths, open sightlines, and distinct landmarks. Do not make a collage, infographic, blueprint, news layout, or set of isolated panels.",
     "Do not make the entire world a high-altitude plateau, summit, or overlook unless a supplied story explicitly requires that setting. Use high ground as local mesas, cliffs, ridges, or terraces within a broader walkable landscape. Keep elevated features irregular and separate, with open passages to distant terrain; preserve substantial natural relief.",
